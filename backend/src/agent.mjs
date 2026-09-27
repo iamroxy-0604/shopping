@@ -27,7 +27,8 @@ function scoreAndSelect(items, parsed, session) {
   const category = String(parsed.extracted.category || session.preferences.category || '').toLowerCase();
   const style = String(parsed.extracted.style || session.preferences.style || '').toLowerCase();
   const scene = String(parsed.extracted.scene || session.preferences.scene || '').toLowerCase();
-  const terms = [category, style, scene].filter(Boolean);
+  const styleTerms = style.split(/\s+/).filter(Boolean);
+  const terms = [category, ...styleTerms, ...scene.split(/\s+/)].filter(Boolean);
   const budget = session.preferences.maxPrice;
   const seen = new Set();
   return items.map((item) => {
@@ -39,10 +40,12 @@ function scoreAndSelect(items, parsed, session) {
     const isTableTextile = /桌布|桌垫|桌旗|桌巾|桌罩|餐垫|台布/.test(title);
     const isTableDecor = /摆设|摆件|插花|花材|永生花|干花|花瓶|软装|装饰|桌面装饰/.test(title);
     if (isTableCategory && (isTableTextile || isTableDecor)) return null;
+    const categoryMatched = category && (title.includes(category) || (isTableCategory && /餐桌|桌子|餐台/.test(title)));
+    if (category && !categoryMatched && !title.includes(category.slice(-2))) return null;
     seen.add(duplicateKey);
     const categoryScore = category && title.includes(category) ? 35 : 0;
     const keywordScore = Math.min(25, terms.filter((term) => title.includes(term)).length * 12);
-    const styleScore = style ? (title.includes(style) ? 20 : 0) : 10;
+    const styleScore = style ? Math.min(20, styleTerms.filter((term) => title.includes(term)).length * 10) : 10;
     const price = Number(item.price);
     const priceScore = budget && Number.isFinite(price) ? (price <= budget ? 10 : -15) : 0;
     const qualityScore = Math.min(10, (Number(item.sales) > 0 ? 5 : 0) + (item.coupon ? 2 : 0) + (item.shopName ? 3 : 0));
@@ -133,7 +136,9 @@ export async function chat({ sessionId = 'anonymous', message, search = searchTa
   let searchedQuery = query;
   let result = await search({ query: searchedQuery, filters });
   if (result.ok && result.items.length === 0) {
-    const retryQueries = [query.split(/\s+/)[0], parsed.extracted.category].filter((candidate, index, list) => candidate && candidate !== searchedQuery && list.indexOf(candidate) === index);
+    const styleCore = String(session.preferences.style || '').split(/\s+/).filter(Boolean)[0] || '';
+    const stableRetryQuery = [styleCore, session.preferences.category].filter(Boolean).join('');
+    const retryQueries = [stableRetryQuery].filter((candidate, index, list) => candidate && candidate !== searchedQuery && list.indexOf(candidate) === index);
     for (const retryQuery of retryQueries) {
       searchedQuery = retryQuery;
       result = await search({ query: searchedQuery, filters });

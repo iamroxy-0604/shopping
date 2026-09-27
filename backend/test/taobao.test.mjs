@@ -63,7 +63,7 @@ test('MVP Agent 会追问并记住本轮明确条件', async () => {
   const result = await chat({ sessionId, message: '我想找日系桌面灯，预算100元以内', search: async ({ query, filters }) => {
     assert.match(query, /日系桌面灯/);
     assert.equal(filters.end_price, 100);
-    return { ok: true, items: [{ id: '1', title: '灯' }] };
+    return { ok: true, items: [{ id: '1', title: '日系桌面灯' }] };
   } });
   assert.equal(result.type, 'results');
   assert.equal(result.items[0].id, '1');
