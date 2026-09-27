@@ -4,3 +4,4 @@ backend/coverage/
 node_modules/
 .DS_Store
 *.log
+backend/logs/*.log

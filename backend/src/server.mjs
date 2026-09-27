@@ -5,6 +5,7 @@ import path from 'node:path';
 import { parseShoppingQuery } from './query.mjs';
 import { searchTaobao } from './taobao.mjs';
 import { chat } from './agent.mjs';
+import { logEvent } from './logger.mjs';
 
 loadDotEnv();
 const port = Number(process.env.PORT || 3000);
@@ -69,4 +70,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(port, () => console.log(`Shopping backend listening on http://localhost:${port}`));
+server.listen(port, () => {
+  logEvent('server_started', { port });
+  console.log(`Shopping backend listening on http://localhost:${port}`);
+});

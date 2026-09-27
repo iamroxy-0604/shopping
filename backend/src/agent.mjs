@@ -1,6 +1,7 @@
 import { parseShoppingQuery } from './query.mjs';
 import { searchTaobao } from './taobao.mjs';
 import { understandShoppingMessage, generateRecommendationReasons, generateShoppingIntro } from './llm.mjs';
+import { logEvent } from './logger.mjs';
 
 const sessions = new Map();
 
@@ -34,6 +35,10 @@ function scoreAndSelect(items, parsed, session) {
     const duplicateKey = title.replace(/[^\u4e00-\u9fa5a-z0-9]/gi, '').slice(0, 28);
     if (!item.title || seen.has(duplicateKey)) return null;
     if (category === '化妆品' && /化妆包|收纳|整理|收纳盒|洗漱包/.test(title) && items.length >= 3) return null;
+    const isTableCategory = /餐桌|桌子|书桌|办公桌|茶几|餐台/.test(category);
+    const isTableTextile = /桌布|桌垫|桌旗|桌巾|桌罩|餐垫|台布/.test(title);
+    const isTableDecor = /摆设|摆件|插花|花材|永生花|干花|花瓶|软装|装饰|桌面装饰/.test(title);
+    if (isTableCategory && (isTableTextile || isTableDecor)) return null;
     seen.add(duplicateKey);
     const categoryScore = category && title.includes(category) ? 35 : 0;
     const keywordScore = Math.min(25, terms.filter((term) => title.includes(term)).length * 12);
@@ -50,11 +55,15 @@ function scoreAndSelect(items, parsed, session) {
 }
 
 function buildSearchQuery(session, parsed) {
-  const parts = [session.preferences.style, session.preferences.category, session.preferences.scene, parsed.query]
-    .filter(Boolean)
-    .flatMap((part) => String(part).split(/\s+/))
-    .map((part) => part.trim())
-    .filter(Boolean);
+  const style = String(session.preferences.style || '');
+  const category = String(session.preferences.category || '');
+  const scene = String(session.preferences.scene || '');
+  const core = [style, category].filter(Boolean).join('');
+  const stableParts = [core || style || category, scene].filter(Boolean);
+  const currentParts = String(parsed.query || '').split(/\s+/).filter(Boolean)
+    .filter((part) => part !== style && part !== category && part !== scene && part !== core);
+  const parts = [...stableParts, ...currentParts]
+    .flatMap((part) => String(part).split(/\s+/)).map((part) => part.trim()).filter(Boolean);
   return [...new Set(parts)].join(' ');
 }
 
@@ -70,6 +79,7 @@ export function getSessionSnapshot(sessionId) {
 export async function chat({ sessionId = 'anonymous', message, search = searchTaobao }) {
   const session = getSession(sessionId);
   const text = String(message ?? '').trim();
+  logEvent('chat_received', { sessionId, message: text });
   if (!text) return { ok: true, type: 'question', message: '你想找什么商品？也可以告诉我预算、风格或使用场景。', items: [], memory: getSessionSnapshot(sessionId) };
 
   const fallback = parseShoppingQuery(text);
@@ -93,6 +103,7 @@ export async function chat({ sessionId = 'anonymous', message, search = searchTa
       memoryTags: interpreted.memoryTags,
       memorySummary: interpreted.memorySummary
   } : fallback;
+  logEvent('query_understood', { sessionId, understanding: interpreted ? 'llm' : 'fallback', parsed });
   const hasKnownCategory = Boolean(parsed.extracted.category || session.preferences.category);
   if ((parsed.needsClarification || (!hasKnownCategory && /^(我想买|想买点|随便看看|帮我推荐|买东西)/.test(text)))) {
     mergePreferences(session, parsed);
@@ -117,10 +128,13 @@ export async function chat({ sessionId = 'anonymous', message, search = searchTa
   }
   session.turns.push({ role: 'user', message: text, query: searchedQuery, result: result.ok ? 'success' : result.error.code });
   if (!result.ok) {
+    logEvent('search_failed', { sessionId, query: searchedQuery, error: result.error });
     return { ok: false, type: 'error', message: result.error.message, error: result.error, items: [], memory: getSessionSnapshot(sessionId) };
   }
+  const recalledCount = result.items.length;
   const budgetText = session.preferences.maxPrice ? `，预算控制在 ${session.preferences.maxPrice} 元以内` : '';
   let selectedItems = scoreAndSelect(result.items, parsed, session);
+  logEvent('products_ranked', { sessionId, query: searchedQuery, recalledCount, selectedCount: selectedItems.length, selected: selectedItems.map((item) => ({ id: item.id, title: item.title, score: item.matchScore })) });
   const fallbackReasons = (item) => {
     const parts = [];
     if (parsed.extracted.style) parts.push(`这款是${parsed.extracted.style}风格`);
