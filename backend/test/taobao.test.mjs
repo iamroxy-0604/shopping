@@ -70,3 +70,16 @@ test('MVP Agent 会追问并记住本轮明确条件', async () => {
   assert.equal(result.memory.preferences.maxPrice, 100);
   resetSession(sessionId);
 });
+
+test('追问上一轮商品时不应重新搜索', async () => {
+  const sessionId = 'agent-context-test';
+  resetSession(sessionId);
+  const search = async () => ({ ok: true, items: [{ id: 'table-1', title: '日系原木餐桌', price: 1200 }] });
+  const first = await chat({ sessionId, message: '我想找日系餐桌', search });
+  assert.equal(first.items[0].id, 'table-1');
+  const followup = await chat({ sessionId, message: '我家是奶油黄墙面，这三款你更推荐哪一款？', search: async () => { throw new Error('不应该重新搜索'); } });
+  assert.equal(followup.type, 'comparison');
+  assert.equal(followup.items.length, 0);
+  assert.match(followup.message, /第1款/);
+  resetSession(sessionId);
+});

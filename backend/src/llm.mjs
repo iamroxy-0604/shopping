@@ -51,8 +51,8 @@ export async function understandShoppingMessage({ message, memory = {}, env = pr
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const system = `你是购物搜索助手的需求理解和记忆模块。只输出 JSON，不要解释，不要 Markdown。字段必须是：
-{"query":"给商品接口的简洁关键词","category":"标准商品类目或空字符串","style":"用户明确表达的风格或空字符串","scene":"使用场景或空字符串","maxPrice":null,"minPrice":null,"needsClarification":false,"question":"需要追问时的问题，否则空字符串","memoryTags":[],"memorySummary":"一句自然的偏好描述"}
-规则：把“胭脂”统一为“腮红”等常见同义词；query 只保留商品、风格、场景关键词；不要把“有推荐吗、帮我看看、我想买”等套话放进类目或记忆；memoryTags 只能是用户明确表达、未来仍然有用的偏好，最多4个；价格必须是数字或 null；不要编造品牌和价格。`;
+{"query":"给商品接口的简洁关键词","category":"标准商品类目或空字符串","style":"用户明确表达的风格或空字符串","scene":"使用场景或空字符串","maxPrice":null,"minPrice":null,"needsClarification":false,"question":"需要追问时的问题，否则空字符串","memoryTags":[],"memorySummary":"一句自然的偏好描述","intent":"new_search|compare_current|refine_current|ask_detail|general_question","referencedIndex":null}
+规则：把“胭脂”统一为“腮红”等常见同义词；query 只保留商品、风格、场景关键词；不要把“有推荐吗、帮我看看、我想买”等套话放进类目或记忆；memoryTags 只能是用户明确表达、未来仍然有用的偏好，最多4个；价格必须是数字或 null；不要编造品牌和价格；如果用户说“这几款、哪一款、第一款、上一轮、这个商品”等，intent 不要设为 new_search；如果是在上一轮商品中比较，返回 compare_current；如果要求更便宜、更大、换颜色等，返回 refine_current；如果询问某个上一轮商品的细节，返回 ask_detail。`;
   const parsed = await completeJson({ system, user: { message, memory }, env, fetchImpl, timeoutMs });
   if (parsed) {
     if (!parsed || typeof parsed !== 'object') return null;
@@ -66,10 +66,18 @@ export async function understandShoppingMessage({ message, memory = {}, env = pr
       needsClarification: Boolean(parsed.needsClarification),
       question: String(parsed.question || '').trim(),
       memoryTags: Array.isArray(parsed.memoryTags) ? parsed.memoryTags.map((tag) => String(tag).trim()).filter(Boolean).slice(0, 4) : [],
-      memorySummary: String(parsed.memorySummary || '').trim()
+      memorySummary: String(parsed.memorySummary || '').trim(),
+      intent: ['new_search', 'compare_current', 'refine_current', 'ask_detail', 'general_question'].includes(parsed.intent) ? parsed.intent : 'new_search',
+      referencedIndex: Number.isInteger(parsed.referencedIndex) ? parsed.referencedIndex : null
     };
   }
   return null;
+}
+
+export async function generateCurrentRecommendationReply({ message, preferences = {}, items = [], env = process.env, fetchImpl = fetch, timeoutMs = 15000 }) {
+  const system = `你是一个自然、专业的购物导购。用户正在追问上一轮已经展示的商品，只能基于这些商品回答，不能重新推荐列表外的商品。用中文客服语气，先直接给结论，再说明1-2个理由；如果用户提到墙面、房间、肤色等新信息，要结合它判断；不要说接口、搜索词或模型，不要编造商品没有提供的信息。不超过120字，只输出纯文本。`;
+  const parsed = await completeJson({ system: `${system}\n请输出 JSON：{"reply":"回复内容"}`, user: { message, preferences, items: items.map((item, index) => ({ index: index + 1, id: item.id, title: item.title, price: item.price, recommendation: item.recommendation, suitableFor: item.suitableFor, highlight: item.highlight, watchout: item.watchout })) }, env, fetchImpl, timeoutMs });
+  return String(parsed?.reply || '').trim();
 }
 
 export async function generateRecommendationReasons({ message, preferences = {}, items = [], env = process.env, fetchImpl = fetch, timeoutMs = DEFAULT_TIMEOUT_MS }) {

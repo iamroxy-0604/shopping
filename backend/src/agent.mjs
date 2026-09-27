@@ -1,12 +1,12 @@
 import { parseShoppingQuery } from './query.mjs';
 import { searchTaobao } from './taobao.mjs';
-import { understandShoppingMessage, generateRecommendationReasons, generateShoppingIntro } from './llm.mjs';
+import { understandShoppingMessage, generateRecommendationReasons, generateShoppingIntro, generateCurrentRecommendationReply } from './llm.mjs';
 import { logEvent } from './logger.mjs';
 
 const sessions = new Map();
 
 function getSession(sessionId) {
-  if (!sessions.has(sessionId)) sessions.set(sessionId, { preferences: {}, turns: [] });
+  if (!sessions.has(sessionId)) sessions.set(sessionId, { preferences: {}, turns: [], currentRecommendation: null });
   return sessions.get(sessionId);
 }
 
@@ -73,7 +73,7 @@ export function resetSession(sessionId) {
 
 export function getSessionSnapshot(sessionId) {
   const session = getSession(sessionId);
-  return { preferences: { ...session.preferences }, turns: session.turns.length };
+  return { preferences: { ...session.preferences }, turns: session.turns.length, currentRecommendationCount: session.currentRecommendation?.items?.length || 0 };
 }
 
 export async function chat({ sessionId = 'anonymous', message, search = searchTaobao }) {
@@ -101,9 +101,23 @@ export async function chat({ sessionId = 'anonymous', message, search = searchTa
       needsClarification: interpreted.needsClarification,
       question: interpreted.question,
       memoryTags: interpreted.memoryTags,
-      memorySummary: interpreted.memorySummary
+      memorySummary: interpreted.memorySummary,
+      intent: interpreted.intent,
+      referencedIndex: interpreted.referencedIndex
   } : fallback;
   logEvent('query_understood', { sessionId, understanding: interpreted ? 'llm' : 'fallback', parsed });
+  const hasCurrentRecommendation = Boolean(session.currentRecommendation?.items?.length);
+  const fallbackReferencesCurrent = /这几款|这三款|哪一款|哪个更|第一款|第二款|第三款|上一轮|刚才的|这个商品|这款/.test(text);
+  const followupIntent = (parsed.intent && parsed.intent !== 'new_search') ? parsed.intent : (fallbackReferencesCurrent ? 'compare_current' : (parsed.intent || 'new_search'));
+  if (hasCurrentRecommendation && ['compare_current', 'ask_detail'].includes(followupIntent)) {
+    mergePreferences(session, parsed);
+    const currentItems = session.currentRecommendation.items;
+    const reply = await generateCurrentRecommendationReply({ message: text, preferences: session.preferences, items: currentItems });
+    const fallbackReply = `如果结合你刚才补充的情况，我会优先考虑第${parsed.referencedIndex || 1}款。它和你之前的${session.preferences.style || ''}风格更协调，其他几款可以作为备选。`;
+    session.turns.push({ role: 'user', message: text, intent: followupIntent, result: 'current_recommendation' });
+    logEvent('current_recommendation_followup', { sessionId, intent: followupIntent, itemIds: currentItems.map((item) => item.id) });
+    return { ok: true, type: 'comparison', message: reply || fallbackReply, items: [], memory: getSessionSnapshot(sessionId), llm: { intent: interpreted ? 'used' : 'fallback', comparison: reply ? 'used' : 'fallback' } };
+  }
   const hasKnownCategory = Boolean(parsed.extracted.category || session.preferences.category);
   if ((parsed.needsClarification || (!hasKnownCategory && /^(我想买|想买点|随便看看|帮我推荐|买东西)/.test(text)))) {
     mergePreferences(session, parsed);
@@ -147,6 +161,7 @@ export async function chat({ sessionId = 'anonymous', message, search = searchTa
   if (recommendations) selectedItems = selectedItems.map((item) => ({ ...item, ...(recommendations[item.id] || {}), recommendation: recommendations[item.id]?.recommendation || item.recommendation }));
   const introFallback = `${parsed.extracted.style ? `我记住了，你偏好${parsed.extracted.style}风格。` : '我先根据你刚才的需求帮你看了一轮。'}我挑了 ${selectedItems.length} 款更合适的${parsed.extracted.category || '商品'}，你还可以告诉我更在意尺寸、材质、颜色还是使用场景。`;
   const intro = await generateShoppingIntro({ message: text, preferences: session.preferences, items: selectedItems });
+  session.currentRecommendation = { query: searchedQuery, items: selectedItems, createdAt: new Date().toISOString() };
   return {
     ok: true,
     type: 'results',
