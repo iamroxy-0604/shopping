@@ -152,8 +152,15 @@ export async function chat({ sessionId = 'anonymous', message, search = searchTa
   }
   const recalledCount = result.items.length;
   const budgetText = session.preferences.maxPrice ? `，预算控制在 ${session.preferences.maxPrice} 元以内` : '';
+  let selectionMode = 'strict';
   let selectedItems = scoreAndSelect(result.items, parsed, session);
-  logEvent('products_ranked', { sessionId, query: searchedQuery, recalledCount, selectedCount: selectedItems.length, selected: selectedItems.map((item) => ({ id: item.id, title: item.title, score: item.matchScore })) });
+  if (!selectedItems.length && result.items.length) {
+    const relaxedParsed = { ...parsed, extracted: { ...parsed.extracted, style: null } };
+    const relaxedSession = { ...session, preferences: { ...session.preferences, style: '' } };
+    selectedItems = scoreAndSelect(result.items, relaxedParsed, relaxedSession);
+    selectionMode = 'category_fallback';
+  }
+  logEvent('products_ranked', { sessionId, query: searchedQuery, recalledCount, selectedCount: selectedItems.length, selectionMode, selected: selectedItems.map((item) => ({ id: item.id, title: item.title, score: item.matchScore })) });
   const fallbackReasons = (item) => {
     const parts = [];
     if (parsed.extracted.style) parts.push(`这款是${parsed.extracted.style}风格`);
@@ -164,7 +171,7 @@ export async function chat({ sessionId = 'anonymous', message, search = searchTa
   selectedItems = selectedItems.map((item) => ({ ...item, recommendation: fallbackReasons(item) }));
   const recommendations = await generateRecommendationReasons({ message: text, preferences: session.preferences, items: selectedItems, timeoutMs: 30000 });
   if (recommendations) selectedItems = selectedItems.map((item) => ({ ...item, ...(recommendations[item.id] || {}), recommendation: recommendations[item.id]?.recommendation || item.recommendation }));
-  const introFallback = `${parsed.extracted.style ? `我记住了，你偏好${parsed.extracted.style}风格。` : '我先根据你刚才的需求帮你看了一轮。'}我挑了 ${selectedItems.length} 款更合适的${parsed.extracted.category || '商品'}，你还可以告诉我更在意尺寸、材质、颜色还是使用场景。`;
+  const introFallback = `${parsed.extracted.style ? `我记住了，你偏好${parsed.extracted.style}风格。` : '我先根据你刚才的需求帮你看了一轮。'}我挑了 ${selectedItems.length} 款${selectionMode === 'category_fallback' ? '类目符合、但风格还需要再确认的' : '更合适的'}${parsed.extracted.category || '商品'}，你还可以告诉我更在意尺寸、材质、颜色还是使用场景。`;
   const intro = await generateShoppingIntro({ message: text, preferences: session.preferences, items: selectedItems });
   session.currentRecommendation = { query: searchedQuery, items: selectedItems, createdAt: new Date().toISOString() };
   return {
