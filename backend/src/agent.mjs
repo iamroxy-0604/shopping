@@ -23,7 +23,7 @@ function mergePreferences(session, parsed) {
   }
 }
 
-function scoreAndSelect(items, parsed, session) {
+function scoreAndSelect(items, parsed, session, diagnostics = []) {
   const category = String(parsed.extracted.category || session.preferences.category || '').toLowerCase();
   const style = String(parsed.extracted.style || session.preferences.style || '').toLowerCase();
   const scene = String(parsed.extracted.scene || session.preferences.scene || '').toLowerCase();
@@ -34,14 +34,14 @@ function scoreAndSelect(items, parsed, session) {
   return items.map((item) => {
     const title = String(item.title || '').toLowerCase();
     const duplicateKey = title.replace(/[^\u4e00-\u9fa5a-z0-9]/gi, '').slice(0, 28);
-    if (!item.title || seen.has(duplicateKey)) return null;
-    if (category === '化妆品' && /化妆包|收纳|整理|收纳盒|洗漱包/.test(title) && items.length >= 3) return null;
+    if (!item.title || seen.has(duplicateKey)) { diagnostics.push({ title: item.title, reason: 'missing_title_or_duplicate' }); return null; }
+    if (category === '化妆品' && /化妆包|收纳|整理|收纳盒|洗漱包/.test(title) && items.length >= 3) { diagnostics.push({ title: item.title, reason: 'cosmetics_storage_mismatch' }); return null; }
     const isTableCategory = /餐桌|桌子|书桌|办公桌|茶几|餐台/.test(category);
     const isTableTextile = /桌布|桌垫|桌旗|桌巾|桌罩|餐垫|台布/.test(title);
     const isTableDecor = /摆设|摆件|插花|花材|永生花|干花|花瓶|软装|装饰|桌面装饰/.test(title);
-    if (isTableCategory && (isTableTextile || isTableDecor)) return null;
+    if (isTableCategory && (isTableTextile || isTableDecor)) { diagnostics.push({ title: item.title, reason: 'table_textile_or_decor' }); return null; }
     const categoryMatched = category && (title.includes(category) || (isTableCategory && /餐桌|桌子|餐台/.test(title)));
-    if (category && !categoryMatched && !title.includes(category.slice(-2))) return null;
+    if (category && !categoryMatched && !title.includes(category.slice(-2))) { diagnostics.push({ title: item.title, reason: `category_mismatch:${category}` }); return null; }
     seen.add(duplicateKey);
     const categoryScore = category && title.includes(category) ? 35 : 0;
     const keywordScore = Math.min(25, terms.filter((term) => title.includes(term)).length * 12);
@@ -64,7 +64,10 @@ function buildSearchQuery(session, parsed) {
   const core = [style, category].filter(Boolean).join('');
   const stableParts = [core || style || category, scene].filter(Boolean);
   const currentParts = String(parsed.query || '').split(/\s+/).filter(Boolean)
-    .filter((part) => part !== style && part !== category && part !== scene && part !== core);
+    .filter((part) => {
+      const normalized = part.replace(/风格/g, '');
+      return part !== style && part !== category && part !== scene && part !== core && normalized !== core && normalized !== style.replace(/风格/g, '') && !(style && category && normalized.includes(style.replace(/风格/g, '')) && normalized.includes(category));
+    });
   const parts = [...stableParts, ...currentParts]
     .flatMap((part) => String(part).split(/\s+/)).map((part) => part.trim()).filter(Boolean);
   return [...new Set(parts)].join(' ');
@@ -153,14 +156,15 @@ export async function chat({ sessionId = 'anonymous', message, search = searchTa
   const recalledCount = result.items.length;
   const budgetText = session.preferences.maxPrice ? `，预算控制在 ${session.preferences.maxPrice} 元以内` : '';
   let selectionMode = 'strict';
-  let selectedItems = scoreAndSelect(result.items, parsed, session);
+  const diagnostics = [];
+  let selectedItems = scoreAndSelect(result.items, parsed, session, diagnostics);
   if (!selectedItems.length && result.items.length) {
     const relaxedParsed = { ...parsed, extracted: { ...parsed.extracted, style: null } };
     const relaxedSession = { ...session, preferences: { ...session.preferences, style: '' } };
-    selectedItems = scoreAndSelect(result.items, relaxedParsed, relaxedSession);
+    selectedItems = scoreAndSelect(result.items, relaxedParsed, relaxedSession, diagnostics);
     selectionMode = 'category_fallback';
   }
-  logEvent('products_ranked', { sessionId, query: searchedQuery, recalledCount, selectedCount: selectedItems.length, selectionMode, selected: selectedItems.map((item) => ({ id: item.id, title: item.title, score: item.matchScore })) });
+  logEvent('products_ranked', { sessionId, query: searchedQuery, recalledCount, selectedCount: selectedItems.length, selectionMode, rejectedSample: diagnostics.slice(0, 10), selected: selectedItems.map((item) => ({ id: item.id, title: item.title, score: item.matchScore })) });
   const fallbackReasons = (item) => {
     const parts = [];
     if (parsed.extracted.style) parts.push(`这款是${parsed.extracted.style}风格`);
