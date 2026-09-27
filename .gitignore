@@ -1,0 +1,6 @@
+backend/.env
+backend/node_modules/
+backend/coverage/
+node_modules/
+.DS_Store
+*.log

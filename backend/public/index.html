@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="用对话发现更好的生活。" />
+    <title>沉浸式购物助手</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/overrides.css" />
+    <script src="https://unpkg.com/lucide@0.468.0"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="left-rail">
+        <div class="brand"><span class="brand-icon" aria-hidden="true"><i data-lucide="shopping-bag"></i></span><strong>沉浸式购物助手</strong></div>
+        <button class="new-chat" id="newChat"><span>＋</span>新对话</button>
+        <nav class="main-nav" aria-label="主导航">
+          <button class="nav-item active"><i class="nav-icon" data-lucide="house"></i>首页</button>
+          <button class="nav-item"><i class="nav-icon" data-lucide="messages-square"></i>我的对话</button>
+        </nav>
+        <div class="recent">
+          <p class="rail-title">最近对话</p>
+          <button class="recent-item selected"><span>日系出租屋桌面好物</span><time>10:24</time></button>
+          <button class="recent-item"><span>秋季穿搭推荐</span><time>昨天</time></button>
+          <button class="recent-item"><span>百元内香薰推荐</span><time>10月12日</time></button>
+          <button class="recent-item"><span>小户型收纳方案</span><time>10月10日</time></button>
+        </div>
+      </aside>
+
+      <main class="chat-panel">
+        <header class="chat-header">
+          <div><h1>购物灵感助手</h1><p>用对话发现更好的生活</p></div>
+          <span class="online-dot" title="助手在线"></span>
+        </header>
+
+        <section class="conversation" id="conversation" aria-live="polite">
+          <div class="message user-message" id="sampleUserMessage">
+            <div class="message-main"><div class="user-bubble">我想找日系出租屋桌面好物</div><time>10:24</time></div>
+            <span class="user-avatar" aria-label="用户头像"></span>
+          </div>
+          <div class="message assistant-message" id="sampleAssistantMessage">
+            <span class="assistant-avatar" aria-label="助手头像"><i data-lucide="bot"></i></span>
+            <div class="message-main"><div class="assistant-bubble">如果你喜欢日系、原木和低饱和风格，<br />我建议先从桌面灯和收纳用品看起。</div><time>10:24</time></div>
+          </div>
+          <div id="messages"></div>
+          <div class="loading-row" id="loadingRow" hidden><span class="assistant-avatar" aria-label="助手头像"><i data-lucide="bot"></i></span><div class="typing"><i></i><i></i><i></i><span>正在帮你找</span></div></div>
+        </section>
+
+        <form class="composer" id="chatForm">
+          <button class="round-control" type="button" aria-label="添加图片"><i data-lucide="paperclip"></i></button>
+          <textarea id="messageInput" rows="1" placeholder="继续告诉我的你的偏好，例如预算、颜色或使用场景…" aria-label="输入购物需求"></textarea>
+          <button class="round-control mic" type="button" aria-label="语音输入"><i data-lucide="mic"></i></button>
+          <button class="send-control" type="submit" aria-label="发送"><i data-lucide="send"></i></button>
+        </form>
+      </main>
+
+      <aside class="memory-rail" id="memoryRail">
+        <div class="memory-heading"><span class="bookmark" aria-hidden="true"><i data-lucide="bookmark"></i></span><div class="memory-heading-copy"><h2>记忆</h2><p>已记住的偏好</p></div><button class="memory-toggle" id="memoryToggle" type="button" aria-label="折叠记忆栏" aria-expanded="true"><i data-lucide="chevron-left"></i></button></div>
+        <div class="memory-tags" id="memoryTags">
+          <button class="memory-tag">日系风格 <span>×</span></button>
+          <button class="memory-tag">原木材质 <span>×</span></button>
+          <button class="memory-tag">低饱和色彩 <span>×</span></button>
+        </div>
+        <button class="add-memory" type="button">＋ 添加新偏好</button>
+        <div class="memory-explain"><p>我会记住这些偏好</p><span>为你提供更合适的推荐</span></div>
+      </aside>
+    </div>
+    <script src="/app.js" defer></script>
+  </body>
+</html>

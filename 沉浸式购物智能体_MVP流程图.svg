@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="940" viewBox="0 0 1200 940">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#111111" />
+    </marker>
+    <style>
+      .box { fill: #ffffff; stroke: #111111; stroke-width: 2; }
+      .diamond { fill: #ffffff; stroke: #111111; stroke-width: 2; }
+      .line { fill: none; stroke: #111111; stroke-width: 2; marker-end: url(#arrow); }
+      .text { fill: #111111; font-family: "Microsoft YaHei", "Noto Sans CJK SC", Arial, sans-serif; font-size: 22px; text-anchor: middle; dominant-baseline: middle; }
+      .label { fill: #111111; font-family: "Microsoft YaHei", "Noto Sans CJK SC", Arial, sans-serif; font-size: 18px; }
+      .title { fill: #111111; font-family: "Microsoft YaHei", "Noto Sans CJK SC", Arial, sans-serif; font-size: 30px; font-weight: 600; text-anchor: middle; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="940" fill="#ffffff" />
+  <text x="600" y="42" class="title">沉浸式购物智能体 MVP 流程图</text>
+
+  <!-- Main flow -->
+  <rect x="410" y="75" width="380" height="64" rx="12" class="box" />
+  <text x="600" y="107" class="text">用户输入购物需求</text>
+
+  <line x1="600" y1="139" x2="600" y2="176" class="line" />
+
+  <rect x="410" y="176" width="380" height="64" rx="12" class="box" />
+  <text x="600" y="208" class="text">Agent 理解需求</text>
+
+  <line x1="600" y1="240" x2="600" y2="280" class="line" />
+
+  <polygon points="600,280 735,350 600,420 465,350" class="diamond" />
+  <text x="600" y="350" class="text">信息是否足够？</text>
+
+  <!-- No branch: continue asking -->
+  <line x1="465" y1="350" x2="300" y2="350" class="line" />
+  <text x="380" y="330" class="label">否</text>
+
+  <rect x="80" y="318" width="220" height="64" rx="12" class="box" />
+  <text x="190" y="350" class="text">Agent 继续提问</text>
+
+  <path d="M190,382 L190,470 L600,470 L600,240" class="line" />
+
+  <!-- Yes branch -->
+  <line x1="600" y1="420" x2="600" y2="460" class="line" />
+  <text x="625" y="446" class="label">是</text>
+
+  <rect x="410" y="460" width="380" height="64" rx="12" class="box" />
+  <text x="600" y="492" class="text">查询改写</text>
+
+  <line x1="600" y1="524" x2="600" y2="560" class="line" />
+
+  <rect x="410" y="560" width="380" height="64" rx="12" class="box" />
+  <text x="600" y="592" class="text">调用商品接口</text>
+
+  <line x1="600" y1="624" x2="600" y2="660" class="line" />
+
+  <rect x="410" y="660" width="380" height="64" rx="12" class="box" />
+  <text x="600" y="692" class="text">统一商品数据格式</text>
+
+  <line x1="600" y1="724" x2="600" y2="760" class="line" />
+
+  <rect x="410" y="760" width="380" height="64" rx="12" class="box" />
+  <text x="600" y="792" class="text">基础筛选和排序</text>
+
+  <!-- Bottom outcomes -->
+  <line x1="600" y1="824" x2="600" y2="860" class="line" />
+
+  <rect x="230" y="860" width="300" height="64" rx="12" class="box" />
+  <text x="380" y="892" class="text">生成回答和商品卡片</text>
+
+  <rect x="670" y="860" width="300" height="64" rx="12" class="box" />
+  <text x="820" y="892" class="text">保存用户偏好</text>
+
+  <line x1="600" y1="824" x2="380" y2="860" class="line" />
+  <line x1="600" y1="824" x2="820" y2="860" class="line" />
+
+  <!-- External action branch -->
+  <path d="M380,924 L380,930 L1050,930 L1050,892 L970,892" class="line" />
+  <text x="730" y="918" class="label">用户点击商品卡片</text>
+
+  <rect x="980" y="860" width="190" height="64" rx="12" class="box" />
+  <text x="1075" y="884" class="text">查看来源 /</text>
+  <text x="1075" y="910" class="text">跳转外部平台</text>
+</svg>
