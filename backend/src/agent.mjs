@@ -162,6 +162,21 @@ export async function chat({ sessionId = 'anonymous', message, search = searchTa
   let selectionMode = 'strict';
   const diagnostics = [];
   let selectedItems = scoreAndSelect(result.items, parsed, session, diagnostics);
+  if (selectedItems.length < 3 && result.items.length >= 3) {
+    const styleCore = String(session.preferences.style || '').split(/\s+/).filter(Boolean)[0] || '';
+    const categoryQuery = String(session.preferences.category || parsed.extracted.category || '').trim();
+    const expandedQueries = [categoryQuery, [styleCore, categoryQuery].filter(Boolean).join('')]
+      .filter((candidate, index, list) => candidate && candidate !== searchedQuery && list.indexOf(candidate) === index);
+    for (const expandedQuery of expandedQueries) {
+      const expandedResult = await search({ query: expandedQuery, filters });
+      if (!expandedResult.ok) continue;
+      const combinedItems = [...result.items, ...expandedResult.items];
+      result = { ...result, items: combinedItems };
+      selectedItems = scoreAndSelect(combinedItems, parsed, session, diagnostics);
+      selectionMode = 'expanded_category';
+      if (selectedItems.length >= 3) break;
+    }
+  }
   if (!selectedItems.length && result.items.length) {
     const relaxedParsed = { ...parsed, extracted: { ...parsed.extracted, style: null } };
     const relaxedSession = { ...session, preferences: { ...session.preferences, style: '' } };

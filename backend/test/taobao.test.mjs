@@ -100,3 +100,30 @@ test('搜索餐桌时过滤椅子主商品，但保留餐桌商品', async () =>
   assert.deepEqual(result.items.map((item) => item.id), ['table-1']);
   resetSession(sessionId);
 });
+
+test('严格筛选不足三款时扩展类目搜索补齐三款', async () => {
+  const sessionId = 'table-expand-search-test';
+  resetSession(sessionId);
+  let calls = 0;
+  const result = await chat({
+    sessionId,
+    message: '我想买一个日系的餐桌',
+    search: async ({ query }) => {
+      calls += 1;
+      if (calls === 1) return { ok: true, items: [
+        { id: 'chair-1', title: '靠背椅餐椅家用日系餐桌椅', price: 299 },
+        { id: 'table-1', title: '日系原木餐桌', price: 1299 },
+        { id: 'table-1-copy', title: '日系原木餐桌', price: 1299 },
+      ] };
+      assert.equal(query, '餐桌');
+      return { ok: true, items: [
+        { id: 'table-2', title: '日系实木餐桌家用桌子', price: 999 },
+        { id: 'table-3', title: '日系简约餐桌小户型餐台', price: 699 },
+      ] };
+    }
+  });
+  assert.equal(result.type, 'results');
+  assert.equal(result.items.length, 3);
+  assert.deepEqual(result.items.map((item) => item.id).sort(), ['table-1', 'table-2', 'table-3']);
+  resetSession(sessionId);
+});
