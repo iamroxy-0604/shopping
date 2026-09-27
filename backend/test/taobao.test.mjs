@@ -83,3 +83,20 @@ test('追问上一轮商品时不应重新搜索', async () => {
   assert.match(followup.message, /第1款/);
   resetSession(sessionId);
 });
+
+test('搜索餐桌时过滤椅子主商品，但保留餐桌商品', async () => {
+  const sessionId = 'table-category-filter-test';
+  resetSession(sessionId);
+  const result = await chat({
+    sessionId,
+    message: '我想买一个日系的餐桌',
+    search: async () => ({ ok: true, items: [
+      { id: 'chair-1', title: '简约北欧实木靠背椅餐椅家用书桌日系餐桌椅', price: 299 },
+      { id: 'table-1', title: '北欧实木餐桌家用客厅原木日系餐桌椅简约创意椭圆形桌子', price: 1299 },
+      { id: 'chair-2', title: '简约北欧定型棉酒店靠背椅子餐椅家用书桌日系餐桌椅', price: 199 },
+    ] })
+  });
+  assert.equal(result.type, 'results');
+  assert.deepEqual(result.items.map((item) => item.id), ['table-1']);
+  resetSession(sessionId);
+});

@@ -40,6 +40,10 @@ function scoreAndSelect(items, parsed, session, diagnostics = []) {
     const isTableTextile = /桌布|桌垫|桌旗|桌巾|桌罩|餐垫|台布/.test(title);
     const isTableDecor = /摆设|摆件|插花|花材|永生花|干花|花瓶|软装|装饰|桌面装饰/.test(title);
     if (isTableCategory && (isTableTextile || isTableDecor)) { diagnostics.push({ title: item.title, reason: 'table_textile_or_decor' }); return null; }
+    const chairMatch = title.match(/靠背椅|餐椅|椅子|座椅|扶手椅|吧椅|休闲椅/);
+    const tableMatch = title.match(/餐桌|饭桌|桌子|餐台/);
+    const isChairPrimary = chairMatch && (!tableMatch || chairMatch.index < tableMatch.index);
+    if (isTableCategory && isChairPrimary) { diagnostics.push({ title: item.title, reason: 'chair_primary_mismatch' }); return null; }
     const categoryMatched = category && (title.includes(category) || (isTableCategory && /餐桌|桌子|餐台/.test(title)));
     if (category && !categoryMatched && !title.includes(category.slice(-2))) { diagnostics.push({ title: item.title, reason: `category_mismatch:${category}` }); return null; }
     seen.add(duplicateKey);
