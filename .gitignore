@@ -10,3 +10,4 @@ __pycache__/
 .pytest_cache/
 wit_agent/.data/
 evaluation/eval-run-*/
+evaluation/reports/

@@ -4,6 +4,17 @@ Python 3.12+ service at `127.0.0.1:8765`. `GET /health` returns 200 once the Wit
 
 ## Start (PowerShell, from repository root)
 
+Use the Wit 3.0 source tree supplied for this project. Create a Python 3.12+ virtual environment and install the sidecar's declared dependencies once:
+
+```powershell
+py -3.12 -m venv .venv
+.venv\Scripts\python.exe -m pip install -r wit_agent\requirements.txt
+```
+
+Set `WIT_FRAMEWORK_PATH` to the folder containing `wit/__init__.py`. From `backend`, `npm run start:wit` starts both the Python sidecar and the Node product/UI service, using `backend/.env` for local credentials. The URL is <http://localhost:3000/>. Do not commit `.env` or the SQLite memory database.
+
+For separate development processes, from the repository root:
+
 ```powershell
 $env:WIT_FRAMEWORK_PATH='D:\chrome download\wit-main\wit-main'
 .venv\Scripts\python.exe -m wit_agent.server
@@ -35,4 +46,4 @@ $env:PYTHONPATH='D:\chrome download\wit-main\wit-main;.'
 .venv\Scripts\python.exe -m pytest -q wit_agent/tests
 ```
 
-The existing Node bridge should set `WIT_AGENT_URL=http://127.0.0.1:8765`. At the time of this change it forwards only `{sessionId,message}`; PM must also forward a stable `userId` for cross-session preferences in the public UI. Until then, each session works in compatibility mode and remains isolated.
+The Node bridge sets `WIT_AGENT_URL=http://127.0.0.1:8765` in the combined launcher and forwards `{userId,sessionId,message}`. The browser keeps a random `userId` in local storage, rotates `sessionId` for a new conversation, and displays only memory confirmed by the API. This is a local prototype identity, not account authentication; do not expose the service publicly without adding authentication and privacy controls.

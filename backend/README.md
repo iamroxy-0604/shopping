@@ -44,7 +44,7 @@ POST http://localhost:3000/api/chat
 }
 ```
 
-`/api/chat` 是当前 MVP 的 Agent 入口：信息不够时先追问，信息足够时调用商品搜索，并在内存中保存本轮用户明确说出的类目和预算。进程重启后记忆会清空，正式版再换成数据库或 Redis。
+`/api/chat` 是当前 MVP 的 Agent 入口。普通 `npm start` 使用旧版进程内 Agent，适合对照；`npm run start:wit` 使用 Wit 3.0 工作流、SQLite 记忆与同一个商品接口。Wit 模式下前端还会发送本地稳定的 `userId`：新对话保留用户偏好，但不会沿用上一轮可比较商品。用户可在记忆栏发送删除指令。
 
 返回 `items` 中的统一字段：`id`、`title`、`imageUrl`、`price`、`originalPrice`、`coupon`、`promotionUrl`、`shopName`、`sales`、`source`。
 
