@@ -22,7 +22,7 @@ from .policy import forget_field, understand
 Search = Callable[[str, dict], Awaitable[dict | list]]
 CATEGORY_EQUIVALENTS = {"桌面灯": ("桌面灯", "台灯"), "台灯": ("台灯", "桌面灯"), "腮红": ("腮红", "胭脂"), "耳机": ("耳机", "耳麦")}
 STYLE_EQUIVALENTS = {"日系": ("日系", "日式"), "韩系": ("韩系", "韩式"), "北欧": ("北欧",), "法式": ("法式",)}
-STYLE_CONFLICTS = ("日系", "日式", "韩系", "韩式", "北欧", "法式")
+STYLE_CONFLICTS = ("日系", "日式", "韩系", "韩式", "北欧", "欧式", "美式", "法式")
 
 
 async def product_api_search(query: str, filters: dict) -> dict:
@@ -82,7 +82,7 @@ def select_products(raw_items: list, preferences: dict) -> list:
         if title_key in seen:
             continue
         if category == "餐桌":
-            if any(word in title for word in ("桌布", "桌垫", "桌旗", "桌巾", "桌罩", "餐垫", "台布")):
+            if any(word in title for word in ("桌布", "桌垫", "桌旗", "桌巾", "桌罩", "餐垫", "台布", "装饰画", "挂画", "壁画", "背景墙", "贴纸", "花瓶", "摆件")):
                 continue
             chair_positions = [title.find(word) for word in ("靠背椅", "餐椅", "椅子", "座椅", "扶手椅") if word in title]
             table_positions = [title.find(word) for word in ("餐桌", "饭桌", "桌子", "餐台") if word in title]
@@ -94,9 +94,7 @@ def select_products(raw_items: list, preferences: dict) -> list:
         if category and not category_match:
             continue
         style_aliases = STYLE_EQUIVALENTS.get(style, (style,)) if style else ()
-        style_position = min((title.find(term) for term in style_aliases if term and term in title), default=len(title) + 1)
-        conflicting_position = min((title.find(term) for term in STYLE_CONFLICTS if term not in style_aliases and term in title), default=len(title) + 1)
-        if style in STYLE_EQUIVALENTS and conflicting_position < style_position:
+        if style in STYLE_EQUIVALENTS and any(term in title for term in STYLE_CONFLICTS if term not in style_aliases):
             continue
         seen.add(item["id"])
         seen.add(title_key)

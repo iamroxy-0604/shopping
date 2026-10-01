@@ -170,6 +170,7 @@ async def test_japanese_table_keeps_style_and_excludes_chair_first(tmp_path):
             return {"ok": True, "items": [
                 {"id": "chair", "title": "北欧实木餐椅搭配日系餐桌", "price": 399},
                 {"id": "north", "title": "北欧实木餐桌家用日系餐桌椅", "price": 899},
+                {"id": "poster", "title": "日系饭厅装饰画餐桌背景墙挂画", "price": 49},
                 {"id": "japan", "title": "日式原木餐桌家用", "price": 1299},
             ]}
         return {"ok": True, "items": [
@@ -182,7 +183,7 @@ async def test_japanese_table_keeps_style_and_excludes_chair_first(tmp_path):
         assert result["memory"]["preferences"]["style"] == "日系"
         assert result["memory"]["preferences"]["material"] == "原木"
         assert len(result["items"]) == 3
-        assert all(item["id"] not in ("chair", "north") for item in result["items"])
+        assert all(item["id"] not in ("chair", "north", "poster") for item in result["items"])
         assert calls[1] == "日式餐桌"
 
 
