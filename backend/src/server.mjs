@@ -54,7 +54,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const body = JSON.parse(await readBody(req) || '{}');
       const result = isWitEnabled()
-        ? await chatViaWit({ sessionId: body.sessionId, message: body.message })
+        ? await chatViaWit({ sessionId: body.sessionId, userId: body.userId, message: body.message })
         : await chat({ sessionId: body.sessionId, message: body.message });
       return sendJson(res, result.ok ? 200 : 502, result);
     } catch {

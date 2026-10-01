@@ -4,7 +4,7 @@ export function isWitEnabled(env = process.env) {
   return Boolean(env.WIT_AGENT_URL);
 }
 
-export async function chatViaWit({ sessionId, message, env = process.env, fetchImpl = fetch, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+export async function chatViaWit({ sessionId, userId, message, env = process.env, fetchImpl = fetch, timeoutMs = DEFAULT_TIMEOUT_MS }) {
   const configuredUrl = String(env.WIT_AGENT_URL || '').trim();
   let endpoint;
   try {
@@ -21,7 +21,7 @@ export async function chatViaWit({ sessionId, message, env = process.env, fetchI
     const response = await fetchImpl(endpoint, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ sessionId, message }),
+      body: JSON.stringify({ sessionId, userId, message }),
       signal: controller.signal
     });
     const payload = await response.json();
