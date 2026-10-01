@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { parseShoppingQuery } from './query.mjs';
-import { searchTaobao } from './taobao.mjs';
+import { searchProductSource } from './product-source.mjs';
 import { chat } from './agent.mjs';
 import { logEvent } from './logger.mjs';
 import { chatViaWit, isWitEnabled } from './wit-bridge.mjs';
@@ -65,7 +65,7 @@ const server = http.createServer(async (req, res) => {
   try {
     const body = JSON.parse(await readBody(req) || '{}');
     const parsed = parseShoppingQuery(body.query);
-    const result = await searchTaobao({ query: parsed.query, filters: { ...parsed.filters, ...(body.filters || {}) } });
+    const result = await searchProductSource({ query: parsed.query, filters: { ...parsed.filters, ...(body.filters || {}) }, source: body.source });
     if (!result.ok) return sendJson(res, result.error.code === 'INVALID_QUERY' ? 400 : 502, result);
     return sendJson(res, 200, { ok: true, query: parsed, items: result.items });
   } catch (error) {
