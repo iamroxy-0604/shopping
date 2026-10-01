@@ -17,7 +17,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
-UNKNOWN = re.compile(r"未提供|未列出|待确认|无法确认|不确定|不知道|没有.{0,8}信息|以商品详情为准")
+UNKNOWN = re.compile(r"未知|未提供|未列出|待确认|无法确认|不确定|不知道|没有.{0,8}信息|以商品详情为准")
 PRESSURE = re.compile(r"立即购买|马上下单|赶紧买|现在下单|必须买|限时抢")
 MISSING = object()
 
