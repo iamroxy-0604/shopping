@@ -172,7 +172,8 @@ def lead_message(lead: str | None, emotion: dict, items: list, preferences: dict
     if emotion.get("mood") == "budget_sensitive" or lead == "budget":
         budget = preferences.get("maxPrice")
         limit = f"¥{budget:g}" if isinstance(budget, (int, float)) else "你给的预算"
-        return f"预算上限是{limit}；看{direction}时，这里只保留标价在范围内的商品。" + ("想先核对这款的详情吗？" if one else "想先比较哪两款的价格？")
+        price_note = "有些商品尚未标价，得进详情再确认。" if any(item.get("price") is None for item in items) else "我优先保留标价在范围内的商品。"
+        return f"预算上限是{limit}；看{direction}时，{price_note}" + ("想先核对这款的详情吗？" if one else "想先比较哪两款的价格？")
     if emotion.get("purchase_intent") == "ready":
         return f"你已经明确想买{direction}，先看这轮符合条件的商品。" + next_item
     if lead == "gentle":

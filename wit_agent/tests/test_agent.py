@@ -348,6 +348,10 @@ async def test_budget_does_not_treat_unknown_price_as_in_range(tmp_path):
         assert [item["id"] for item in result["items"]] == ["known"]
         assert "¥89" in result["items"][0]["recommendation"]
 
+    from wit_agent.agent import lead_message
+    message = lead_message(None, {"mood": "budget_sensitive"}, [{"price": None}], {"category": "台灯", "maxPrice": 100})
+    assert "尚未标价" in message and "只保留标价" not in message
+
 
 def test_legacy_session_memory_migrates_without_product_leak(tmp_path):
     from wit_agent.memory import MemoryManager
