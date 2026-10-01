@@ -55,6 +55,8 @@ def _explicit_value(field: str, value, text: str):
     if field == "scene":
         return value if value in SCENES and value in text else None
     if field == "category":
+        if any(generic in value for generic in ("好物", "东西", "给我看看", "随便")) or value.rstrip("个的") in STYLES:
+            return None
         aliases = {"腮红": ("腮红", "胭脂"), "台灯": ("台灯", "桌面灯"), "餐桌": ("餐桌", "饭桌")}
         return value if any(alias in text for alias in aliases.get(value, (value,))) else None
     return None

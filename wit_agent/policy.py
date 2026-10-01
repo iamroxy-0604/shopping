@@ -73,7 +73,7 @@ def extract_updates(text: str) -> dict:
             for word in (*STYLES, *SCENES, *MATERIALS):
                 candidate = candidate.replace(word, "")
             candidate = re.sub(r"^(个|一款|一些|点|的)+|(?:的|商品|东西|有吗)$", "", candidate).strip()
-            if candidate and candidate not in ("随便", "什么", "好物") and "东西" not in candidate and len(candidate) <= 12:
+            if candidate and not any(word in candidate for word in ("好物", "东西", "给我看看", "给我", "随便")) and len(candidate) <= 12:
                 updates["category"] = candidate
     return updates
 
@@ -103,6 +103,9 @@ def understand(text: str, memory: dict, model_parse: dict | None = None) -> tupl
     model_parse = model_parse or {}
     updates.update(model_parse.get("query", {}))
     preference = dict(memory.get("preferences", {}))
+    legacy_browse_category = isinstance(preference.get("category"), str) and any(
+        word in preference["category"] for word in ("好物", "东西", "给我看看", "给我", "随便")
+    )
     if memory.get("current_items") and re.search(REFERENCE, text) and not re.search(r"想找|帮我找|想买|改成|换成|以后喜欢|我喜欢.{0,8}(?:风|材质)", text):
         for key in ("category", "style", "material", "scene"):
             updates.pop(key, None)
@@ -130,6 +133,10 @@ def understand(text: str, memory: dict, model_parse: dict | None = None) -> tupl
     else:
         preference.update(updates)
         preference.update(model_parse.get("memory", {}))
+    if isinstance(preference.get("category"), str) and any(
+        word in preference["category"] for word in ("好物", "东西", "给我看看", "给我", "随便")
+    ):
+        preference.pop("category", None)
     current = bool(memory.get("current_items"))
     orphan_reference = not current and bool(re.search(REFERENCE, text))
     stop = bool(re.search(r"不想买|不打算买|暂时不买|先不买|今天不买|不买|别推销|不要推销|只想.{0,4}逛|纯逛", text))
@@ -141,6 +148,12 @@ def understand(text: str, memory: dict, model_parse: dict | None = None) -> tupl
     cheaper = current and bool(re.search(r"便宜一点|太贵|更便宜|换个价格", text))
     refine = current and bool(re.search(r"换成|改成|换一款|换个风格|重新找", text))
     vague = bool(re.search(r"(?:找|看|推荐).{0,8}(?:东西|随便什么|哪个好物)", text)) and not updates.get("category")
+    browse_request = bool(re.search(r"(?:推荐|想找|找些|看看).{0,14}桌面好物", text))
+    browse_followup = bool(not preference.get("category") and preference.get("scene") == "桌面" and (
+        (memory.get("last_query", "").startswith("browse:") and
+         (updates.get("style") or ("桌面" in text and re.search(r"看|推荐|找", text))))
+        or (legacy_browse_category and updates.get("style"))
+    ))
     if cheaper and "maxPrice" not in updates:
         prices = [x.get("price") for x in memory.get("current_items", []) if isinstance(x, dict)]
         prices = [p for p in prices if isinstance(p, (int, float)) and p > 1]
@@ -175,6 +188,8 @@ def understand(text: str, memory: dict, model_parse: dict | None = None) -> tupl
         action = "recall"
     elif orphan_reference:
         action = "clarify"
+    elif (browse_request or browse_followup) and preference.get("scene") == "桌面" and not preference.get("category"):
+        action = "search"
     elif stop or bored:
         action = "explore"
     elif frustrated and refine:

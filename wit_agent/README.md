@@ -39,6 +39,8 @@ The model may parse explicit user constraints and durable preferences, and selec
 
 Current-product questions and comparisons never trigger another search. Missing inventory, dimensions, material, future promotions, or performance data are reported as unknown rather than inferred from the title. Vague requests such as “桌上的东西” ask for a category before searching.
 
+An explicit browse request such as “只想逛逛，推荐一些桌面好物给我看看” retrieves a small mix of desk lamps, organizers, and decor while keeping purchase pressure off. A follow-up such as “想要点日系的” refines that same browsing direction instead of treating “好物给我看看” as a product category. Existing sessions with that invalid saved category are cleaned up on their next turn. If only one or two relevant goods qualify, the agent does not pad the row with unrelated items.
+
 Tests:
 
 ```powershell

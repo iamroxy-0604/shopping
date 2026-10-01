@@ -43,7 +43,7 @@
     {"scenario":"M26","path":"preferences.style","op":"eq","value":"工业风"}
   ],
   "emotion_routing": [
-    {"scenario":"E01","turn":1,"mood":"bored","action":"explore"},
+    {"scenario":"E01","turn":1,"mood":"bored","action":"search"},
     {"scenario":"E02","turn":1,"mood":"stop_selling","action":"explore"},
     {"scenario":"E03","turn":1,"mood":"stop_selling","action":"explore"},
     {"scenario":"E04","turn":1,"mood":"bored","action":"explore"},
@@ -55,6 +55,7 @@
     {"scenario":"S09","turn":2,"action":"search"}
   ],
   "search_delta": [
+    {"scenario":"E01","turn":1,"op":"positive","metric":"browse_search"},
     {"scenario":"S09","turn":1,"op":"zero","metric":"clarification_search"},
     {"scenario":"S09","turn":2,"op":"positive","metric":"clarification_search"},
     {"scenario":"E05","turn":1,"op":"zero"},

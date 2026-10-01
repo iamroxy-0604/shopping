@@ -204,7 +204,6 @@ function appendAssistantMessage(result, persist = true) {
   messages.insertAdjacentHTML('beforeend', `<div class="message assistant-message"><span class="assistant-avatar" aria-label="购物助手"><i data-lucide="sparkles"></i></span><div class="message-main"><div class="assistant-copy">${escapeHtml(result.message)}</div><time>刚刚</time></div></div>`);
   globalThis.lucide?.createIcons();
   if (result.items?.length) renderProducts(result.items);
-  else if (result.type === 'results') messages.insertAdjacentHTML('beforeend', '<div class="empty-state">暂时没有找到合适商品，你可以换个说法或补充一下预算。</div>');
   if (persist) {
     const record = touchConversation('');
     record.memory = result.memory?.preferences || record.memory || {};

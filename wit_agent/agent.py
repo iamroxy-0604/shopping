@@ -348,6 +348,47 @@ class ShoppingAgent:
         if action != "search":
             return
         prefs = state["preferences"]
+        if not prefs.get("category") and prefs.get("scene") == "桌面":
+            state["browse"] = True
+            state["query"] = "browse:桌面"
+            filters = {"end_price": prefs["maxPrice"]} if prefs.get("maxPrice") is not None else {}
+            selected, categories, failures = [], {}, 0
+            for category in ("台灯", "收纳盒", "摆件"):
+                keyword = {"台灯": "台灯" if prefs.get("style") else "桌面台灯", "收纳盒": "收纳盒", "摆件": "摆件" if prefs.get("style") else "桌面摆件"}[category]
+                query = " ".join(part for part in (prefs.get("style"), keyword) if part)
+                try:
+                    payload = await self.search(query, filters)
+                    if isinstance(payload, dict) and not payload.get("ok", True):
+                        failures += 1
+                        continue
+                    raw = payload.get("items", []) if isinstance(payload, dict) else payload
+                    if not isinstance(raw, list):
+                        failures += 1
+                        continue
+                    forbidden = {
+                        "台灯": ("酒吧", "清吧", "户外", "露营", "夜市"),
+                        "收纳盒": ("内衣", "袜子", "衣服"),
+                        "摆件": ("动漫", "二次元", "手办", "周边", "立牌", "盲盒", "净化空气", "招财"),
+                    }[category]
+                    raw = [item for item in raw if isinstance(item, dict)
+                           and (category == "台灯" or "桌面" in str((item.get("facts") or item).get("title", "")))
+                           and not any(word in str((item.get("facts") or item).get("title", "")) for word in forbidden)]
+                    matches = select_products(raw, {**prefs, "category": category})
+                    style = prefs.get("style")
+                    if style:
+                        aliases = STYLE_EQUIVALENTS.get(style, (style,))
+                        matches = [item for item in matches if any(alias in item["title"] for alias in aliases) or style in (item["semantic"].get("style_tags") or [])]
+                    match = next((item for item in matches if item["id"] not in {entry["id"] for entry in selected}), None)
+                    if match:
+                        selected.append(match)
+                        categories[match["id"]] = category
+                except (httpx.HTTPError, OSError, TimeoutError, ValueError):
+                    failures += 1
+            state["items"] = selected
+            state["browse_categories"] = categories
+            if failures == 3:
+                state["search_error"] = "商品搜索暂时不可用，请稍后重试"
+            return
         query = " ".join(str(prefs[k]) for k in ("style", "material", "category", "scene") if prefs.get(k))
         state["query"] = query
         filters = {"end_price": prefs["maxPrice"]} if prefs.get("maxPrice") is not None else {}
@@ -409,7 +450,8 @@ class ShoppingAgent:
         elif state.get("search_error"):
             message, kind = state["search_error"], "error"
         elif not state["items"]:
-            message, kind = "按这轮条件暂时没有合适商品。要换个关键词，还是调整预算？", "results"
+            message = "这轮暂时没找到贴近的桌面好物。想先看台灯还是收纳？" if state.get("browse") else "按这轮条件暂时没有合适商品。要换个关键词，还是调整预算？"
+            kind = "results"
         else:
             plan = {}
             try:
@@ -419,9 +461,14 @@ class ShoppingAgent:
                 pass
             for item in state["items"]:
                 item["recommendation"] = grounded_reason(
-                    item, prefs, plan.get("reasons", {}).get(item["id"])
+                    item, {**prefs, "category": state.get("browse_categories", {}).get(item["id"], prefs.get("category"))}, plan.get("reasons", {}).get(item["id"])
                 )
-            message, kind = lead_message(plan.get("lead"), state["emotion"], state["items"], prefs), "results"
+            if state.get("browse"):
+                style = prefs.get("style")
+                message = f"好，换成{style}的桌面小物。先随便看看，哪件更合你眼缘？" if style else "先摆几样桌面小物给你逛逛，不用急着决定。哪件让你想多看一眼？"
+            else:
+                message = lead_message(plan.get("lead"), state["emotion"], state["items"], prefs)
+            kind = "results"
         state["response"] = {
             "ok": kind != "error", "type": kind, "message": message,
             "items": copy.deepcopy(state["items"]) if kind == "results" else [],
