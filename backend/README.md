@@ -19,6 +19,8 @@ npm test
 npm start
 ```
 
+若要运行 Wit 3.0 版导购，请先按 [wit_agent/README.md](../wit_agent/README.md) 配好 Python 3.12 和本地 Wit 3.0 源码，然后在 `backend` 目录执行 `npm run start:wit`。该命令会启动本机 Python Wit Agent 与现有 Node 商品接口，页面仍在 <http://localhost:3000/>。普通 `npm start` 保留旧版 Agent 作为对照实验 A/B 的入口。
+
 请求示例：
 
 ```json

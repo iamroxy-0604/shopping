@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.mjs",
+    "start:wit": "node src/start-wit.mjs",
     "test": "node --test"
   }
 }
