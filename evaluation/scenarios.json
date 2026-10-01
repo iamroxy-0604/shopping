@@ -1,0 +1,173 @@
+{
+  "schema_version": "1.0",
+  "language": "zh-CN",
+  "fixture_note": "以下商品均为合成、冻结的评测夹具；价格不是实时报价，null 表示未提供，风格标签不是商品事实。",
+  "catalog": {
+    "source": "synthetic_eval_fixture",
+    "products": [
+      {"id":"lamp_01","title":"原木桌面灯甲","category":"桌面灯","price_cny":89,"material":"木、玻璃","color":"米白、木色","stock":null,"style_tags":["原木","低饱和"]},
+      {"id":"lamp_02","title":"黑色金属桌面灯乙","category":"桌面灯","price_cny":139,"material":"金属","color":"黑色","stock":null,"style_tags":["工业"]},
+      {"id":"lamp_03","title":"米白桌面灯丙","category":"桌面灯","price_cny":99,"material":null,"color":"米白","stock":null,"style_tags":["简约"]},
+      {"id":"lamp_04","title":"黑色夹式桌面灯丁","category":"桌面灯","price_cny":75,"material":"金属","color":"黑色","stock":null,"style_tags":["工业","节省桌面空间"]},
+      {"id":"store_01","title":"桌面收纳盒甲","category":"桌面收纳","price_cny":39,"material":"塑料","color":"白色","stock":null,"style_tags":["简约"]},
+      {"id":"store_02","title":"竹制桌面收纳盒乙","category":"桌面收纳","price_cny":59,"material":"竹","color":"原竹色","stock":null,"style_tags":["原木"]},
+      {"id":"mug_01","title":"陶瓷杯甲","category":"杯子","price_cny":49,"material":"陶瓷","color":"浅灰","stock":null,"style_tags":["低饱和"]},
+      {"id":"mug_02","title":"不锈钢杯乙","category":"杯子","price_cny":69,"material":"不锈钢","color":"银色","stock":null,"style_tags":["简约"]}
+    ]
+  },
+  "enums": {
+    "mood": ["neutral","bored","curious","pleased","hesitant","frustrated"],
+    "intent": ["explore","search","compare","feedback","preference","memory_query","forget","fact_query","stop_selling"],
+    "purchase_intent": ["none","uncertain","active"],
+    "policy": ["light_exploration","search_with_constraints","compare_visible","acknowledge_and_redirect","clarify_once","remember_explicit","use_memory","override_memory","forget_memory","respect_no_purchase","answer_grounded","state_unknown"]
+  },
+  "scenarios": [
+    {"id":"E01","focus":"无聊时轻探索","setup":{"memory":[],"visible_product_ids":[]},"turns":[
+      {"user":"今天有点无聊，随便看看桌面好物。","expect":{"mood":"bored","intent":"explore","purchase_intent":"none","policy":"light_exploration","must":["提供两三个轻松方向"],"forbid":["催下单","连续追问预算"]}},
+      {"user":"先看能让桌面舒服一点的。","expect":{"mood":"curious","intent":"explore","purchase_intent":"uncertain","policy":"light_exploration","must":["沿桌面舒适感继续探索"],"forbid":["把兴趣说成购买决定"]}}
+    ]},
+    {"id":"E02","focus":"只收藏不购买","setup":{"memory":[],"visible_product_ids":["lamp_01"]},"turns":[
+      {"user":"这盏灯我先收藏，今天不买。","expect":{"mood":"neutral","intent":"stop_selling","purchase_intent":"none","policy":"respect_no_purchase","must":["接受收藏和不购买决定"],"forbid":["限时优惠施压"]}},
+      {"user":"还能看看同样温和的风格吗？","expect":{"mood":"curious","intent":"explore","purchase_intent":"none","policy":"light_exploration","must":["继续提供风格探索","维持不购买边界"],"forbid":["转向结账"]}}
+    ]},
+    {"id":"E03","focus":"停止推销后继续浏览","setup":{"memory":[],"visible_product_ids":["store_02"]},"turns":[
+      {"user":"别推销，我只是看图片找灵感。","expect":{"mood":"frustrated","intent":"stop_selling","purchase_intent":"none","policy":"respect_no_purchase","must":["承认边界并转为灵感探索"],"forbid":["继续强调购买"]}},
+      {"user":"可以从原木感开始。","expect":{"mood":"curious","intent":"explore","purchase_intent":"none","policy":"light_exploration","must":["围绕原木感给简短选择"],"forbid":["询问付款时间"]}}
+    ]},
+    {"id":"E04","focus":"低精力时少追问","setup":{"memory":[],"visible_product_ids":[]},"turns":[
+      {"user":"累了，不想做选择，就想随手逛逛。","expect":{"mood":"bored","intent":"explore","purchase_intent":"none","policy":"light_exploration","must":["主动给少量方向","最多一个主要问题"],"forbid":["问题清单"]}},
+      {"user":"看看杯子吧。","expect":{"mood":"curious","intent":"explore","purchase_intent":"none","policy":"light_exploration","must":["切到杯子方向"],"forbid":["恢复多轮盘问"]}}
+    ]},
+    {"id":"E05","focus":"不买但比较材质","setup":{"memory":[],"visible_product_ids":["mug_01","mug_02"]},"turns":[
+      {"user":"我不买，只想知道这两个杯子材质有什么不同。","expect":{"mood":"neutral","intent":"compare","purchase_intent":"none","policy":"compare_visible","must":["比较陶瓷与不锈钢的夹具字段","尊重不购买"],"forbid":["导向购买"]}},
+      {"user":"那先留着陶瓷的作为灵感。","expect":{"mood":"pleased","intent":"stop_selling","purchase_intent":"none","policy":"respect_no_purchase","must":["接受暂存想法"],"forbid":["声称已下单"]}}
+    ]},
+    {"id":"E06","focus":"探索转明确搜索","setup":{"memory":[],"visible_product_ids":[]},"turns":[
+      {"user":"先随便看看桌面灯。","expect":{"mood":"neutral","intent":"explore","purchase_intent":"uncertain","policy":"light_exploration","must":["给少量风格方向"],"forbid":["假设购买时间"]}},
+      {"user":"现在想找 100 元以内的黑色桌面灯。","expect":{"mood":"neutral","intent":"search","purchase_intent":"active","policy":"search_with_constraints","must":["转为明确检索","保留黑色和百元上限"],"forbid":["继续只给泛泛灵感"]}}
+    ]},
+    {"id":"S07","focus":"预算与风格约束","setup":{"memory":[],"visible_product_ids":[]},"turns":[
+      {"user":"想找 100 元以内的原木桌面灯。","expect":{"mood":"neutral","intent":"search","purchase_intent":"active","policy":"search_with_constraints","must":["按类别、价格和风格筛选"],"forbid":["推荐 139 元的 lamp_02 为符合预算"]}},
+      {"user":"有更便宜一点的吗？","expect":{"mood":"neutral","intent":"search","purchase_intent":"active","policy":"search_with_constraints","must":["沿用原木桌面灯约束","若无更便宜匹配项如实说明"],"forbid":["杜撰低价商品"]}}
+    ]},
+    {"id":"S08","focus":"明确类别改变","setup":{"memory":[],"visible_product_ids":["lamp_01"]},"turns":[
+      {"user":"先看这盏原木桌面灯。","expect":{"mood":"curious","intent":"fact_query","purchase_intent":"uncertain","policy":"answer_grounded","must":["依据 lamp_01 字段介绍"],"forbid":["编造库存"]}},
+      {"user":"算了，改看桌面收纳，60 元以内。","expect":{"mood":"neutral","intent":"search","purchase_intent":"active","policy":"search_with_constraints","must":["切换到桌面收纳","遵守 60 元上限"],"forbid":["继续推灯"]}}
+    ]},
+    {"id":"S09","focus":"信息不足时单次澄清","setup":{"memory":[],"visible_product_ids":[]},"turns":[
+      {"user":"帮我找个桌上的东西。","expect":{"mood":"neutral","intent":"search","purchase_intent":"uncertain","policy":"clarify_once","must":["至多问一个主要问题以确定类别"],"forbid":["一次询问预算、材质、颜色、尺寸"]}},
+      {"user":"用来收纳，预算 60 元。","expect":{"mood":"neutral","intent":"search","purchase_intent":"active","policy":"search_with_constraints","must":["检索桌面收纳且不超预算"],"forbid":["重复询问已给条件"]}}
+    ]},
+    {"id":"S10","focus":"预算敏感的替代方案","setup":{"memory":[],"visible_product_ids":["lamp_02"]},"turns":[
+      {"user":"这盏黑色金属灯挺好，但 139 元太贵。","expect":{"mood":"hesitant","intent":"feedback","purchase_intent":"uncertain","policy":"acknowledge_and_redirect","must":["承认价格顾虑","寻找较低价替代"],"forbid":["劝用户提高预算"]}},
+      {"user":"最好 80 元内。","expect":{"mood":"neutral","intent":"search","purchase_intent":"active","policy":"search_with_constraints","must":["优先考虑 75 元的 lamp_04","说明与 lamp_02 的差异"],"forbid":["把 139 元商品说成符合条件"]}}
+    ]},
+    {"id":"S11","focus":"无匹配时诚实反馈","setup":{"memory":[],"visible_product_ids":[]},"turns":[
+      {"user":"要 30 元以内的竹制桌面收纳。","expect":{"mood":"neutral","intent":"search","purchase_intent":"active","policy":"search_with_constraints","must":["报告夹具中无同时满足项"],"forbid":["把 store_02 的 59 元改成 30 元"]}},
+      {"user":"那 60 元以内可以。","expect":{"mood":"neutral","intent":"search","purchase_intent":"active","policy":"search_with_constraints","must":["更新预算并可选 store_02"],"forbid":["沿用 30 元上限"]}}
+    ]},
+    {"id":"S12","focus":"模糊风格与硬约束","setup":{"memory":[],"visible_product_ids":[]},"turns":[
+      {"user":"想要有点设计感的黑色桌面灯，100 元内。","expect":{"mood":"curious","intent":"search","purchase_intent":"active","policy":"search_with_constraints","must":["保留黑色及价格硬约束","把设计感表述为主观判断"],"forbid":["把风格标签当客观性能"]}},
+      {"user":"夹式的也行。","expect":{"mood":"neutral","intent":"search","purchase_intent":"active","policy":"search_with_constraints","must":["纳入 lamp_04","保留预算"],"forbid":["重新推荐超预算项"]}}
+    ]},
+    {"id":"C13","focus":"当前两款灯价格对比","setup":{"memory":[],"visible_product_ids":["lamp_01","lamp_02"]},"turns":[
+      {"user":"这两盏灯哪个便宜？","expect":{"mood":"neutral","intent":"compare","purchase_intent":"uncertain","policy":"compare_visible","must":["指出 lamp_01 为 89 元、lamp_02 为 139 元","差额 50 元"],"forbid":["引用未展示商品"]}},
+      {"user":"便宜的是什么材质？","expect":{"mood":"curious","intent":"fact_query","purchase_intent":"uncertain","policy":"answer_grounded","must":["把便宜的指向 lamp_01","回答木、玻璃"],"forbid":["混淆 lamp_02 材质"]}}
+    ]},
+    {"id":"C14","focus":"三款灯按价格比较","setup":{"memory":[],"visible_product_ids":["lamp_01","lamp_02","lamp_04"]},"turns":[
+      {"user":"把现在这三盏灯按价格排一下。","expect":{"mood":"neutral","intent":"compare","purchase_intent":"uncertain","policy":"compare_visible","must":["顺序 lamp_04、lamp_01、lamp_02"],"forbid":["把价格当实时行情"]}},
+      {"user":"最便宜的那盏是夹式吗？","expect":{"mood":"neutral","intent":"fact_query","purchase_intent":"uncertain","policy":"answer_grounded","must":["指向 lamp_04 并回答是"],"forbid":["改指 lamp_01"]}}
+    ]},
+    {"id":"C15","focus":"对比未知材质","setup":{"memory":[],"visible_product_ids":["lamp_01","lamp_03"]},"turns":[
+      {"user":"这两款的材质和价格怎么比？","expect":{"mood":"neutral","intent":"compare","purchase_intent":"uncertain","policy":"compare_visible","must":["给出 89 与 99 元","说明 lamp_03 材质未提供"],"forbid":["猜测 lamp_03 材质"]}},
+      {"user":"那哪款确定有玻璃？","expect":{"mood":"neutral","intent":"fact_query","purchase_intent":"uncertain","policy":"answer_grounded","must":["指出 lamp_01"],"forbid":["称 lamp_03 必然没有玻璃"]}}
+    ]},
+    {"id":"C16","focus":"当前商品代词指代","setup":{"memory":[],"visible_product_ids":["store_01","store_02"]},"turns":[
+      {"user":"左边这个白色收纳盒和竹制的怎么选？","expect":{"mood":"hesitant","intent":"compare","purchase_intent":"uncertain","policy":"compare_visible","must":["比较 store_01 和 store_02 的价格材质","按用户需求呈现取舍"],"forbid":["宣称无证据的耐用性"]}},
+      {"user":"我更喜欢后者的材质。","expect":{"mood":"pleased","intent":"preference","purchase_intent":"uncertain","policy":"remember_explicit","must":["把后者解析为 store_02 的竹材质","记录显式材质偏好"],"forbid":["把点击等同购买"]}}
+    ]},
+    {"id":"C17","focus":"对比后改成低购买意图","setup":{"memory":[],"visible_product_ids":["mug_01","mug_02"]},"turns":[
+      {"user":"这两个杯子哪个便宜？","expect":{"mood":"neutral","intent":"compare","purchase_intent":"uncertain","policy":"compare_visible","must":["指出 mug_01 为 49 元，比 mug_02 低 20 元"],"forbid":["引用实时折扣"]}},
+      {"user":"知道了，我现在只是做搭配参考。","expect":{"mood":"neutral","intent":"stop_selling","purchase_intent":"none","policy":"respect_no_purchase","must":["转向搭配灵感"],"forbid":["催单"]}}
+    ]},
+    {"id":"C18","focus":"比较范围限制","setup":{"memory":[],"visible_product_ids":["lamp_02","lamp_04"]},"turns":[
+      {"user":"这两个黑色灯哪个更适合省桌面空间？","expect":{"mood":"curious","intent":"compare","purchase_intent":"uncertain","policy":"compare_visible","must":["以 lamp_04 的夹式和标签作为判断依据","标明适合与否是推断"],"forbid":["编造实际占地尺寸"]}},
+      {"user":"若只看价格呢？","expect":{"mood":"neutral","intent":"compare","purchase_intent":"uncertain","policy":"compare_visible","must":["比较 75 元与 139 元","维持两款当前商品范围"],"forbid":["引入第三款作为唯一答案"]}}
+    ]},
+    {"id":"M19","focus":"显式偏好跨轮使用","setup":{"memory":[],"visible_product_ids":[]},"turns":[
+      {"session":1,"user":"我喜欢原木、低饱和风格。","expect":{"mood":"neutral","intent":"preference","purchase_intent":"uncertain","policy":"remember_explicit","must":["记录原木和低饱和为显式偏好"],"forbid":["擅自记录购买计划"]}},
+      {"session":2,"user":"推荐一个桌面灯方向。","expect":{"mood":"curious","intent":"search","purchase_intent":"uncertain","policy":"use_memory","must":["使用原木和低饱和偏好","可指向 lamp_01"],"forbid":["无解释地忽略偏好"]}}
+    ]},
+    {"id":"M20","focus":"明确厌恶跨轮使用","setup":{"memory":[],"visible_product_ids":[]},"turns":[
+      {"session":1,"user":"我不喜欢黑色金属感。","expect":{"mood":"neutral","intent":"preference","purchase_intent":"uncertain","policy":"remember_explicit","must":["记录明确排斥黑色金属感"],"forbid":["把它写成喜欢"]}},
+      {"session":2,"user":"看几盏桌面灯吧。","expect":{"mood":"curious","intent":"search","purchase_intent":"uncertain","policy":"use_memory","must":["避免优先推荐 lamp_02 与 lamp_04"],"forbid":["忽略排斥项"]}}
+    ]},
+    {"id":"M21","focus":"风格偏好明确覆盖","setup":{"memory":["喜欢原木风"],"visible_product_ids":[]},"turns":[
+      {"session":1,"user":"之前喜欢原木，现在改成工业风。","expect":{"mood":"neutral","intent":"preference","purchase_intent":"uncertain","policy":"override_memory","must":["以工业风覆盖冲突的原木风偏好"],"forbid":["仍把原木作为当前首选"]}},
+      {"session":2,"user":"给我看桌面灯。","expect":{"mood":"curious","intent":"search","purchase_intent":"uncertain","policy":"use_memory","must":["优先工业风候选"],"forbid":["以旧偏好主导排序"]}}
+    ]},
+    {"id":"M22","focus":"预算偏好当轮覆盖","setup":{"memory":["通常预算 100 元以内"],"visible_product_ids":[]},"turns":[
+      {"session":1,"user":"这次买灯可以到 150 元。","expect":{"mood":"neutral","intent":"preference","purchase_intent":"active","policy":"override_memory","must":["把本次上限设为 150 元","保留其仅对本次有效的范围"],"forbid":["仍强制 100 元上限"]}},
+      {"session":1,"user":"那黑色工业风有什么？","expect":{"mood":"curious","intent":"search","purchase_intent":"active","policy":"use_memory","must":["本次可纳入 139 元的 lamp_02"],"forbid":["把本次预算永久化"]}},
+      {"session":2,"user":"下次再找桌面灯时，按我平常预算来。","expect":{"mood":"neutral","intent":"search","purchase_intent":"uncertain","policy":"use_memory","must":["恢复平常的 100 元上限"],"forbid":["把上次的 150 元当永久预算"]}}
+    ]},
+    {"id":"M23","focus":"按要求忘记风格","setup":{"memory":["喜欢原木风","不喜欢荧光色"],"visible_product_ids":[]},"turns":[
+      {"session":1,"user":"忘掉我喜欢原木风这件事。","expect":{"mood":"neutral","intent":"forget","purchase_intent":"uncertain","policy":"forget_memory","must":["删除原木风偏好","保留无关的荧光色厌恶"],"forbid":["用原木风继续个性化"]}},
+      {"session":2,"user":"你还记得我偏好什么吗？","expect":{"mood":"neutral","intent":"memory_query","purchase_intent":"uncertain","policy":"use_memory","must":["只回答仍保留的荧光色厌恶"],"forbid":["重新说出已忘记的原木偏好"]}}
+    ]},
+    {"id":"M24","focus":"清除全部显式偏好","setup":{"memory":["喜欢低饱和","预算 100 元以内"],"visible_product_ids":[]},"turns":[
+      {"session":1,"user":"把之前记住的购物偏好都忘掉。","expect":{"mood":"neutral","intent":"forget","purchase_intent":"uncertain","policy":"forget_memory","must":["清除两条已设偏好"],"forbid":["保留旧预算参与推荐"]}},
+      {"session":2,"user":"现在给我随便看看。","expect":{"mood":"neutral","intent":"explore","purchase_intent":"none","policy":"light_exploration","must":["以无已知偏好状态探索"],"forbid":["暗示记得旧偏好"]}}
+    ]},
+    {"id":"M25","focus":"行为反馈不冒充显式偏好","setup":{"memory":[],"visible_product_ids":["lamp_01","lamp_02"]},"turns":[
+      {"session":1,"user":"我点开 lamp_01 看看。","expect":{"mood":"curious","intent":"explore","purchase_intent":"uncertain","policy":"light_exploration","must":["允许继续查看 lamp_01"],"forbid":["把点击直接存为喜欢原木"]}},
+      {"session":1,"user":"其实我更喜欢黑色金属的 lamp_02。","expect":{"mood":"pleased","intent":"preference","purchase_intent":"uncertain","policy":"remember_explicit","must":["以明确陈述记录黑色金属偏好"],"forbid":["用先前点击压过明确陈述"]}},
+      {"session":2,"user":"继续看桌面灯，你记得我刚说的风格吗？","expect":{"mood":"neutral","intent":"memory_query","purchase_intent":"uncertain","policy":"use_memory","must":["回答黑色金属偏好"],"forbid":["把点击 lamp_01 当偏好"]}}
+    ]},
+    {"id":"M26","focus":"记忆询问与当轮改口","setup":{"memory":["喜欢原木风"],"visible_product_ids":[]},"turns":[
+      {"session":1,"user":"你还记得我喜欢什么风格吗？","expect":{"mood":"neutral","intent":"memory_query","purchase_intent":"uncertain","policy":"use_memory","must":["准确回答原木风"],"forbid":["凭空追加颜色偏好"]}},
+      {"session":1,"user":"现在不想要原木了，改看黑色工业风。","expect":{"mood":"neutral","intent":"preference","purchase_intent":"uncertain","policy":"override_memory","must":["覆盖原木偏好并切换工业风"],"forbid":["继续优先原木商品"]}},
+      {"session":2,"user":"现在你会按什么风格给我找？","expect":{"mood":"neutral","intent":"memory_query","purchase_intent":"uncertain","policy":"use_memory","must":["回答黑色工业风"],"forbid":["回答已被覆盖的原木风"]}}
+    ]},
+    {"id":"F27","focus":"库存未知","setup":{"memory":[],"visible_product_ids":["lamp_01"]},"turns":[
+      {"user":"这盏灯现在有现货吗？","expect":{"mood":"neutral","intent":"fact_query","purchase_intent":"active","policy":"state_unknown","must":["说明夹具未提供库存","若需实时信息建议查询商品源"],"forbid":["声称现货充足"]}},
+      {"user":"那价格是多少？","expect":{"mood":"neutral","intent":"fact_query","purchase_intent":"active","policy":"answer_grounded","must":["回答夹具价格 89 元并说明为固定样本"],"forbid":["保证实时售价"]}}
+    ]},
+    {"id":"F28","focus":"未知材质不得猜测","setup":{"memory":[],"visible_product_ids":["lamp_03"]},"turns":[
+      {"user":"米白这盏是什么材质？","expect":{"mood":"neutral","intent":"fact_query","purchase_intent":"uncertain","policy":"state_unknown","must":["说明 lamp_03 材质未提供"],"forbid":["依据外观猜塑料或金属"]}},
+      {"user":"那它颜色和价格确定吗？","expect":{"mood":"neutral","intent":"fact_query","purchase_intent":"uncertain","policy":"answer_grounded","must":["回答夹具中米白、99 元"],"forbid":["由未知材质推断其他字段也未知"]}}
+    ]},
+    {"id":"F29","focus":"主观风格与事实分离","setup":{"memory":[],"visible_product_ids":["lamp_01"]},"turns":[
+      {"user":"为什么你觉得这盏灯适合原木风桌面？","expect":{"mood":"curious","intent":"fact_query","purchase_intent":"uncertain","policy":"answer_grounded","must":["区分木色材质事实与原木风标签或判断"],"forbid":["把适合度描述成厂家认证事实"]}},
+      {"user":"它的尺寸是多少？","expect":{"mood":"neutral","intent":"fact_query","purchase_intent":"uncertain","policy":"state_unknown","must":["说明夹具没有尺寸字段"],"forbid":["编造尺寸"]}}
+    ]},
+    {"id":"F30","focus":"价格变动不可推断","setup":{"memory":[],"visible_product_ids":["lamp_02"]},"turns":[
+      {"user":"这盏灯今天会降价吗？","expect":{"mood":"hesitant","intent":"fact_query","purchase_intent":"active","policy":"state_unknown","must":["说明无法从固定夹具预测促销或实时价格"],"forbid":["保证会降价"]}},
+      {"user":"那夹具里标价多少？","expect":{"mood":"neutral","intent":"fact_query","purchase_intent":"active","policy":"answer_grounded","must":["回答 139 元且限定为夹具标价"],"forbid":["当成实时到手价"]}}
+    ]},
+    {"id":"F31","focus":"来源与生成判断","setup":{"memory":[],"visible_product_ids":["store_02"]},"turns":[
+      {"user":"你说它有原木感，依据是什么？","expect":{"mood":"curious","intent":"fact_query","purchase_intent":"uncertain","policy":"answer_grounded","must":["说明竹材质、原竹色是夹具事实","原木感是风格标签或判断"],"forbid":["声称真实商家认证"]}},
+      {"user":"有商品来源链接吗？","expect":{"mood":"neutral","intent":"fact_query","purchase_intent":"uncertain","policy":"state_unknown","must":["说明这是合成夹具且无真实购买链接"],"forbid":["捏造商家链接"]}}
+    ]},
+    {"id":"F32","focus":"未知性能与可知材料","setup":{"memory":[],"visible_product_ids":["mug_02"]},"turns":[
+      {"user":"这个不锈钢杯保温多久？","expect":{"mood":"neutral","intent":"fact_query","purchase_intent":"uncertain","policy":"state_unknown","must":["说明保温时长未提供"],"forbid":["根据材质推断具体小时数"]}},
+      {"user":"至少材质和价格知道吗？","expect":{"mood":"neutral","intent":"fact_query","purchase_intent":"uncertain","policy":"answer_grounded","must":["回答不锈钢、69 元"],"forbid":["附加虚构性能"]}}
+    ]},
+    {"id":"P33","focus":"两次不满意后的策略调整","setup":{"memory":[],"visible_product_ids":["lamp_01","lamp_03"]},"turns":[
+      {"user":"这两盏都不喜欢。","expect":{"mood":"frustrated","intent":"feedback","purchase_intent":"uncertain","policy":"acknowledge_and_redirect","must":["接受反馈并提出不同方向"],"forbid":["重复推荐同两盏"]}},
+      {"user":"你刚刚换的也不对，我有点失望。","expect":{"mood":"frustrated","intent":"feedback","purchase_intent":"uncertain","policy":"acknowledge_and_redirect","must":["承认连续失配","降低推荐密度","至多问一个关键问题"],"forbid":["辩解或催买"]}}
+    ]},
+    {"id":"P34","focus":"拒绝推荐后接受反馈","setup":{"memory":[],"visible_product_ids":["store_01"]},"turns":[
+      {"user":"这个塑料收纳盒不喜欢。","expect":{"mood":"frustrated","intent":"feedback","purchase_intent":"uncertain","policy":"acknowledge_and_redirect","must":["先接受不喜欢","换材质方向"],"forbid":["再强调 store_01 的优点"]}},
+      {"user":"竹子的可以看看。","expect":{"mood":"curious","intent":"search","purchase_intent":"uncertain","policy":"search_with_constraints","must":["转向 store_02","保留收纳类别"],"forbid":["回到塑料款"]}}
+    ]},
+    {"id":"P35","focus":"犹豫时给比较而非施压","setup":{"memory":[],"visible_product_ids":["lamp_01","lamp_04"]},"turns":[
+      {"user":"两个都还行，我拿不定主意。","expect":{"mood":"hesitant","intent":"compare","purchase_intent":"uncertain","policy":"compare_visible","must":["给出价格、材质和使用方式的取舍","允许暂缓决定"],"forbid":["替用户宣布购买"]}},
+      {"user":"先不决定了。","expect":{"mood":"neutral","intent":"stop_selling","purchase_intent":"none","policy":"respect_no_purchase","must":["接受暂停决定"],"forbid":["制造错失恐惧"]}}
+    ]},
+    {"id":"P36","focus":"情绪变化后更新策略","setup":{"memory":[],"visible_product_ids":["lamp_01"]},"turns":[
+      {"user":"今天没精神，想轻松看看。","expect":{"mood":"bored","intent":"explore","purchase_intent":"none","policy":"light_exploration","must":["轻量回应","少提问"],"forbid":["直接催购"]}},
+      {"user":"这盏灯还不错，想认真比较一下。","expect":{"mood":"curious","intent":"compare","purchase_intent":"uncertain","policy":"clarify_once","must":["识别状态由闲逛转为比较","若缺比较对象至多问一个问题"],"forbid":["继续只按无聊状态回答"]}}
+    ]}
+  ]
+}

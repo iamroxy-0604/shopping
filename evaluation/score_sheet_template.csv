@@ -1,0 +1,5 @@
+scenario_id,group,run_id,rater_id,mood_intent_0_2,policy_0_2,memory_0_2,selection_0_2,grounding_0_2,persona_0_2,exploration_0_2,hard_fail_codes,evidence_refs,notes
+,A,,,,,,,,,,,,
+,B,,,,,,,,,,,,
+,C,,,,,,,,,,,,
+,D,,,,,,,,,,,,
