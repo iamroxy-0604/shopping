@@ -6,6 +6,7 @@ import { parseShoppingQuery } from './query.mjs';
 import { searchTaobao } from './taobao.mjs';
 import { chat } from './agent.mjs';
 import { logEvent } from './logger.mjs';
+import { chatViaWit, isWitEnabled } from './wit-bridge.mjs';
 
 loadDotEnv();
 const port = Number(process.env.PORT || 3000);
@@ -47,12 +48,14 @@ function readBody(req) {
 
 const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') return sendJson(res, 204, {});
-  if (req.method === 'GET' && req.url === '/health') return sendJson(res, 200, { ok: true, service: 'taobao-search' });
+  if (req.method === 'GET' && req.url === '/health') return sendJson(res, 200, { ok: true, service: 'taobao-search', agentRuntime: isWitEnabled() ? 'wit3' : 'legacy' });
   if (req.method === 'GET' && serveStatic(res, req.url)) return;
   if (req.method === 'POST' && req.url === '/api/chat') {
     try {
       const body = JSON.parse(await readBody(req) || '{}');
-      const result = await chat({ sessionId: body.sessionId, message: body.message });
+      const result = isWitEnabled()
+        ? await chatViaWit({ sessionId: body.sessionId, message: body.message })
+        : await chat({ sessionId: body.sessionId, message: body.message });
       return sendJson(res, result.ok ? 200 : 502, result);
     } catch {
       return sendJson(res, 400, { ok: false, error: { code: 'INVALID_JSON', message: '请求体需要是合法 JSON' } });
