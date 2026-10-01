@@ -46,7 +46,10 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, age
             request = json.loads(body)
             if not isinstance(request, dict):
                 raise ValueError("JSON object required")
-            payload = await agent.chat(request.get("sessionId"), request.get("message"))
+            payload = await agent.chat(
+                request.get("sessionId"), request.get("message"), request.get("userId"),
+                new_conversation=request.get("newConversation", False),
+            )
             status = 200  # Node bridge relays application errors only for 2xx responses.
     except (ValueError, UnicodeError, json.JSONDecodeError, asyncio.IncompleteReadError, asyncio.LimitOverrunError):
         status, payload = 400, {"ok": False, "error": {"code": "INVALID_REQUEST", "message": "请求格式不正确"}}

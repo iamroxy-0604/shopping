@@ -2,9 +2,9 @@
 
 import asyncio
 import copy
-import json
 import os
 import math
+import re
 from collections import defaultdict
 from pathlib import Path
 from typing import Awaitable, Callable
@@ -12,15 +12,15 @@ from typing import Awaitable, Callable
 import httpx
 from wit import WitAgent
 from wit.loops.workflow import WorkflowGraph, WorkflowLoopComponent
-from wit.messages import SystemMessage, UserMessage
-from wit.models import MODEL, ModelRequest
+from wit.models import MODEL
 from wit.providers.openai import OpenAIModelComponent
 
+from .llm import interpret, narrative_plan
 from .memory import MemoryManager
-from .policy import forget_field, understand
+from .policy import forget_field, temporary_budget, understand, usual_budget
 
 Search = Callable[[str, dict], Awaitable[dict | list]]
-CATEGORY_EQUIVALENTS = {"桌面灯": ("桌面灯", "台灯"), "台灯": ("台灯", "桌面灯"), "腮红": ("腮红", "胭脂"), "耳机": ("耳机", "耳麦")}
+CATEGORY_EQUIVALENTS = {"桌面灯": ("桌面灯", "台灯"), "台灯": ("台灯", "桌面灯"), "腮红": ("腮红", "胭脂"), "耳机": ("耳机", "耳麦"), "餐桌": ("餐桌", "饭桌", "餐台")}
 STYLE_EQUIVALENTS = {"日系": ("日系", "日式"), "韩系": ("韩系", "韩式"), "北欧": ("北欧",), "法式": ("法式",)}
 STYLE_CONFLICTS = ("日系", "日式", "韩系", "韩式", "北欧", "欧式", "美式", "法式")
 
@@ -61,8 +61,8 @@ def normalize_product(raw: dict) -> dict | None:
         "source": copy.deepcopy(source) if isinstance(source, dict) else str(source or ""),
         "shopName": str(raw.get("shopName") or ""),
         "media": copy.deepcopy(media) if isinstance(media, dict) else {},
-        "facts": {"title": title, "price": price, "material": facts.get("material"), "color": facts.get("color"), "dimensions": facts.get("dimensions")},
-        "semantic": raw.get("semantic") if isinstance(raw.get("semantic"), dict) else {},
+        "facts": {"title": title, "price": price, "material": copy.deepcopy(facts.get("material")), "color": copy.deepcopy(facts.get("color")), "dimensions": copy.deepcopy(facts.get("dimensions"))},
+        "semantic": copy.deepcopy(raw.get("semantic")) if isinstance(raw.get("semantic"), dict) else {},
     }
 
 
@@ -71,6 +71,7 @@ def select_products(raw_items: list, preferences: dict) -> list:
     category = preferences.get("category", "")
     style = preferences.get("style", "")
     material = preferences.get("material", "")
+    dislikes = preferences.get("dislikes") or []
     seen = set()
     ranked = []
     for raw in raw_items:
@@ -78,17 +79,15 @@ def select_products(raw_items: list, preferences: dict) -> list:
         if not item or item["id"] in seen:
             continue
         title = item["title"]
+        if any(isinstance(dislike, str) and dislike.strip("感的 ") and dislike.strip("感的 ") in title for dislike in dislikes):
+            continue
         title_key = "".join(character for character in title.lower() if character.isalnum())[:32]
         if title_key in seen:
             continue
         if category == "餐桌":
-            if any(word in title for word in ("桌布", "桌垫", "桌旗", "桌巾", "桌罩", "餐垫", "台布", "装饰画", "挂画", "壁画", "背景墙", "贴纸", "花瓶", "摆件")):
+            if any(word in title for word in ("桌布", "桌垫", "桌旗", "桌巾", "桌罩", "餐垫", "台布", "装饰画", "挂画", "壁画", "背景墙", "贴纸", "花瓶", "摆件", "餐椅", "靠背椅", "扶手椅", "椅子", "座椅", "桌椅")):
                 continue
-            chair_positions = [title.find(word) for word in ("靠背椅", "餐椅", "椅子", "座椅", "扶手椅") if word in title]
-            table_positions = [title.find(word) for word in ("餐桌", "饭桌", "桌子", "餐台") if word in title]
-            if chair_positions and (not table_positions or min(chair_positions) < min(table_positions)):
-                continue
-        if budget is not None and item["price"] is not None and item["price"] > budget:
+        if budget is not None and (item["price"] is None or item["price"] > budget):
             continue
         category_match = bool(category and any(term in title for term in CATEGORY_EQUIVALENTS.get(category, (category,))))
         if category and not category_match:
@@ -100,6 +99,8 @@ def select_products(raw_items: list, preferences: dict) -> list:
         seen.add(title_key)
         style_tags = item["semantic"].get("style_tags") or []
         style_match = bool(style and (any(term in title for term in style_aliases) or style in style_tags))
+        if category == "餐桌" and style == "日系" and not style_match:
+            continue
         material_match = bool(material and (material in title or material in (item["facts"].get("material") or [])))
         score = int(category_match) * 3 + int(style_match) * 3 + int(material_match) * 2 + int(item["price"] is not None)
         reasons = []
@@ -112,37 +113,133 @@ def select_products(raw_items: list, preferences: dict) -> list:
         if budget is not None and item["price"] is not None:
             reasons.append(f"标价 ¥{item['price']:g}，在你 ¥{budget:g} 的预算内")
         item["matchReasons"] = reasons
-        item["recommendation"] = "，".join(reasons[1:]) + "。" if len(reasons) > 1 else "可以先看图片和商品详情，再判断是否合适。"
+        item["recommendation"] = grounded_reason(item, preferences)
         ranked.append((score, item))
     ranked.sort(key=lambda pair: -pair[0])
     return [item for _, item in ranked[:3]]
 
 
+def grounded_reason(item: dict, preferences: dict, angle: str | None = None) -> str:
+    """Render only evidence from title, semantic tags, price, and explicit facts."""
+    title = item["title"]
+    style = preferences.get("style")
+    material = preferences.get("material")
+    category = preferences.get("category")
+    budget = preferences.get("maxPrice")
+    tags = item.get("semantic", {}).get("style_tags") or []
+    style_ok = bool(style and (any(word in title for word in STYLE_EQUIVALENTS.get(style, (style,))) or style in tags))
+    material_fact = item.get("facts", {}).get("material") or []
+    material_ok = bool(material and (material in title or material in material_fact))
+    price_ok = budget is not None and item.get("price") is not None and item["price"] <= budget
+    category_ok = bool(category and any(word in title for word in CATEGORY_EQUIVALENTS.get(category, (category,))))
+    evidence = {
+        "material": material_ok,
+        "style": style_ok,
+        "price": price_ok,
+        "category": category_ok,
+        "image": True,
+    }
+    if not evidence.get(angle, False):
+        angle = next(key for key in ("material", "style", "price", "category", "image") if evidence[key])
+    if angle == "material":
+        origin = "材质字段列有" if material in material_fact else "标题提到"
+        reason = f"{origin}“{material}”，对应你提到的材质偏好。"
+    elif angle == "style":
+        origin = "风格标签" if style in tags else "标题"
+        reason = f"{origin}提到“{style}”，和你想看的风格方向一致。"
+    elif angle == "category":
+        reason = f"标题写着“{category}”，可以先看图片和规格。"
+    elif angle == "price":
+        reason = ""
+    else:
+        reason = "可以先看商品图片与详情，确认它是否符合你的需要。"
+    if price_ok:
+        reason += f"标价 ¥{item['price']:g}，在 ¥{budget:g} 预算内；实际成交价以商品页为准。"
+    return reason or "可以先看商品图片与详情，确认它是否符合你的需要。"
+
+
+def lead_message(lead: str | None, emotion: dict, items: list, preferences: dict) -> str:
+    """One state-specific acknowledgement and at most one next-step question."""
+    one = len(items) == 1
+    category = preferences.get("category")
+    style = preferences.get("style")
+    direction = "".join(str(part) for part in (style, category) if part) or "这个方向"
+    next_item = "想先看这款的哪项信息？" if one else "想先看哪一款的图片或详情？"
+    if emotion.get("mood") == "frustrated":
+        return f"抱歉，前面没贴近你的想法。这次按你新说的{direction}重新筛过。" + next_item
+    if emotion.get("mood") in ("bored", "stop_selling"):
+        return "只逛逛也很好，不用急着决定。" + ("想先看这款的图片吗？" if one else "哪款图片让你想多看一眼？")
+    if emotion.get("mood") == "budget_sensitive" or lead == "budget":
+        budget = preferences.get("maxPrice")
+        limit = f"¥{budget:g}" if isinstance(budget, (int, float)) else "你给的预算"
+        return f"预算上限是{limit}；看{direction}时，这里只保留标价在范围内的商品。" + ("想先核对这款的详情吗？" if one else "想先比较哪两款的价格？")
+    if emotion.get("purchase_intent") == "ready":
+        return f"你已经明确想买{direction}，先看这轮符合条件的商品。" + next_item
+    if lead == "gentle":
+        return f"先慢慢看{direction}，不用马上决定。" + ("这款的哪一点最想确认？" if one else "哪款更接近你想要的感觉？")
+    return f"先围绕{direction}看已知信息。" + next_item
+
+
 def compare_message(items: list, message: str) -> str:
     if not items:
         return "目前没有可比较的商品。你想先看哪一类？"
-    indexed = [(i + 1, x) for i, x in enumerate(items)]
-    if "第一款" in message:
-        indexed = indexed[:1]
-    elif "第二款" in message:
-        indexed = indexed[1:2]
-    elif "第三款" in message:
-        indexed = indexed[2:3]
+    if any(word in message for word in ("肤质", "黄皮", "显白", "美白", "护眼", "功效", "祛痘", "淡斑")):
+        return "仅凭商品标题和当前资料，无法判断肤质适配或实际功效；需要核对商品方的成分与说明。"
+    compare = bool(re.search(r"比较|对比|哪一?款|哪[个款].*(?:便宜|好)|这[两三几]款|怎么选|和.*怎么|两[个盏款]", message))
+    indexed = list(enumerate(items, 1))
+    if not compare:
+        number = next((n for word, n in (("第一款", 1), ("第二款", 2), ("第三款", 3), ("左边", 1), ("右边", 2), ("前者", 1), ("后者", 2)) if word in message), None)
+        if number is not None and number <= len(items):
+            indexed = [indexed[number - 1]]
+        elif "便宜的" in message:
+            priced = [row for row in indexed if row[1].get("price") is not None]
+            if priced:
+                indexed = [min(priced, key=lambda row: row[1]["price"])]
+        elif len(items) > 1:
+            matched = [row for row in indexed if any(term in message and term in row[1]["title"] for term in ("米白", "黑色", "白色", "竹制", "不锈钢", "原木"))]
+            indexed = matched[:1] or indexed[:1]
+    def field(item, key):
+        value = (item.get("facts") or {}).get(key)
+        if isinstance(value, list):
+            return "、".join(str(part) for part in value if part)
+        return str(value).strip() if value is not None else ""
+    if "原木感" in message and "依据" in message:
+        item = indexed[0][1]
+        material = field(item, "material")
+        return f"商品材质字段是{material}；“原木感”只是观感描述，不等于原木材质。" if material else "目前没有材质依据；“原木感”只是观感描述，不能当作材质事实。"
+    if "小户型" in message and not any(field(item, "dimensions") for _, item in indexed):
+        return f"这{len(indexed)}款目前都缺少可核对的尺寸，不能只凭图片判断哪款更适合小户型。你方便说一下餐桌位置的长宽吗？"
     parts = []
     for i, item in indexed:
-        price_text = f"，标价 ¥{item['price']:g}" if item.get("price") is not None else "，价格待确认"
-        facts = item.get("facts") or {}
         attributes = []
-        if "材质" in message and facts.get("material"):
-            material = facts["material"]
-            attributes.append("材质 " + "、".join(material if isinstance(material, list) else [str(material)]))
-        if "颜色" in message and facts.get("color"):
-            color = facts["color"]
-            attributes.append("颜色 " + "、".join(color if isinstance(color, list) else [str(color)]))
-        if "尺寸" in message and facts.get("dimensions"):
-            attributes.append("尺寸 " + str(facts["dimensions"]))
-        parts.append(f"第{i}款“{item['title']}”{price_text}" + ("，" + "，".join(attributes) if attributes else ""))
-    return "根据现有商品信息，" + "；".join(parts) + "。未列出的属性需要以商品详情为准。"
+        if "价格" in message or "标价" in message or "便宜" in message or compare or "夹具" in message:
+            attributes.append(f"标价 ¥{item['price']:g}" if item.get("price") is not None else "价格未知")
+        for key, label, keywords in (("material", "材质", ("材质", "什么做的")), ("color", "颜色", ("颜色", "色")), ("dimensions", "尺寸", ("尺寸", "多大"))):
+            if any(word in message for word in keywords) or (compare and key in ("material", "color") and field(item, key)):
+                value = field(item, key)
+                attributes.append(f"{label} {value}" if value else f"{label}未知（当前商品信息未提供）")
+        if "现货" in message or "库存" in message:
+            attributes.append("库存/现货信息未知，当前商品资料没有实时库存")
+        if "降价" in message or "促销" in message:
+            attributes.append("后续是否降价/促销未知，无法预测")
+        if "保温" in message:
+            attributes.append("保温时长未知，当前资料未提供测试数据")
+        if "链接" in message or "来源" in message:
+            source = item.get("source")
+            link = item.get("promotionUrl") or (source.get("url") if isinstance(source, dict) else "")
+            attributes.append(f"商品链接：{link}" if link else "商品来源链接未知，当前资料未提供")
+        if "适合" in message and "风" in message:
+            material, color = field(item, "material"), field(item, "color")
+            attributes.append("这只是风格判断，依据是" + "、".join(x for x in (f"标题“{item['title']}”", f"材质{material}" if material else "", f"颜色{color}" if color else "") if x))
+        if not attributes:
+            attributes.append("可核对标题和商品详情，其他属性尚未确认")
+        parts.append(f"第{i}款“{item['title']}”：" + "，".join(attributes))
+    if compare and "便宜" in message:
+        priced = [(i, x["price"]) for i, x in indexed if x.get("price") is not None]
+        if len(priced) >= 2:
+            cheapest = min(priced, key=lambda row: row[1])
+            parts.append(f"按当前标价，第{cheapest[0]}款更便宜；实际成交价以商品页为准")
+    return "根据现有商品信息，" + "；".join(parts) + "。"
 
 
 class ShoppingAgent:
@@ -156,7 +253,7 @@ class ShoppingAgent:
                 model=os.environ["LLM_MODEL"],
                 api_key=os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY"),
                 base_url=os.getenv("LLM_BASE_URL", "https://api.openai.com/v1"),
-                api="chat.completions", timeout=12.0, max_retries=0,
+                api="chat.completions", timeout=6.0, max_retries=0,
             )
         if model is not None:
             self.agent.install(model, required=True)
@@ -174,24 +271,69 @@ class ShoppingAgent:
     async def __aexit__(self, *_):
         await self.agent.stop()
 
-    async def chat(self, session_id: str, message: str) -> dict:
+    async def chat(self, session_id: str, message: str, user_id: str | None = None, *, new_conversation: bool = False) -> dict:
         if not isinstance(session_id, str) or not session_id.strip() or len(session_id) > 128:
             raise ValueError("sessionId must be a nonempty string of at most 128 characters")
+        if user_id is None:
+            user_id = session_id  # Compatibility for callers that only send sessionId.
+        if not isinstance(user_id, str) or not user_id.strip() or len(user_id) > 128:
+            raise ValueError("userId must be a nonempty string of at most 128 characters")
         if not isinstance(message, str) or len(message) > 4000:
             raise ValueError("message must be a string of at most 4000 characters")
-        async with self._locks[session_id]:
-            result = await self.agent.invoke({"sessionId": session_id, "message": message.strip()})
+        if type(new_conversation) is not bool:
+            raise ValueError("newConversation must be a boolean")
+        async with self._locks[user_id]:
+            if new_conversation:
+                self.memory.reset_session(session_id, user_id)
+            result = await self.agent.invoke({"sessionId": session_id, "userId": user_id, "message": message.strip()})
             return result.output.output
 
     def _load(self, ctx):
         request = ctx.input
         ctx.state["session_id"] = request["sessionId"]
+        ctx.state["user_id"] = request["userId"]
         ctx.state["message"] = request["message"]
-        ctx.state["memory"] = self.memory.load(request["sessionId"])
+        ctx.state["memory"] = self.memory.load(request["sessionId"], request["userId"])
 
-    def _plan(self, ctx):
-        preference, emotion, policy = understand(ctx.state["message"], ctx.state["memory"])
+    async def _plan(self, ctx):
+        state = ctx.state
+        durable = copy.deepcopy(state["memory"]["preferences"])
+        temporary = copy.deepcopy(state["memory"].get("temporary", {}))
+        budget = temporary_budget(state["message"])
+        if usual_budget(state["message"]):
+            temporary.pop("maxPrice", None)
+        elif budget is not None:
+            temporary["maxPrice"] = budget
+        elif re.search(r"(?:预算|不超过|低于|少于|控制在|最多)\D{0,5}\d+", state["message"]):
+            temporary.pop("maxPrice", None)
+        model_parse = {}
+        try:
+            model = ctx.invocation.component_context.get(MODEL)
+            model_parse = await interpret(
+                model, ctx.invocation, state["message"],
+                state["memory"]["preferences"], bool(state["memory"]["current_items"]),
+            )
+        except LookupError:
+            pass
+        working_memory = {**state["memory"], "preferences": {**durable, **temporary}}
+        preference, emotion, policy = understand(state["message"], working_memory, model_parse)
+        forgotten = forget_field(state["message"])
+        if forgotten in ("all", "maxPrice"):
+            temporary.pop("maxPrice", None)
+        if usual_budget(state["message"]):
+            if "maxPrice" in durable:
+                preference["maxPrice"] = durable["maxPrice"]
+            else:
+                preference.pop("maxPrice", None)
+        durable_preferences = copy.deepcopy(preference)
+        if "maxPrice" in temporary:
+            if "maxPrice" in durable:
+                durable_preferences["maxPrice"] = durable["maxPrice"]
+            else:
+                durable_preferences.pop("maxPrice", None)
         ctx.state["preferences"] = preference
+        ctx.state["durable_preferences"] = durable_preferences
+        ctx.state["temporary"] = temporary
         ctx.state["emotion"] = emotion
         ctx.state["policy"] = policy
 
@@ -228,8 +370,9 @@ class ShoppingAgent:
                 state["items"] = select_products(candidates, prefs)
                 if len(state["items"]) >= 3:
                     break
-        except (httpx.HTTPError, OSError, TimeoutError, ValueError):
-            state["search_error"] = "商品搜索暂时不可用，请稍后重试"
+        except Exception:
+            if not state["items"]:
+                state["search_error"] = "商品搜索暂时不可用，请稍后重试"
 
     async def _reply(self, ctx):
         state = ctx.state
@@ -245,35 +388,43 @@ class ShoppingAgent:
         elif action in ("compare_current", "current_detail"):
             message, kind = compare_message(state.get("current_items", []), state["message"]), "comparison"
         elif action == "explore":
-            message, kind = "可以只逛逛，不急着决定。想从暖光、桌面收纳或小摆件里看哪个方向？", "question"
+            if state["emotion"]["mood"] == "stop_selling":
+                opening = "这盏灯先收藏着，今天不考虑购买。" if "收藏" in state["message"] else "好，今天先不考虑购买。"
+                message = opening + "想聊聊搭配感觉，还是先看看别的方向？"
+            elif "累" in state["message"] or "不想做选择" in state["message"]:
+                message = "累了就先不做选择，随手逛逛就好。想看温暖一点的氛围，还是清爽一点的？"
+            elif "搭配参考" in state["message"]:
+                message = "明白，现在只是做搭配参考，不用急着定下来。想先对照颜色，还是材质？"
+            else:
+                message = "无聊时随便看看也挺好，不用先定预算。想从暖光台灯、桌面收纳还是小摆件开始？"
+            kind = "question"
         elif action == "change_direction":
-            message, kind = "明白，这一轮没有贴近你的感觉。换个方向吧：你想试试不同风格，还是换一个品类？", "question"
+            message, kind = "抱歉，这个方向没对上你的感觉。想先换材质，还是换个品类？", "question"
         elif action == "clarify":
-            message, kind = "可以。你想先看哪一类？比如台灯、收纳或耳机。", "question"
+            if any(word in state["message"] for word in ("第一款", "第二款", "第三款", "上一轮", "刚才那", "这几款", "那几款", "这款", "那款", "这个商品", "它的", "它是", "它有", "它呢")):
+                message, kind = "这是新的对话，我没有把上一轮商品带过来。你可以说说想看的品类，我再帮你找。", "question"
+            else:
+                message, kind = "可以。你想先看哪一类？比如台灯、收纳或耳机。", "question"
         elif state.get("search_error"):
             message, kind = state["search_error"], "error"
         elif not state["items"]:
-            message, kind = "这轮没有找到符合条件的商品。可以换个品类或调整预算。", "results"
+            message, kind = "按这轮条件暂时没有合适商品。要换个关键词，还是调整预算？", "results"
         else:
-            lead = "明白，上一轮不太合适。我按新方向挑了几款。" if state["emotion"]["mood"] == "frustrated" else "我按你说的条件挑了几款，先看看图片和已知信息。"
-            if state["emotion"]["mood"] != "frustrated":
-                try:
-                    model = ctx.invocation.component_context.get(MODEL)
-                    options = (lead, "这几款可以先放在一起看看。", "慢慢看，合适再继续聊。")
-                    result = await asyncio.wait_for(model.complete(ModelRequest(messages=(
-                        SystemMessage("你是耐心、不催单的生活方式导购。只返回数字 0、1 或 2，不要添加其他内容。"),
-                        UserMessage(json.dumps({"user": state["message"], "emotion": state["emotion"], "options": options}, ensure_ascii=False)),
-                    )), ctx.invocation), timeout=13)
-                    choice = result.final_text.strip()
-                    if choice in ("0", "1", "2"):
-                        lead = options[int(choice)]
-                except Exception:
-                    pass
-            message, kind = lead, "results"
+            plan = {}
+            try:
+                model = ctx.invocation.component_context.get(MODEL)
+                plan = await narrative_plan(model, ctx.invocation, state["message"], state["emotion"], state["items"])
+            except Exception:
+                pass
+            for item in state["items"]:
+                item["recommendation"] = grounded_reason(
+                    item, prefs, plan.get("reasons", {}).get(item["id"])
+                )
+            message, kind = lead_message(plan.get("lead"), state["emotion"], state["items"], prefs), "results"
         state["response"] = {
             "ok": kind != "error", "type": kind, "message": message,
             "items": copy.deepcopy(state["items"]) if kind == "results" else [],
-            "memory": {"preferences": {**prefs, "memoryTags": [str(prefs[k]) for k in ("style", "material", "category", "scene") if prefs.get(k)]}, "turns": state["memory"].get("turns", 0) + 1, "currentRecommendationCount": 0 if action == "forget" and forget_field(state["message"]) == "all" else len(state["items"] or state["memory"].get("current_items", []))},
+            "memory": {"preferences": {**copy.deepcopy(prefs), "memoryTags": [str(prefs[k]) for k in ("style", "material", "category", "scene") if prefs.get(k)]}, "turns": state["memory"].get("turns", 0) + 1, "currentRecommendationCount": 0 if action == "forget" and forget_field(state["message"]) == "all" else len(state["items"] or state["memory"].get("current_items", []))},
             "emotion": copy.deepcopy(state["emotion"]), "policy": copy.deepcopy(state["policy"]),
         }
         if kind == "error":
@@ -282,14 +433,16 @@ class ShoppingAgent:
     def _save(self, ctx):
         state = ctx.state
         data = state["memory"]
-        if state["policy"]["action"] == "forget" and forget_field(state["message"]) == "all":
+        forget_all = state["policy"]["action"] == "forget" and forget_field(state["message"]) == "all"
+        if forget_all:
             data["current_items"] = []
             data["last_query"] = ""
             data["feedback"] = []
-        data["preferences"] = copy.deepcopy(state["preferences"])
+        data["preferences"] = copy.deepcopy(state["durable_preferences"])
+        data["temporary"] = copy.deepcopy(state["temporary"])
         data["emotion"] = copy.deepcopy(state["emotion"])
         data["turns"] = data.get("turns", 0) + 1
-        if "收藏" in state["message"] or "不喜欢" in state["message"]:
+        if not forget_all and ("收藏" in state["message"] or "不喜欢" in state["message"]):
             feedback_type = "saved" if "收藏" in state["message"] else "disliked"
             index = next((i for token, i in (("第一款", 0), ("第二款", 1), ("第三款", 2)) if token in state["message"]), None)
             current_items = data.get("current_items", [])
@@ -298,5 +451,8 @@ class ShoppingAgent:
         if state["policy"]["action"] == "search" and not state.get("search_error"):
             data["current_items"] = copy.deepcopy(state["items"])
             data["last_query"] = state.get("query", "")
-        self.memory.save(state["session_id"], data)
+        self.memory.save(
+            state["session_id"], data, state["user_id"],
+            forget_all=forget_all,
+        )
         return state["response"]

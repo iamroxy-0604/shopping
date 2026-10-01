@@ -13,12 +13,20 @@ In another terminal, start the existing Node backend, then test:
 
 ```powershell
 Invoke-RestMethod -Uri http://127.0.0.1:8765/health
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8765/internal/wit/chat -ContentType 'application/json' -Body '{"sessionId":"demo-1","message":"想找100元以内的日系台灯"}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8765/internal/wit/chat -ContentType 'application/json' -Body '{"userId":"visitor-1","sessionId":"demo-1","message":"想找100元以内的日系台灯"}'
 ```
 
-Environment: `WIT_PORT` (default `8765`), `WIT_PRODUCT_URL`, `WIT_MEMORY_DB` (default `wit_agent/data/memory.sqlite3`). `WIT_FRAMEWORK_PATH` adds the external Wit source to Python's import path without writing into it. An equivalent `PYTHONPATH='D:\chrome download\wit-main\wit-main;.'` also works. Set `LLM_MODEL` plus `LLM_API_KEY` (or `OPENAI_API_KEY`) to enable Wit `OpenAIModelComponent(api="chat.completions")`; `LLM_BASE_URL` is an optional API root. Secrets stay in environment variables. With no model, or if a configured model fails during a turn, deterministic replies still work. A configured model selects one of three prewritten safe openings and cannot add unsupported product claims.
+Environment: `WIT_PORT` (default `8765`), `WIT_PRODUCT_URL`, `WIT_MEMORY_DB` (default `wit_agent/data/memory.sqlite3`). `WIT_FRAMEWORK_PATH` adds the external Wit source to Python's import path without writing into it. An equivalent `PYTHONPATH='D:\chrome download\wit-main\wit-main;.'` also works. Set `LLM_MODEL` plus `LLM_API_KEY` (or `OPENAI_API_KEY`) to enable Wit `OpenAIModelComponent(api="chat.completions")`; `LLM_BASE_URL` is an optional API root. Secrets stay in environment variables.
 
-Response shape: `{ok,type,message,items,memory,emotion,policy}`. `items` contains at most three UI-compatible flat product fields plus `facts` and `semantic`; `memory.preferences` is compatible with the existing rail. Session preferences and current products persist in SQLite across process restarts. User corrections overwrite preferences; “忘记风格/预算/所有记忆” removes them. Comparison and current-product questions reuse saved results without a new search.
+Request: `{userId,sessionId,message,newConversation?}`. `userId` is optional for compatibility and defaults to `sessionId`; send a stable `userId` with each new `sessionId` to carry preferences into a new conversation. A new session starts without current products. `newConversation:true` clears the current session's product context while retaining that user's preferences. Requests such as “忘记风格/预算/所有记忆” delete the relevant user memory; “忘记所有记忆” also clears that user's saved session contexts. The SQLite store migrates legacy session records when accessed with their original sessionId.
+
+Explicit dislikes such as “不喜欢黑色金属感” are saved as negative preferences and matching product titles are excluded. A budget explicitly scoped to “这次/本次” is a session-only override; “按我平常预算” clears it, and another session sees the durable budget. This is a deliberately narrow language rule: ambiguous budget changes are treated as ordinary preferences rather than guessed to be temporary.
+
+Response shape: `{ok,type,message,items,memory,emotion,policy}`. `items` contains at most three UI-compatible flat product fields plus `facts` and `semantic`; `memory.preferences` is compatible with the existing rail. Follow-ups about current products reuse the same session snapshot without a new search. Without current products, references such as “第一款” or “这款” ask for a new category instead of searching from an earlier session.
+
+The model may parse explicit user constraints and durable preferences, and select a gentle response lead and one evidence angle per product. Unsupported or malformed model output falls back to deterministic behavior. Product IDs, prices, materials and all card facts come from the search result. Recommendation sentences are rendered only from structured title, price, semantic style tags and explicit facts; the model cannot write efficacy, skin-tone suitability, stock or other unverified claims. For “日系餐桌”, chairs, tablecloths, wall art, accessories and conflicting styles such as 北欧 are excluded. Later searches seek up to three qualifying tables; if only one or two qualify, only those are returned.
+
+Current-product questions and comparisons never trigger another search. Missing inventory, dimensions, material, future promotions, or performance data are reported as unknown rather than inferred from the title. Vague requests such as “桌上的东西” ask for a category before searching.
 
 Tests:
 
@@ -27,4 +35,4 @@ $env:PYTHONPATH='D:\chrome download\wit-main\wit-main;.'
 .venv\Scripts\python.exe -m pytest -q wit_agent/tests
 ```
 
-The existing Node bridge should set `WIT_AGENT_URL=http://127.0.0.1:8765` and forward `{sessionId,message}` to this local endpoint.
+The existing Node bridge should set `WIT_AGENT_URL=http://127.0.0.1:8765`. At the time of this change it forwards only `{sessionId,message}`; PM must also forward a stable `userId` for cross-session preferences in the public UI. Until then, each session works in compatibility mode and remains isolated.
