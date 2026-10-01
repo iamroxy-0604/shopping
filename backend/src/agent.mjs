@@ -50,8 +50,8 @@ function scoreAndSelect(items, parsed, session, diagnostics = []) {
     const categoryScore = category && title.includes(category) ? 35 : 0;
     const keywordScore = Math.min(25, terms.filter((term) => title.includes(term)).length * 12);
     const styleScore = style ? Math.min(20, styleTerms.filter((term) => title.includes(term)).length * 10) : 10;
-    const price = Number(item.price);
-    const priceScore = budget && Number.isFinite(price) ? (price <= budget ? 10 : -15) : 0;
+    const price = item.price === null || item.price === undefined || item.price === '' ? null : Number(item.price);
+    const priceScore = budget && price !== null && Number.isFinite(price) ? (price <= budget ? 10 : -15) : 0;
     const qualityScore = Math.min(10, (Number(item.sales) > 0 ? 5 : 0) + (item.coupon ? 2 : 0) + (item.shopName ? 3 : 0));
     const reasons = [];
     if (categoryScore) reasons.push(`符合${parsed.extracted.category || session.preferences.category}`);
@@ -188,7 +188,7 @@ export async function chat({ sessionId = 'anonymous', message, search = searchTa
     const parts = [];
     if (parsed.extracted.style) parts.push(`这款是${parsed.extracted.style}风格`);
     if (parsed.extracted.category) parts.push(`适合想找${parsed.extracted.category}的人`);
-    if (session.preferences.maxPrice && Number(item.price) <= session.preferences.maxPrice) parts.push(`价格也在${session.preferences.maxPrice}元预算内`);
+    if (session.preferences.maxPrice && item.price !== null && item.price !== undefined && item.price !== '' && Number(item.price) <= session.preferences.maxPrice) parts.push(`价格也在${session.preferences.maxPrice}元预算内`);
     return parts.slice(0, 2).join('，') || '和你这次的搜索方向比较贴合';
   };
   selectedItems = selectedItems.map((item) => ({ ...item, recommendation: fallbackReasons(item) }));

@@ -127,3 +127,16 @@ test('严格筛选不足三款时扩展类目搜索补齐三款', async () => {
   assert.deepEqual(result.items.map((item) => item.id).sort(), ['table-1', 'table-2', 'table-3']);
   resetSession(sessionId);
 });
+
+test('价格未知的商品不能被说成符合预算', async () => {
+  const sessionId = 'unknown-price-test';
+  resetSession(sessionId);
+  const result = await chat({
+    sessionId,
+    message: '我想找 100 元以内的日系桌面灯',
+    search: async () => ({ ok: true, items: [{ id: 'unknown-1', title: '日系桌面灯', price: null }] })
+  });
+  assert.equal(result.items[0].price, null);
+  assert.doesNotMatch(result.items[0].recommendation, /价格也在100元预算内/);
+  resetSession(sessionId);
+});
