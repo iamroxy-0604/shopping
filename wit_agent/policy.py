@@ -3,7 +3,9 @@
 import re
 from dataclasses import asdict, dataclass
 
-STYLES = ("日系", "韩系", "北欧", "法式", "奶油风", "原木", "工业风", "极简", "简约", "复古", "低饱和")
+PRIMARY_STYLES = ("日系", "韩系", "北欧", "法式", "奶油风", "工业风", "极简", "简约", "复古")
+STYLES = (*PRIMARY_STYLES, "原木", "低饱和")
+MATERIALS = ("原木", "实木", "竹", "金属", "玻璃", "陶瓷")
 SCENES = ("出租屋", "宿舍", "桌面", "卧室", "客厅", "办公室", "通勤", "旅行", "户外")
 CATEGORIES = ("桌面灯", "台灯", "收纳盒", "收纳", "餐桌", "书桌", "椅子", "腮红", "口红", "耳机", "衣服", "包", "香薰", "摆件", "护肤品")
 
@@ -31,9 +33,21 @@ class GuidePolicy:
 def extract_updates(text: str) -> dict:
     updates = {}
     for field, words in (("style", STYLES), ("scene", SCENES), ("category", CATEGORIES)):
-        found = max((word for word in words if word in text), key=lambda word: text.rfind(word), default=None)
+        matches = [(text.rfind(word), word) for word in words if word in text]
+        if field == "style":
+            explicit = [(index, word) for index, word in matches if word in PRIMARY_STYLES]
+            allowed = [(index, word) for index, word in explicit if not re.search(r"不喜欢|不要|排除|不是", text[max(0, index - 5):index])]
+            matches = allowed or (explicit if not allowed and not matches else matches)
+            if allowed:
+                matches = allowed
+            found = (max(matches) if re.search(r"改成|换成|现在喜欢", text) else min(matches))[1] if matches else None
+        else:
+            found = max(matches)[1] if matches else None
         if found:
             updates[field] = found
+    material = next((word for word in MATERIALS if word in text), None)
+    if material:
+        updates["material"] = material
     budget = re.search(r"(?:预算|不超过|低于|少于|控制在|最多)\D{0,5}(\d+(?:\.\d+)?)\s*元?", text)
     budget = budget or re.search(r"(\d+(?:\.\d+)?)\s*元\s*(?:以内|以下)", text)
     if budget:
@@ -43,7 +57,7 @@ def extract_updates(text: str) -> dict:
         if match:
             candidate = match[1]
             candidate = re.sub(r"\d+(?:\.\d+)?\s*元\s*(?:以内|以下)?|预算|不超过|低于|少于|控制在|最多", "", candidate)
-            for word in (*STYLES, *SCENES):
+            for word in (*STYLES, *SCENES, *MATERIALS):
                 candidate = candidate.replace(word, "")
             candidate = re.sub(r"^(个|一款|一些|点|的)+|(?:的|商品|东西|有吗)$", "", candidate).strip()
             if candidate and candidate not in ("随便", "什么", "好物") and len(candidate) <= 12:
@@ -82,7 +96,7 @@ def understand(text: str, memory: dict) -> tuple[dict, dict, dict]:
     else:
         preference.update(updates)
     current = bool(memory.get("current_items"))
-    stop = bool(re.search(r"不想买|先不买|别推销|不要推销|只想逛|纯逛", text))
+    stop = bool(re.search(r"不想买|不打算买|暂时不买|先不买|别推销|不要推销|只想.{0,4}逛|纯逛", text))
     bored = bool(re.search(r"无聊|随便逛|随便看看|找灵感", text))
     frustrated = bool(re.search(r"都不喜欢|不满意|太差|失望|不合适", text))
     compare = current and bool(re.search(r"比较|对比|哪一款|哪款|哪个好|哪个更|这几款|第一款|第二款|第三款", text))

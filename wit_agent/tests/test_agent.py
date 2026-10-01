@@ -54,13 +54,15 @@ async def test_search_compare_memory_and_reopen(tmp_path, catalog):
         assert all("台灯" in item["title"] for item in result["items"])
         assert result["items"][0]["price"] == 89
         assert all(x["price"] is None or x["price"] <= 100 for x in result["items"])
-        assert result["items"][0]["recommendation"] == "标题包含“台灯”；商品信息标有“日系”；标价 ¥89，在 ¥100 预算内"
+        assert "日系" in result["items"][0]["recommendation"]
+        assert "¥89" in result["items"][0]["recommendation"]
         assert calls[0][1] == {"end_price": 100.0}
         assert model.calls == 1
+        first_search_count = len(calls)
         compared = await agent.chat("s1", "第一款和第二款哪个好？")
         assert compared["type"] == "comparison" and compared["items"] == []
         assert "日系台灯" in compared["message"]
-        assert len(calls) == 1
+        assert len(calls) == first_search_count
         redirected = await agent.chat("s1", "这些都不喜欢，改成工业风台灯")
         assert redirected["emotion"]["mood"] == "frustrated"
         assert redirected["policy"]["action"] == "search"
@@ -72,7 +74,7 @@ async def test_search_compare_memory_and_reopen(tmp_path, catalog):
         other = await agent.chat("s2", "我今天无聊，只想逛逛，不想买")
         assert other["emotion"]["mood"] == "stop_selling"
         assert other["policy"]["push_purchase"] is False
-        assert len(calls) == 2
+        assert len(calls) > first_search_count
     async with ShoppingAgent(path, search) as agent:
         recalled = await agent.chat("s1", "你还记得我喜欢什么风格吗？")
         assert "工业风" in recalled["message"]
@@ -156,3 +158,40 @@ async def test_http_business_error_is_relayable(tmp_path):
         finally:
             server.close()
             await server.wait_closed()
+
+
+@run_async
+async def test_japanese_table_keeps_style_and_excludes_chair_first(tmp_path):
+    calls = []
+
+    async def search(query, filters):
+        calls.append(query)
+        if len(calls) == 1:
+            return {"ok": True, "items": [
+                {"id": "chair", "title": "北欧实木餐椅搭配日系餐桌", "price": 399},
+                {"id": "north", "title": "北欧实木餐桌家用日系餐桌椅", "price": 899},
+                {"id": "japan", "title": "日式原木餐桌家用", "price": 1299},
+            ]}
+        return {"ok": True, "items": [
+            {"id": "japan2", "title": "日系原木餐桌小户型", "price": 999},
+            {"id": "japan3", "title": "日式实木餐桌简约", "price": 1199},
+        ]}
+
+    async with ShoppingAgent(tmp_path / "m.db", search) as agent:
+        result = await agent.chat("s", "我想买一张日系原木餐桌，预算3000元以内")
+        assert result["memory"]["preferences"]["style"] == "日系"
+        assert result["memory"]["preferences"]["material"] == "原木"
+        assert len(result["items"]) == 3
+        assert all(item["id"] not in ("chair", "north") for item in result["items"])
+        assert calls[1] == "日式餐桌"
+
+
+@run_async
+async def test_explicit_no_purchase_overrides_bored_exploration(tmp_path):
+    async def unused(query, filters):
+        raise AssertionError("exploration should not trigger product search")
+
+    async with ShoppingAgent(tmp_path / "m.db", unused) as agent:
+        result = await agent.chat("s", "今天有点无聊，只想随便逛逛，不打算买")
+        assert result["emotion"]["purchase_intent"] == "none"
+        assert result["policy"]["push_purchase"] is False

@@ -21,6 +21,8 @@ from .policy import forget_field, understand
 
 Search = Callable[[str, dict], Awaitable[dict | list]]
 CATEGORY_EQUIVALENTS = {"桌面灯": ("桌面灯", "台灯"), "台灯": ("台灯", "桌面灯"), "腮红": ("腮红", "胭脂"), "耳机": ("耳机", "耳麦")}
+STYLE_EQUIVALENTS = {"日系": ("日系", "日式"), "韩系": ("韩系", "韩式"), "北欧": ("北欧",), "法式": ("法式",)}
+STYLE_CONFLICTS = ("日系", "日式", "韩系", "韩式", "北欧", "法式")
 
 
 async def product_api_search(query: str, filters: dict) -> dict:
@@ -47,7 +49,6 @@ def normalize_product(raw: dict) -> dict | None:
     except (TypeError, ValueError):
         price = None
     source = raw.get("source", "")
-    source_label = (source.get("name") or source.get("type")) if isinstance(source, dict) else source
     media = raw.get("media") or {}
     images = (media.get("images") or []) if isinstance(media, dict) else []
     image_url = raw.get("imageUrl") or (images[0].get("url") if images and isinstance(images[0], dict) else "")
@@ -57,8 +58,9 @@ def normalize_product(raw: dict) -> dict | None:
         "price": price,
         "imageUrl": str(image_url or ""),
         "promotionUrl": str(raw.get("promotionUrl") or ""),
-        "source": str(source_label or ""),
+        "source": copy.deepcopy(source) if isinstance(source, dict) else str(source or ""),
         "shopName": str(raw.get("shopName") or ""),
+        "media": copy.deepcopy(media) if isinstance(media, dict) else {},
         "facts": {"title": title, "price": price, "material": facts.get("material"), "color": facts.get("color"), "dimensions": facts.get("dimensions")},
         "semantic": raw.get("semantic") if isinstance(raw.get("semantic"), dict) else {},
     }
@@ -68,31 +70,51 @@ def select_products(raw_items: list, preferences: dict) -> list:
     budget = preferences.get("maxPrice")
     category = preferences.get("category", "")
     style = preferences.get("style", "")
+    material = preferences.get("material", "")
     seen = set()
     ranked = []
     for raw in raw_items:
         item = normalize_product(raw)
         if not item or item["id"] in seen:
             continue
-        seen.add(item["id"])
         title = item["title"]
+        title_key = "".join(character for character in title.lower() if character.isalnum())[:32]
+        if title_key in seen:
+            continue
+        if category == "餐桌":
+            if any(word in title for word in ("桌布", "桌垫", "桌旗", "桌巾", "桌罩", "餐垫", "台布")):
+                continue
+            chair_positions = [title.find(word) for word in ("靠背椅", "餐椅", "椅子", "座椅", "扶手椅") if word in title]
+            table_positions = [title.find(word) for word in ("餐桌", "饭桌", "桌子", "餐台") if word in title]
+            if chair_positions and (not table_positions or min(chair_positions) < min(table_positions)):
+                continue
         if budget is not None and item["price"] is not None and item["price"] > budget:
             continue
         category_match = bool(category and any(term in title for term in CATEGORY_EQUIVALENTS.get(category, (category,))))
         if category and not category_match:
             continue
+        style_aliases = STYLE_EQUIVALENTS.get(style, (style,)) if style else ()
+        style_position = min((title.find(term) for term in style_aliases if term and term in title), default=len(title) + 1)
+        conflicting_position = min((title.find(term) for term in STYLE_CONFLICTS if term not in style_aliases and term in title), default=len(title) + 1)
+        if style in STYLE_EQUIVALENTS and conflicting_position < style_position:
+            continue
+        seen.add(item["id"])
+        seen.add(title_key)
         style_tags = item["semantic"].get("style_tags") or []
-        style_match = bool(style and (style in title or style in style_tags))
-        score = int(category_match) * 3 + int(style_match) * 2 + int(item["price"] is not None)
+        style_match = bool(style and (any(term in title for term in style_aliases) or style in style_tags))
+        material_match = bool(material and (material in title or material in (item["facts"].get("material") or [])))
+        score = int(category_match) * 3 + int(style_match) * 3 + int(material_match) * 2 + int(item["price"] is not None)
         reasons = []
         if category_match:
-            reasons.append(f"标题包含“{category}”")
+            reasons.append(f"商品标题写的是{category}")
         if style_match:
-            reasons.append(f"商品信息标有“{style}”")
+            reasons.append(f"标注了{style}风格")
+        if material_match:
+            reasons.append(f"商品信息提到{material}")
         if budget is not None and item["price"] is not None:
-            reasons.append(f"标价 ¥{item['price']:g}，在 ¥{budget:g} 预算内")
+            reasons.append(f"标价 ¥{item['price']:g}，在你 ¥{budget:g} 的预算内")
         item["matchReasons"] = reasons
-        item["recommendation"] = "；".join(reasons) if reasons else "可以先看图片和商品详情，再判断是否合适"
+        item["recommendation"] = "，".join(reasons[1:]) + "。" if len(reasons) > 1 else "可以先看图片和商品详情，再判断是否合适。"
         ranked.append((score, item))
     ranked.sort(key=lambda pair: -pair[0])
     return [item for _, item in ranked[:3]]
@@ -185,18 +207,30 @@ class ShoppingAgent:
         if action != "search":
             return
         prefs = state["preferences"]
-        query = " ".join(str(prefs[k]) for k in ("style", "category", "scene") if prefs.get(k))
+        query = " ".join(str(prefs[k]) for k in ("style", "material", "category", "scene") if prefs.get(k))
         state["query"] = query
         filters = {"end_price": prefs["maxPrice"]} if prefs.get("maxPrice") is not None else {}
         try:
-            payload = await self.search(query, filters)
-            if isinstance(payload, dict) and not payload.get("ok", True):
-                error = payload.get("error")
-                state["search_error"] = str(error.get("message") if isinstance(error, dict) else "商品搜索暂时不可用")
-                return
-            raw = payload.get("items", []) if isinstance(payload, dict) else payload
-            state["items"] = select_products(raw if isinstance(raw, list) else [], prefs)
-        except (httpx.HTTPError, OSError, TimeoutError, ValueError) as exc:
+            queries = [query]
+            if prefs.get("style") == "日系" and prefs.get("category"):
+                queries.append("日式" + prefs["category"])
+            if prefs.get("category"):
+                queries.append(prefs["category"])
+            candidates = []
+            for attempt, candidate_query in enumerate(dict.fromkeys(queries)):
+                payload = await self.search(candidate_query, filters)
+                if isinstance(payload, dict) and not payload.get("ok", True):
+                    if attempt == 0:
+                        error = payload.get("error")
+                        state["search_error"] = str(error.get("message") if isinstance(error, dict) else "商品搜索暂时不可用")
+                    break
+                raw = payload.get("items", []) if isinstance(payload, dict) else payload
+                if isinstance(raw, list):
+                    candidates.extend(raw)
+                state["items"] = select_products(candidates, prefs)
+                if len(state["items"]) >= 3:
+                    break
+        except (httpx.HTTPError, OSError, TimeoutError, ValueError):
             state["search_error"] = "商品搜索暂时不可用，请稍后重试"
 
     async def _reply(self, ctx):
@@ -206,7 +240,7 @@ class ShoppingAgent:
         if action == "forget":
             message, kind = "好的，相关偏好记忆已经删除。", "question"
         elif action == "recall":
-            tags = [str(prefs[k]) for k in ("style", "category", "scene") if prefs.get(k)]
+            tags = [str(prefs[k]) for k in ("style", "material", "category", "scene") if prefs.get(k)]
             if prefs.get("maxPrice") is not None:
                 tags.append(f"预算 ¥{prefs['maxPrice']:g} 以内")
             message, kind = ("我记得你提过：" + "、".join(tags) + "。" if tags else "目前还没有记下明确偏好。"), "question"
@@ -241,7 +275,7 @@ class ShoppingAgent:
         state["response"] = {
             "ok": kind != "error", "type": kind, "message": message,
             "items": copy.deepcopy(state["items"]) if kind == "results" else [],
-            "memory": {"preferences": {**prefs, "memoryTags": [str(prefs[k]) for k in ("style", "category", "scene") if prefs.get(k)]}, "turns": state["memory"].get("turns", 0) + 1, "currentRecommendationCount": 0 if action == "forget" and forget_field(state["message"]) == "all" else len(state["items"] or state["memory"].get("current_items", []))},
+            "memory": {"preferences": {**prefs, "memoryTags": [str(prefs[k]) for k in ("style", "material", "category", "scene") if prefs.get(k)]}, "turns": state["memory"].get("turns", 0) + 1, "currentRecommendationCount": 0 if action == "forget" and forget_field(state["message"]) == "all" else len(state["items"] or state["memory"].get("current_items", []))},
             "emotion": copy.deepcopy(state["emotion"]), "policy": copy.deepcopy(state["policy"]),
         }
         if kind == "error":
