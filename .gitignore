@@ -9,3 +9,4 @@ backend/logs/*.log
 __pycache__/
 .pytest_cache/
 wit_agent/.data/
+evaluation/eval-run-*/
