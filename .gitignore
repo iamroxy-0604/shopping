@@ -5,3 +5,7 @@ node_modules/
 .DS_Store
 *.log
 backend/logs/*.log
+.venv/
+__pycache__/
+.pytest_cache/
+wit_agent/.data/
