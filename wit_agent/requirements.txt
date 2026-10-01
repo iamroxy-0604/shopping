@@ -1,0 +1,5 @@
+cryptography>=44,<45
+httpx>=0.28,<1
+jcs>=0.2.1,<1
+openai>=2.52,<3
+pytest>=8.4,<9
