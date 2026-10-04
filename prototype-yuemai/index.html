@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f7f8f5" />
+    <title>拾光 | 购物决策助手</title>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="phone-shell">
+      <header class="topbar">
+        <button class="icon-button" id="menuButton" aria-label="打开侧栏"><i class="ph ph-list" aria-hidden="true"></i></button>
+        <button class="brand" id="homeButton" aria-label="回到首页"><span class="brand-mark">拾</span><span>拾光</span></button>
+        <button class="icon-button" id="historyButton" aria-label="查看历史"><i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i></button>
+      </header>
+
+      <main id="app" class="content" aria-live="polite"></main>
+
+      <div class="bottom-dock">
+        <div class="quick-actions" id="quickActions">
+          <button class="quick-button primary" data-action="personal"><i class="ph ph-sparkle quick-glyph" aria-hidden="true"></i>个性化开启</button>
+          <button class="quick-button" data-action="compare"><i class="ph ph-link quick-glyph" aria-hidden="true"></i>链接比价</button>
+        </div>
+        <form class="composer" id="composer">
+          <button type="button" class="compose-add" aria-label="添加附件"><i class="ph ph-plus" aria-hidden="true"></i></button>
+          <input id="messageInput" autocomplete="off" placeholder="发送消息，或按住说话…" />
+          <button class="voice-button" type="submit" aria-label="发送"><i class="ph ph-arrow-up" aria-hidden="true"></i></button>
+        </form>
+        <div class="demo-note">演示数据，仅用于交互展示</div>
+      </div>
+
+      <div class="scrim" id="scrim"></div>
+      <aside class="side-panel" id="sidePanel" aria-label="侧栏">
+        <div class="side-head"><div class="side-logo"><span class="brand-mark">拾</span><strong>拾光</strong></div><button class="close-button" id="closeSide" aria-label="关闭侧栏"><i class="ph ph-x"></i></button></div>
+        <button class="new-chat" id="newChat"><i class="ph ph-plus"></i> 新对话</button>
+        <nav class="side-nav">
+          <button data-side="history"><i class="ph ph-clock-counter-clockwise"></i>历史对话 <small>3</small></button>
+          <button data-side="favorites"><i class="ph ph-heart"></i>收藏夹 <small id="favoriteCount">0</small></button>
+          <button data-side="compare"><i class="ph ph-arrows-left-right"></i>找同款 / 比价</button>
+        </nav>
+        <div class="side-history"><p>最近浏览</p><button class="history-item" data-history="防晒霜">适合军训的防晒霜 <small>刚刚</small></button><button class="history-item" data-history="通勤耳机">通勤降噪耳机 <small>昨天</small></button></div>
+        <div class="side-foot"><button><i class="ph ph-gear"></i> 偏好设置</button><span>v0.1 演示版</span></div>
+      </aside>
+    </div>
+    <script src="app.js"></script>
+  </body>
+</html>
