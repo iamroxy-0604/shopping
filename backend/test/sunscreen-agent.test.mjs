@@ -27,7 +27,7 @@ test('防晒任务按同一会话动态追问肤质和预算，再用条件筛�
   assert.equal(calls[0].query, '防晒霜 军训');
   assert.equal(calls[0].filters.start_price, 50);
   assert.equal(calls[0].filters.end_price, 100);
-  assert.match(result.message, /油皮适配请再查看/);
+  assert.match(result.message, /实际表现请再查看/);
   assert.doesNotMatch(result.items[0].recommendation, /结合油皮筛选/);
   assert.match(result.items[0].recommendation, /成分、评价或商品详情/);
   assert.match(result.summary, /油皮偏好/);
@@ -97,5 +97,28 @@ test('问卷尚未完成时不会发出补充问卷 completed 事件，零结果
   });
   assert.equal(complete.type, 'results');
   assert.match(complete.message, /没有返回符合条件的真实防晒霜/);
+  resetSession(sessionId);
+});
+
+test('结果 followup 会保存使用偏好、改变搜索词并按标题相关性排序', async () => {
+  const sessionId = 'sunscreen-preference-followup-test';
+  resetSession(sessionId);
+  const calls = [];
+  const search = async ({ query }) => {
+    calls.push(query);
+    return { ok: true, items: [
+      { id: 'generic', title: '高倍防晒霜', price: 60 },
+      { id: 'fresh', title: '清爽不黏防晒乳', price: 60 }
+    ] };
+  };
+  const initial = await chatStructured({ sessionId, message: '油皮，100元以内的军训防晒霜', search });
+  assert.equal(initial.type, 'results');
+  const followup = await chatStructured({ sessionId, message: '更在意清爽不黏', search });
+  assert.equal(followup.type, 'results');
+  assert.equal(followup.task.answers.preference.label, '清爽不黏');
+  assert.match(calls[1], /防晒霜 军训 清爽不黏/);
+  assert.equal(followup.items[0].id, 'fresh');
+  assert.match(followup.items[0].recommendation, /标题包含“清爽不黏”/);
+  assert.doesNotMatch(followup.items[0].recommendation, /保证|适合油皮|防水耐汗功效/);
   resetSession(sessionId);
 });

@@ -122,12 +122,20 @@ function sunscreenTaskSnapshot(session) {
   return { id: session.task.id, category: session.task.category, answers: { ...session.task.answers } };
 }
 
+function extractSunscreenPreference(text) {
+  if (/清爽|不黏|不粘/.test(text)) return { label: '清爽不黏', terms: ['清爽', '不黏', '不粘'] };
+  if (/防水|耐汗/.test(text)) return { label: '防水耐汗', terms: ['防水', '耐汗'] };
+  return null;
+}
+
 async function chatSunscreen({ session, sessionId, text, answer, search, onPhase }) {
   session.task ||= { id: `${sessionId}-sunscreen`, category: '防晒霜', answers: {} };
   const task = session.task;
   const phase = async (id, label, status) => { if (onPhase) await onPhase({ id, label, status }); };
   await phase('understand', '需求分析', 'running');
   const extracted = extractSunscreenAnswers(text);
+  const preference = extractSunscreenPreference(text);
+  if (preference) task.answers.preference = preference;
   if (/换一个预算|换预算|预算范围/.test(text)) delete task.answers.budget;
   if (answer?.questionId) {
     const expected = nextSunscreenQuestion(task);
@@ -152,7 +160,7 @@ async function chatSunscreen({ session, sessionId, text, answer, search, onPhase
   await phase('search', '商品搜索', 'running');
   const budgetMin = task.answers.budget?.min;
   const budget = task.answers.budget?.max;
-  const query = '防晒霜 军训';
+  const query = ['防晒霜', '军训', task.answers.preference?.label].filter(Boolean).join(' ');
   const filters = {
     ...(budgetMin !== null && budgetMin !== undefined ? { start_price: budgetMin } : {}),
     ...(budget !== null && budget !== undefined ? { end_price: budget } : {})
@@ -171,18 +179,29 @@ async function chatSunscreen({ session, sessionId, text, answer, search, onPhase
     if (budgetMin !== null && budgetMin !== undefined && price < budgetMin) return false;
     if (budget !== null && budget !== undefined && price > budget) return false;
     return true;
+  }).sort((a, b) => {
+    const terms = task.answers.preference?.terms || [];
+    const score = (item) => terms.reduce((total, term) => total + (String(item.title || '').includes(term) ? 1 : 0), 0);
+    return score(b) - score(a);
   });
   await phase('rank', '结果整理', 'running');
-  const selectedItems = sunscreenItems.slice(0, 3).map((item) => ({ ...item, recommendation: `按${task.answers.budget.label}和“防晒霜、军训”关键词选择；${task.answers.skinType.label}适配请查看成分、评价或商品详情。` }));
+  const preferenceText = task.answers.preference?.label;
+  const selectedItems = sunscreenItems.slice(0, 3).map((item) => {
+    const title = String(item.title || '');
+    const preferenceNote = preferenceText
+      ? `标题${task.answers.preference.terms.some((term) => title.includes(term)) ? '包含' : '未明确包含'}“${preferenceText}”，实际肤感或防护表现请查看详情。`
+      : `${task.answers.skinType.label}适配请查看成分、评价或商品详情。`;
+    return { ...item, recommendation: `按${task.answers.budget.label}和“防晒霜、军训”关键词选择；${preferenceNote}` };
+  });
   await phase('rank', '结果整理', 'completed');
   session.currentRecommendation = { query, items: selectedItems, createdAt: new Date().toISOString() };
   session.turns.push({ role: 'user', message: text, query, result: 'success' });
   const budgetText = task.answers.budget.label;
   const summary = selectedItems.length
-    ? `这次按${budgetText}和军训户外关键词整理了 ${selectedItems.length} 款结果；已记录你的${task.answers.skinType.label}偏好，适配性请结合成分、评价和详情判断。`
+    ? `这次按${budgetText}和军训户外关键词${preferenceText ? `，优先整理标题与“${preferenceText}”相关的` : ''} ${selectedItems.length} 款结果；已记录你的${task.answers.skinType.label}偏好，适配性请结合成分、评价和详情判断。`
     : '当前商品源没有返回符合条件的防晒霜；我没有用演示商品替代真实结果。';
   const message = selectedItems.length
-    ? `我按${budgetText}和军训防晒关键词筛选，先看这几款真实商品；${task.answers.skinType.label}适配请再查看成分、评价或详情。`
+    ? `我按${budgetText}和军训防晒关键词${preferenceText ? `，优先看标题与“${preferenceText}”相关的` : ''}筛选，先看这几款真实商品；实际表现请再查看成分、评价或详情。`
     : '当前商品源没有返回符合条件的真实防晒霜，我没有用演示商品替代搜索结果。';
   return { ok: true, type: 'results', message, items: selectedItems, summary, followups: ['更在意清爽不黏', '想看防水耐汗款', '换一个预算范围'], task: sunscreenTaskSnapshot(session), memory: getSessionSnapshot(sessionId) };
 }
