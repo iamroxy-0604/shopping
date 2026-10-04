@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { parseShoppingQuery } from './query.mjs';
 import { searchProductSource } from './product-source.mjs';
-import { chat, chatStructured } from './agent.mjs';
+import { chat, chatStructured, hasSunscreenTask } from './agent.mjs';
 import { logEvent } from './logger.mjs';
 import { chatViaWit, isWitEnabled } from './wit-bridge.mjs';
 import { isStructuredChatRequest } from './chat-routing.mjs';
@@ -88,7 +88,7 @@ const server = http.createServer(async (req, res) => {
     }
     sendSseHeaders(res);
     try {
-      const structured = /防晒|防晒霜|防晒乳|sunscreen/i.test(String(body.message || '')) || body.answer?.questionId;
+      const structured = isStructuredChatRequest({ ...body, hasSunscreenTask: hasSunscreenTask(body.sessionId) });
       const result = structured
         ? await chatStructured({
           sessionId: body.sessionId,

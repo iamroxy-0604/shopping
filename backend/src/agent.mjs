@@ -217,6 +217,10 @@ export function resetSession(sessionId) {
   sessions.delete(sessionId);
 }
 
+export function hasSunscreenTask(sessionId = 'anonymous') {
+  return getSession(sessionId).task?.category === '防晒霜';
+}
+
 export function getSessionSnapshot(sessionId) {
   const session = getSession(sessionId);
   return { preferences: { ...session.preferences }, turns: session.turns.length, currentRecommendationCount: session.currentRecommendation?.items?.length || 0 };

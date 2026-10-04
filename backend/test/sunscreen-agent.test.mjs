@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chatStructured, resetSession } from '../src/agent.mjs';
+import { chatStructured, hasSunscreenTask, resetSession } from '../src/agent.mjs';
 
 test('防晒任务按同一会话动态追问肤质和预算，再用条件筛选真实商品', async () => {
   const sessionId = 'sunscreen-flow-test';
@@ -60,6 +60,7 @@ test('无预算前缀也能识别金额，换预算会清除旧条件并重新�
   const search = async ({ filters }) => ({ ok: true, items: [{ id: 's-4', title: '防晒霜', price: filters.end_price || 180 }] });
   const initial = await chatStructured({ sessionId, message: '油皮，100元以内的军训防晒霜', search });
   assert.equal(initial.type, 'results');
+  assert.equal(hasSunscreenTask(sessionId), true);
   assert.equal(initial.task.answers.budget.max, 100);
   const question = await chatStructured({ sessionId, message: '换一个预算范围', search });
   assert.equal(question.type, 'question');
