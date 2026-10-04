@@ -9,6 +9,7 @@ test('防晒任务按同一会话动态追问肤质和预算，再用条件筛�
   const search = async ({ query, filters }) => {
     calls.push({ query, filters });
     return { ok: true, items: [
+      { id: 's-0', title: '平价防晒霜', price: 40, source: 'taobao', promotionUrl: 'https://example.test/s-0' },
       { id: 's-1', title: '清透防晒霜 SPF50+', price: 69, source: 'taobao', promotionUrl: 'https://example.test/s-1' },
       { id: 's-2', title: '户外防晒乳', price: 129, source: 'taobao', promotionUrl: 'https://example.test/s-2' },
       { id: 'other', title: '军训遮阳帽', price: 29, source: 'taobao', promotionUrl: 'https://example.test/other' }
@@ -24,9 +25,12 @@ test('防晒任务按同一会话动态追问肤质和预算，再用条件筛�
   assert.equal(result.items.length, 1);
   assert.equal(result.items[0].id, 's-1');
   assert.equal(calls[0].query, '防晒霜 军训');
+  assert.equal(calls[0].filters.start_price, 50);
   assert.equal(calls[0].filters.end_price, 100);
-  assert.match(result.message, /卡前|油皮/);
-  assert.match(result.summary, /油皮/);
+  assert.match(result.message, /油皮适配请再查看/);
+  assert.doesNotMatch(result.items[0].recommendation, /结合油皮筛选/);
+  assert.match(result.items[0].recommendation, /成分、评价或商品详情/);
+  assert.match(result.summary, /油皮偏好/);
   assert.ok(Array.isArray(result.followups));
   resetSession(sessionId);
 });
