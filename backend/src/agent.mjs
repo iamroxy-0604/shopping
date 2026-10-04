@@ -161,17 +161,12 @@ async function chatSunscreen({ session, sessionId, text, answer, search, onPhase
   const budgetMin = task.answers.budget?.min;
   const budget = task.answers.budget?.max;
   const query = ['防晒霜', '军训', task.answers.preference?.label].filter(Boolean).join(' ');
+  const baseQuery = '防晒霜 军训';
   const filters = {
     ...(budgetMin !== null && budgetMin !== undefined ? { start_price: budgetMin } : {}),
     ...(budget !== null && budget !== undefined ? { end_price: budget } : {})
   };
-  const result = await search({ query, filters });
-  if (!result.ok) {
-    await phase('search', '商品搜索', 'failed');
-    return { ok: false, type: 'error', message: result.error.message, error: result.error, items: [], task: sunscreenTaskSnapshot(session), memory: getSessionSnapshot(sessionId) };
-  }
-  await phase('search', '商品搜索', 'completed');
-  const sunscreenItems = result.items.filter((item) => {
+  const isUsableSunscreen = (item) => {
     if (!/防晒|sunscreen/i.test(String(item.title || ''))) return false;
     if (item.price === null || item.price === undefined || item.price === '') return true;
     const price = Number(item.price);
@@ -179,7 +174,17 @@ async function chatSunscreen({ session, sessionId, text, answer, search, onPhase
     if (budgetMin !== null && budgetMin !== undefined && price < budgetMin) return false;
     if (budget !== null && budget !== undefined && price > budget) return false;
     return true;
-  }).sort((a, b) => {
+  };
+  let result = await search({ query, filters });
+  if (result.ok && query !== baseQuery && !result.items.some(isUsableSunscreen)) {
+    result = await search({ query: baseQuery, filters });
+  }
+  if (!result.ok) {
+    await phase('search', '商品搜索', 'failed');
+    return { ok: false, type: 'error', message: result.error.message, error: result.error, items: [], task: sunscreenTaskSnapshot(session), memory: getSessionSnapshot(sessionId) };
+  }
+  await phase('search', '商品搜索', 'completed');
+  const sunscreenItems = result.items.filter(isUsableSunscreen).sort((a, b) => {
     const terms = task.answers.preference?.terms || [];
     const score = (item) => terms.reduce((total, term) => total + (String(item.title || '').includes(term) ? 1 : 0), 0);
     return score(b) - score(a);

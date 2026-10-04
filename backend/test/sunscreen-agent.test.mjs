@@ -123,3 +123,30 @@ test('结果 followup 会保存使用偏好、改变搜索词并按标题相关�
   assert.doesNotMatch(followup.items[0].recommendation, /保证|适合油皮|防水耐汗功效/);
   resetSession(sessionId);
 });
+
+test('偏好词召回为空时退回基础防晒查询，并保持结果阶段契约', async () => {
+  const sessionId = 'sunscreen-preference-fallback-test';
+  resetSession(sessionId);
+  const calls = [];
+  const phases = [];
+  const search = async ({ query }) => {
+    calls.push(query);
+    if (query.includes('清爽不黏')) return { ok: true, items: [] };
+    return { ok: true, items: [{ id: 'base', title: '防晒霜 SPF50+', price: 80 }] };
+  };
+  await chatStructured({ sessionId, message: '油皮，100元以内的军训防晒霜', search });
+  const result = await chatStructured({
+    sessionId,
+    message: '更在意清爽不黏',
+    search,
+    onPhase: async (phase) => phases.push(`${phase.id}:${phase.status}`)
+  });
+  assert.equal(result.type, 'results');
+  assert.deepEqual(calls.slice(-2), ['防晒霜 军训 清爽不黏', '防晒霜 军训']);
+  assert.deepEqual(phases, [
+    'understand:running', 'understand:completed', 'clarify:completed',
+    'search:running', 'search:completed', 'rank:running', 'rank:completed'
+  ]);
+  assert.match(result.items[0].recommendation, /标题未明确包含“清爽不黏”/);
+  resetSession(sessionId);
+});
