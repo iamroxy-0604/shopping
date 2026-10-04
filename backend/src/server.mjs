@@ -7,6 +7,7 @@ import { searchProductSource } from './product-source.mjs';
 import { chat, chatStructured } from './agent.mjs';
 import { logEvent } from './logger.mjs';
 import { chatViaWit, isWitEnabled } from './wit-bridge.mjs';
+import { isStructuredChatRequest } from './chat-routing.mjs';
 
 loadDotEnv();
 const port = Number(process.env.PORT || 3000);
@@ -67,7 +68,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && req.url === '/api/chat') {
     try {
       const body = JSON.parse(await readBody(req) || '{}');
-      const structured = /防晒|防晒霜|防晒乳|sunscreen/i.test(String(body.message || '')) || body.answer?.questionId;
+      const structured = isStructuredChatRequest(body);
       const result = structured
         ? await chatStructured({ sessionId: body.sessionId, userId: body.userId, message: body.message, answer: body.answer })
         : isWitEnabled()
@@ -87,13 +88,18 @@ const server = http.createServer(async (req, res) => {
     }
     sendSseHeaders(res);
     try {
-      const result = await chatStructured({
-        sessionId: body.sessionId,
-        userId: body.userId,
-        message: body.message,
-        answer: body.answer,
-        onPhase: async (phase) => writeSse(res, 'phase', phase)
-      });
+      const structured = /防晒|防晒霜|防晒乳|sunscreen/i.test(String(body.message || '')) || body.answer?.questionId;
+      const result = structured
+        ? await chatStructured({
+          sessionId: body.sessionId,
+          userId: body.userId,
+          message: body.message,
+          answer: body.answer,
+          onPhase: async (phase) => writeSse(res, 'phase', phase)
+        })
+        : isWitEnabled()
+          ? await chatViaWit({ sessionId: body.sessionId, userId: body.userId, message: body.message })
+          : await chat({ sessionId: body.sessionId, message: body.message });
       writeSse(res, result.ok ? 'result' : 'error', result);
       writeSse(res, 'done', { ok: result.ok });
     } catch (error) {
