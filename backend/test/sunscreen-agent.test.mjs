@@ -49,3 +49,49 @@ test('已给出的肤质和预算会跳过追问，并产生真实阶段事件',
   ]);
   resetSession(sessionId);
 });
+
+test('无预算前缀也能识别金额，换预算会清除旧条件并重新追问', async () => {
+  const sessionId = 'sunscreen-budget-change-test';
+  resetSession(sessionId);
+  const search = async ({ filters }) => ({ ok: true, items: [{ id: 's-4', title: '防晒霜', price: filters.end_price || 180 }] });
+  const initial = await chatStructured({ sessionId, message: '油皮，100元以内的军训防晒霜', search });
+  assert.equal(initial.type, 'results');
+  assert.equal(initial.task.answers.budget.max, 100);
+  const question = await chatStructured({ sessionId, message: '换一个预算范围', search });
+  assert.equal(question.type, 'question');
+  assert.equal(question.question.id, 'budget');
+  const changed = await chatStructured({ sessionId, message: '200元以内', answer: { questionId: 'budget', value: '200元以内' }, search });
+  assert.equal(changed.type, 'results');
+  assert.equal(changed.task.answers.budget.max, 200);
+  resetSession(sessionId);
+});
+
+test('问卷尚未完成时不会发出补充问卷 completed 事件，零结果文案不伪装成有商品', async () => {
+  const sessionId = 'sunscreen-empty-test';
+  resetSession(sessionId);
+  const phases = [];
+  const question = await chatStructured({
+    sessionId,
+    message: '适合军训的防晒霜',
+    search: async () => ({ ok: true, items: [] }),
+    onPhase: async (phase) => phases.push(`${phase.id}:${phase.status}`)
+  });
+  assert.equal(question.type, 'question');
+  assert.deepEqual(phases, ['understand:running', 'understand:completed', 'clarify:running']);
+  const result = await chatStructured({
+    sessionId,
+    message: '油皮',
+    answer: { questionId: 'skinType', value: '油皮' },
+    search: async () => ({ ok: true, items: [] })
+  });
+  assert.equal(result.type, 'question');
+  const complete = await chatStructured({
+    sessionId,
+    message: '100元以内',
+    answer: { questionId: 'budget', value: '100元以内' },
+    search: async () => ({ ok: true, items: [] })
+  });
+  assert.equal(complete.type, 'results');
+  assert.match(complete.message, /没有返回符合条件的真实防晒霜/);
+  resetSession(sessionId);
+});

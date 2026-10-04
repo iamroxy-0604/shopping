@@ -90,10 +90,11 @@ function extractSunscreenAnswers(text) {
   else if (/敏感|易过敏/.test(text)) answers.skinType = '敏感肌';
   else if (/中性/.test(text)) answers.skinType = '中性';
   const range = text.match(/(\d+(?:\.\d+)?)\s*(?:-|到|至)\s*(\d+(?:\.\d+)?)\s*元?/);
-  const single = text.match(/(?:预算|不超过|以内|以下|封顶|元内)\D*(\d+(?:\.\d+)?)/);
+  const single = text.match(/(?:预算|不超过|以内|以下|封顶|元内)\D*(\d+(?:\.\d+)?)|(?:^|\D)(\d+(?:\.\d+)?)\s*元?\s*(?:以内|以下|封顶)/);
+  const amount = single && (single[1] || single[2]);
   if (range) answers.budget = { label: `${range[1]}-${range[2]}元`, max: Number(range[2]) };
-  else if (/以上|起步|不设上限/.test(text) && single) answers.budget = { label: `${single[1]}元以上`, max: null };
-  else if (single) answers.budget = { label: `${single[1]}元以内`, max: Number(single[1]) };
+  else if (/以上|起步|不设上限/.test(text) && amount) answers.budget = { label: `${amount}元以上`, max: null };
+  else if (amount) answers.budget = { label: `${amount}元以内`, max: Number(amount) };
   return answers;
 }
 
@@ -127,6 +128,7 @@ async function chatSunscreen({ session, sessionId, text, answer, search, onPhase
   const phase = async (id, label, status) => { if (onPhase) await onPhase({ id, label, status }); };
   await phase('understand', '需求分析', 'running');
   const extracted = extractSunscreenAnswers(text);
+  if (/换一个预算|换预算|预算范围/.test(text)) delete task.answers.budget;
   if (answer?.questionId) {
     const expected = nextSunscreenQuestion(task);
     if (answer.questionId !== expected) {
@@ -141,7 +143,6 @@ async function chatSunscreen({ session, sessionId, text, answer, search, onPhase
   const questionId = nextSunscreenQuestion(task);
   if (questionId) {
     await phase('clarify', '补充问卷', 'running');
-    await phase('clarify', '补充问卷', 'completed');
     const question = sunscreenQuestion(questionId);
     const answerText = questionId === 'skinType' ? '为了更准确地筛选肤感和适配性，我先确认一下肤质。' : '再确认一下单件预算，我会在这个范围内筛选真实商品。';
     session.turns.push({ role: 'user', message: text, result: 'clarification' });
@@ -173,7 +174,10 @@ async function chatSunscreen({ session, sessionId, text, answer, search, onPhase
   const summary = selectedItems.length
     ? `这次按${task.answers.skinType.label}、${budgetText}和军训户外场景整理了 ${selectedItems.length} 款结果。户外使用请关注防水耐汗、成膜和补涂便利性。`
     : '当前商品源没有返回符合条件的防晒霜；我没有用演示商品替代真实结果。';
-  return { ok: true, type: 'results', message: `我按${task.answers.skinType.label}、${budgetText}和军训场景筛选，先看这几款真实商品。`, items: selectedItems, summary, followups: ['更在意清爽不黏', '想看防水耐汗款', '换一个预算范围'], task: sunscreenTaskSnapshot(session), memory: getSessionSnapshot(sessionId) };
+  const message = selectedItems.length
+    ? `我按${task.answers.skinType.label}、${budgetText}和军训场景筛选，先看这几款真实商品。`
+    : '当前商品源没有返回符合条件的真实防晒霜，我没有用演示商品替代搜索结果。';
+  return { ok: true, type: 'results', message, items: selectedItems, summary, followups: ['更在意清爽不黏', '想看防水耐汗款', '换一个预算范围'], task: sunscreenTaskSnapshot(session), memory: getSessionSnapshot(sessionId) };
 }
 
 export async function chatStructured({ sessionId = 'anonymous', userId, message, answer, search = searchTaobao, onPhase }) {
