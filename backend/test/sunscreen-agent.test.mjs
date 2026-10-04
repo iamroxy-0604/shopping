@@ -1,0 +1,51 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { chatStructured, resetSession } from '../src/agent.mjs';
+
+test('防晒任务按同一会话动态追问肤质和预算，再用条件筛选真实商品', async () => {
+  const sessionId = 'sunscreen-flow-test';
+  resetSession(sessionId);
+  const calls = [];
+  const search = async ({ query, filters }) => {
+    calls.push({ query, filters });
+    return { ok: true, items: [
+      { id: 's-1', title: '清透防晒霜 SPF50+', price: 69, source: 'taobao', promotionUrl: 'https://example.test/s-1' },
+      { id: 's-2', title: '户外防晒乳', price: 129, source: 'taobao', promotionUrl: 'https://example.test/s-2' },
+      { id: 'other', title: '军训遮阳帽', price: 29, source: 'taobao', promotionUrl: 'https://example.test/other' }
+    ] };
+  };
+  const first = await chatStructured({ sessionId, message: '帮我推荐一款适合军训的防晒霜', search });
+  assert.equal(first.type, 'question');
+  assert.equal(first.question.id, 'skinType');
+  const second = await chatStructured({ sessionId, message: '油皮', answer: { questionId: 'skinType', value: '油皮' }, search });
+  assert.equal(second.question.id, 'budget');
+  const result = await chatStructured({ sessionId, message: '50-100元', answer: { questionId: 'budget', value: '50-100元' }, search });
+  assert.equal(result.type, 'results');
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0].id, 's-1');
+  assert.equal(calls[0].query, '防晒霜 军训');
+  assert.equal(calls[0].filters.end_price, 100);
+  assert.match(result.message, /卡前|油皮/);
+  assert.match(result.summary, /油皮/);
+  assert.ok(Array.isArray(result.followups));
+  resetSession(sessionId);
+});
+
+test('已给出的肤质和预算会跳过追问，并产生真实阶段事件', async () => {
+  const sessionId = 'sunscreen-skip-test';
+  resetSession(sessionId);
+  const phases = [];
+  const result = await chatStructured({
+    sessionId,
+    message: '油皮，预算100元以内，帮我找军训防晒霜',
+    search: async () => ({ ok: true, items: [{ id: 's-3', title: '防晒霜', price: 80 }] }),
+    onPhase: async (phase) => phases.push(`${phase.id}:${phase.status}`)
+  });
+  assert.equal(result.type, 'results');
+  assert.deepEqual(phases, [
+    'understand:running', 'understand:completed',
+    'clarify:completed', 'search:running', 'search:completed',
+    'rank:running', 'rank:completed'
+  ]);
+  resetSession(sessionId);
+});

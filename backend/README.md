@@ -44,6 +44,18 @@ POST http://localhost:3000/api/chat
 }
 ```
 
+手机端结构化对话也支持 `POST /api/chat/stream`。请求仍使用 `sessionId`、`message`，回答追问时增加 `answer: { "questionId": "skinType|budget", "value": "..." }`。接口以 SSE 返回真实执行的 `phase` 事件，随后返回 `result`：
+
+```text
+event: phase
+data: {"id":"understand","label":"需求分析","status":"completed"}
+
+event: result
+data: {"ok":true,"type":"results","message":"卡片前说明","items":[],"summary":"卡片后归纳","followups":[]}
+```
+
+以防晒霜为核心的任务会动态确认肤质和单件预算；已经在原话中给出的条件会跳过。商品搜索完成后才会返回商品卡，价格或购买链接缺失时保持缺失，不生成占位信息。
+
 `/api/chat` 是当前 MVP 的 Agent 入口。普通 `npm start` 使用旧版进程内 Agent，适合对照；`npm run start:wit` 使用 Wit 3.0 工作流、SQLite 记忆与同一个商品接口。Wit 模式下前端还会发送本地稳定的 `userId`：新对话保留用户偏好，但不会沿用上一轮可比较商品。用户可在记忆栏发送删除指令。
 
 返回 `items` 中的统一字段：`id`、`title`、`imageUrl`、`price`、`originalPrice`、`coupon`、`promotionUrl`、`shopName`、`sales`、`source`。

@@ -77,6 +77,112 @@ function buildSearchQuery(session, parsed) {
   return [...new Set(parts)].join(' ');
 }
 
+const SUNSCREEN_QUESTION_ORDER = ['skinType', 'budget'];
+
+function isSunscreenRequest(text, session) {
+  return /防晒|防晒霜|防晒乳|防晒喷雾|sunscreen/i.test(text) || session.task?.category === '防晒霜';
+}
+
+function extractSunscreenAnswers(text) {
+  const answers = {};
+  if (/油皮|油性|混合皮|混合肌/.test(text)) answers.skinType = /混合/.test(text) ? '混合皮' : '油皮';
+  else if (/干皮|干性|偏干/.test(text)) answers.skinType = '干皮';
+  else if (/敏感|易过敏/.test(text)) answers.skinType = '敏感肌';
+  else if (/中性/.test(text)) answers.skinType = '中性';
+  const range = text.match(/(\d+(?:\.\d+)?)\s*(?:-|到|至)\s*(\d+(?:\.\d+)?)\s*元?/);
+  const single = text.match(/(?:预算|不超过|以内|以下|封顶|元内)\D*(\d+(?:\.\d+)?)/);
+  if (range) answers.budget = { label: `${range[1]}-${range[2]}元`, max: Number(range[2]) };
+  else if (/以上|起步|不设上限/.test(text) && single) answers.budget = { label: `${single[1]}元以上`, max: null };
+  else if (single) answers.budget = { label: `${single[1]}元以内`, max: Number(single[1]) };
+  return answers;
+}
+
+function normalizeSunscreenAnswer(questionId, value) {
+  const text = String(value ?? '').trim();
+  if (!text) return null;
+  if (questionId === 'skinType') return { label: text, value: text };
+  const parsed = extractSunscreenAnswers(text).budget;
+  if (parsed) return parsed;
+  const number = text.match(/\d+(?:\.\d+)?/);
+  if (/以上|起步|不设上限/.test(text) && number) return { label: `${number[0]}元以上`, max: null };
+  return number ? { label: `${number[0]}元以内`, max: Number(number[0]) } : { label: text, max: null };
+}
+
+function sunscreenQuestion(questionId) {
+  if (questionId === 'skinType') return { id: 'skinType', title: '你的肤质或皮肤情况是？', options: ['油皮', '干皮', '混合皮', '敏感肌', '不确定'], allowCustom: true };
+  return { id: 'budget', title: '这次防晒霜单件预算大概是多少？', options: ['50 元以内', '50 - 100 元', '100 元以上'], allowCustom: true };
+}
+
+function nextSunscreenQuestion(task) {
+  return SUNSCREEN_QUESTION_ORDER.find((id) => task.answers[id] === undefined) || null;
+}
+
+function sunscreenTaskSnapshot(session) {
+  return { id: session.task.id, category: session.task.category, answers: { ...session.task.answers } };
+}
+
+async function chatSunscreen({ session, sessionId, text, answer, search, onPhase }) {
+  session.task ||= { id: `${sessionId}-sunscreen`, category: '防晒霜', answers: {} };
+  const task = session.task;
+  const phase = async (id, label, status) => { if (onPhase) await onPhase({ id, label, status }); };
+  await phase('understand', '需求分析', 'running');
+  const extracted = extractSunscreenAnswers(text);
+  if (answer?.questionId) {
+    const expected = nextSunscreenQuestion(task);
+    if (answer.questionId !== expected) {
+      return { ok: false, type: 'error', items: [], error: { code: 'QUESTION_MISMATCH', message: '这条追问已经回答过了，请回答当前问题' }, task: sunscreenTaskSnapshot(session), memory: getSessionSnapshot(sessionId) };
+    }
+    const normalized = normalizeSunscreenAnswer(answer.questionId, answer.value);
+    if (normalized) task.answers[answer.questionId] = normalized;
+  }
+  if (task.answers.skinType === undefined && extracted.skinType) task.answers.skinType = { label: extracted.skinType, value: extracted.skinType };
+  if (task.answers.budget === undefined && extracted.budget) task.answers.budget = extracted.budget;
+  await phase('understand', '需求分析', 'completed');
+  const questionId = nextSunscreenQuestion(task);
+  if (questionId) {
+    await phase('clarify', '补充问卷', 'running');
+    await phase('clarify', '补充问卷', 'completed');
+    const question = sunscreenQuestion(questionId);
+    const answerText = questionId === 'skinType' ? '为了更准确地筛选肤感和适配性，我先确认一下肤质。' : '再确认一下单件预算，我会在这个范围内筛选真实商品。';
+    session.turns.push({ role: 'user', message: text, result: 'clarification' });
+    return { ok: true, type: 'question', message: answerText, question, task: sunscreenTaskSnapshot(session), items: [], memory: getSessionSnapshot(sessionId) };
+  }
+  await phase('clarify', '补充问卷', 'completed');
+  await phase('search', '商品搜索', 'running');
+  const budget = task.answers.budget?.max;
+  const query = '防晒霜 军训';
+  const filters = budget ? { end_price: budget } : {};
+  const result = await search({ query, filters });
+  if (!result.ok) {
+    await phase('search', '商品搜索', 'failed');
+    return { ok: false, type: 'error', message: result.error.message, error: result.error, items: [], task: sunscreenTaskSnapshot(session), memory: getSessionSnapshot(sessionId) };
+  }
+  await phase('search', '商品搜索', 'completed');
+  const sunscreenItems = result.items.filter((item) => {
+    if (!/防晒|sunscreen/i.test(String(item.title || ''))) return false;
+    if (!budget || item.price === null || item.price === undefined || item.price === '') return true;
+    const price = Number(item.price);
+    return !Number.isFinite(price) || price <= budget;
+  });
+  await phase('rank', '结果整理', 'running');
+  const selectedItems = sunscreenItems.slice(0, 3).map((item) => ({ ...item, recommendation: `结合${task.answers.skinType.label}和${task.answers.budget.label}筛选，具体肤感请以商品详情为准。` }));
+  await phase('rank', '结果整理', 'completed');
+  session.currentRecommendation = { query, items: selectedItems, createdAt: new Date().toISOString() };
+  session.turns.push({ role: 'user', message: text, query, result: 'success' });
+  const budgetText = task.answers.budget.label;
+  const summary = selectedItems.length
+    ? `这次按${task.answers.skinType.label}、${budgetText}和军训户外场景整理了 ${selectedItems.length} 款结果。户外使用请关注防水耐汗、成膜和补涂便利性。`
+    : '当前商品源没有返回符合条件的防晒霜；我没有用演示商品替代真实结果。';
+  return { ok: true, type: 'results', message: `我按${task.answers.skinType.label}、${budgetText}和军训场景筛选，先看这几款真实商品。`, items: selectedItems, summary, followups: ['更在意清爽不黏', '想看防水耐汗款', '换一个预算范围'], task: sunscreenTaskSnapshot(session), memory: getSessionSnapshot(sessionId) };
+}
+
+export async function chatStructured({ sessionId = 'anonymous', userId, message, answer, search = searchTaobao, onPhase }) {
+  const session = getSession(sessionId);
+  const text = String(message ?? '').trim();
+  if (isSunscreenRequest(text, session) || answer?.questionId) return chatSunscreen({ session, sessionId, text, answer, search, onPhase });
+  return chat({ sessionId, userId, message: text, search });
+}
+
 export function resetSession(sessionId) {
   sessions.delete(sessionId);
 }
@@ -89,6 +195,7 @@ export function getSessionSnapshot(sessionId) {
 export async function chat({ sessionId = 'anonymous', message, search = searchTaobao }) {
   const session = getSession(sessionId);
   const text = String(message ?? '').trim();
+  if (isSunscreenRequest(text, session)) return chatSunscreen({ session, sessionId, text, search });
   logEvent('chat_received', { sessionId, message: text });
   if (!text) return { ok: true, type: 'question', message: '你想找什么商品？也可以告诉我预算、风格或使用场景。', items: [], memory: getSessionSnapshot(sessionId) };
 

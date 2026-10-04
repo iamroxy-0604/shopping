@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { parseShoppingQuery } from './query.mjs';
 import { searchProductSource } from './product-source.mjs';
-import { chat } from './agent.mjs';
+import { chat, chatStructured } from './agent.mjs';
 import { logEvent } from './logger.mjs';
 import { chatViaWit, isWitEnabled } from './wit-bridge.mjs';
 
@@ -24,6 +24,20 @@ function loadDotEnv() {
 function sendJson(res, status, data) {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type' });
   res.end(JSON.stringify(data));
+}
+
+function sendSseHeaders(res) {
+  res.writeHead(200, {
+    'content-type': 'text/event-stream; charset=utf-8',
+    'cache-control': 'no-cache, no-transform',
+    connection: 'keep-alive',
+    'access-control-allow-origin': '*',
+    'access-control-allow-headers': 'content-type'
+  });
+}
+
+function writeSse(res, event, data) {
+  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
 function serveStatic(res, url) {
@@ -53,13 +67,40 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && req.url === '/api/chat') {
     try {
       const body = JSON.parse(await readBody(req) || '{}');
-      const result = isWitEnabled()
+      const structured = /防晒|防晒霜|防晒乳|sunscreen/i.test(String(body.message || '')) || body.answer?.questionId;
+      const result = structured
+        ? await chatStructured({ sessionId: body.sessionId, userId: body.userId, message: body.message, answer: body.answer })
+        : isWitEnabled()
         ? await chatViaWit({ sessionId: body.sessionId, userId: body.userId, message: body.message })
         : await chat({ sessionId: body.sessionId, message: body.message });
       return sendJson(res, result.ok ? 200 : 502, result);
     } catch {
       return sendJson(res, 400, { ok: false, error: { code: 'INVALID_JSON', message: '请求体需要是合法 JSON' } });
     }
+  }
+  if (req.method === 'POST' && req.url === '/api/chat/stream') {
+    let body;
+    try {
+      body = JSON.parse(await readBody(req) || '{}');
+    } catch {
+      return sendJson(res, 400, { ok: false, error: { code: 'INVALID_JSON', message: '请求体需要是合法 JSON' } });
+    }
+    sendSseHeaders(res);
+    try {
+      const result = await chatStructured({
+        sessionId: body.sessionId,
+        userId: body.userId,
+        message: body.message,
+        answer: body.answer,
+        onPhase: async (phase) => writeSse(res, 'phase', phase)
+      });
+      writeSse(res, result.ok ? 'result' : 'error', result);
+      writeSse(res, 'done', { ok: result.ok });
+    } catch (error) {
+      writeSse(res, 'error', { ok: false, error: { code: 'CHAT_FAILED', message: '导购服务暂时不可用，请稍后再试' } });
+      writeSse(res, 'done', { ok: false });
+    }
+    return res.end();
   }
   if (req.method !== 'POST' || req.url !== '/api/products/search') return sendJson(res, 404, { ok: false, error: { code: 'NOT_FOUND', message: '接口不存在' } });
   try {
