@@ -2,32 +2,36 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="用对话发现更好的生活。" />
-    <title>购物灵感助手</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f7f8f5" />
+    <meta name="description" content="拾光，陪你找到真正适合的好物。" />
+    <title>拾光 | 购物决策助手</title>
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/overrides.css" />
     <script src="https://unpkg.com/lucide@0.468.0"></script>
   </head>
   <body>
     <div class="app-shell">
-      <aside class="left-rail">
-        <div class="brand"><span class="brand-icon"><i data-lucide="shopping-bag"></i></span><strong>购物灵感助手</strong></div>
-        <button class="new-chat" id="newChat"><i data-lucide="plus"></i>新对话</button>
-        <nav class="main-nav" aria-label="主导航"><span class="nav-item active"><i data-lucide="house"></i><span>首页</span></span><span class="nav-item"><i data-lucide="messages-square"></i><span>我的对话</span></span></nav>
-        <div class="recent"><p class="rail-title">最近对话</p><button class="recent-item selected"><span>日系出租屋桌面好物</span><time>10:24</time></button><button class="recent-item"><span>秋季穿搭推荐</span><time>昨天</time></button><button class="recent-item"><span>百元内香薰推荐</span><time>10月12日</time></button><button class="recent-item"><span>小户型收纳方案</span><time>10月10日</time></button></div>
-        <div class="rail-footer"><span class="profile-dot">B</span><span>我的账户</span></div>
-      </aside>
+      <header class="topbar">
+        <button class="icon-button" id="menuButton" type="button" aria-label="打开侧栏"><i data-lucide="menu"></i></button>
+        <button class="brand" id="homeButton" type="button" aria-label="回到首页"><span class="brand-mark">拾</span><strong>拾光</strong></button>
+        <button class="icon-button" id="historyButton" type="button" aria-label="查看历史"><i data-lucide="history"></i></button>
+      </header>
       <main class="chat-panel">
-        <header class="chat-header"><div class="chat-title"><h1>购物灵感助手</h1><span class="status"><i></i>在线</span></div><button class="mobile-new-chat" id="mobileNewChat" type="button">新对话</button></header>
-        <div class="mobile-memory" id="mobileMemory" hidden><span>已记偏好</span><div id="mobileMemoryTags"></div><button class="mobile-forget-all" type="button" data-forget-all>清除记忆</button></div>
-        <section class="conversation" id="conversation" aria-live="polite"><div class="conversation-inner">
-          <div id="messages"></div>
-          <div class="loading-row" id="loadingRow" hidden><span class="assistant-avatar"><i data-lucide="sparkles"></i></span><div class="typing"><i></i><i></i><i></i><span>正在寻找合适的商品</span></div></div>
-        </div></section>
-        <form class="composer" id="chatForm"><textarea id="messageInput" rows="1" placeholder="说说想找什么，或点下面的快捷选项…" aria-label="输入购物需求"></textarea><button class="send-control" type="submit" aria-label="发送"><i data-lucide="arrow-up"></i></button></form>
-        <p class="composer-note">购物灵感助手可能会出错，请在购买前核对商品信息。</p>
+        <section class="conversation" id="conversation" aria-live="polite"><div class="conversation-inner" id="messages"></div></section>
+        <form class="composer" id="chatForm"><button class="compose-add" type="button" aria-label="添加附件"><i data-lucide="plus"></i></button><textarea id="messageInput" rows="1" placeholder="说说想找什么，或点下面的快捷选项…" aria-label="输入购物需求"></textarea><button class="send-control" type="submit" aria-label="发送"><i data-lucide="arrow-up"></i></button></form>
+        <p class="composer-note">演示数据仅用于交互展示 · 购买前请核对商品信息</p>
       </main>
-      <aside class="memory-rail" id="memoryRail"><div class="memory-heading"><span class="bookmark"><i data-lucide="bookmark"></i></span><div class="memory-heading-copy"><h2>记忆</h2><p>最近一次返回的偏好</p></div><button class="memory-toggle" id="memoryToggle" type="button" aria-label="折叠记忆栏" aria-expanded="true"><i data-lucide="panel-right-close"></i></button></div><div class="memory-section"><p class="section-label">你的偏好</p><div class="memory-tags" id="memoryTags"></div><button class="forget-all" id="forgetAllMemory" type="button" data-forget-all hidden>清除全部记忆</button></div><div class="memory-explain"><i data-lucide="info"></i><p>新对话继续沿用偏好。删除会向助手发送指令，显示以接口返回为准。</p></div></aside>
-    </div><script src="/app.js" defer></script>
+    </div>
+    <div class="scrim" id="scrim"></div>
+    <aside class="side-panel" id="sidePanel" aria-label="侧栏">
+      <div class="side-head"><div class="side-logo"><span class="brand-mark">拾</span><strong>拾光</strong></div><button class="close-button" id="closeSide" type="button" aria-label="关闭侧栏"><i data-lucide="x"></i></button></div>
+      <button class="new-chat" id="newChat" type="button"><i data-lucide="plus"></i>新对话</button>
+      <nav class="side-nav" aria-label="会话导航"><button type="button" data-side="history"><i data-lucide="history"></i>历史对话 <small id="historyCount">0</small></button><button type="button" data-side="favorites"><i data-lucide="heart"></i>收藏夹 <small id="favoriteCount">0</small></button><button type="button" data-side="compare"><i data-lucide="arrow-left-right"></i>找同款 / 比价</button></nav>
+      <div class="side-history" id="sideHistory"><p>最近对话</p></div>
+      <div class="side-foot"><button type="button"><i data-lucide="settings"></i>偏好设置</button><span>v0.1 演示版</span></div>
+    </aside>
+    <section class="product-drawer" id="productDrawer" aria-hidden="true"><div class="drawer-head"><div><p class="eyebrow">商品清单</p><h2>这次为你找到的</h2></div><button class="icon-button" id="closeDrawer" type="button" aria-label="关闭商品清单"><i data-lucide="x"></i></button></div><div id="drawerProducts"></div></section>
+    <script src="/app.js" defer></script>
   </body>
 </html>
