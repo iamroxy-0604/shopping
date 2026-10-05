@@ -1,7 +1,7 @@
 const sessionKey='immersive-shopping-session-id', conversationKey='immersive-shopping-conversations', favoriteKey='immersive-shopping-favorites', userKey='immersive-shopping-user-id';
 const userId=localStorage.getItem(userKey)||`shopper-${crypto.randomUUID?.()||Date.now()}`;localStorage.setItem(userKey,userId);
 let sessionId=localStorage.getItem(sessionKey)||`demo-${crypto.randomUUID?.()||Date.now()}`;localStorage.setItem(sessionKey,sessionId);
-let conversations=read(conversationKey,{}), favorites=read(favoriteKey,{}), requestToken=0, pendingQuestion=null, allItems=[], taskSnapshot=null;
+let conversations=read(conversationKey,{}), favorites=read(favoriteKey,{}), requestToken=0, pendingQuestion=null, allItems=[], taskSnapshot=null, activeController=null;
 const hasPrice=item=>item?.price!==null&&item?.price!==undefined&&item?.price!==''&&Number.isFinite(Number(item.price));
 const priceText=item=>hasPrice(item)?`¥${new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(Number(item.price))}`:'价格待确认';
 const $=s=>document.querySelector(s), messages=$('#messages'), input=$('#messageInput'), conversation=$('#conversation'), form=$('#chatForm');
@@ -15,7 +15,7 @@ function title(t){return String(t||'新对话').replace(/\s+/g,' ').trim().slice
 function persist(message){const r=conversations[sessionId]||{id:sessionId,title:title(message.text),messages:[]};if(message.text&&!r.messages.length)r.title=title(message.text);r.messages.push(message);r.updatedAt=new Date().toISOString();conversations[sessionId]=r;save();renderHistory()}
 function icon(name){return `<i data-lucide="${name}"></i>`}
 function refreshIcons(){globalThis.lucide?.createIcons()}
-function home(){$('#dockActions').hidden=false;messages.innerHTML=`<div class="welcome"><h1>今天，<br>想找点什么？</h1><p>告诉我想找的东西，也可以先随便看看。</p></div><div class="section-head"><h2>你可以想问</h2><button class="text-button" type="button" data-action="shuffle">换一批 ${icon('refresh-cw')}</button></div><div class="prompt-list" id="promptList"></div>`;renderPrompts();refreshIcons()}
+function home(){$('#dockActions').hidden=false;messages.innerHTML=`<div class="welcome"><div class="welcome-orbit" aria-hidden="true"><span class="welcome-glow"></span><span class="welcome-spark spark-one">✦</span><span class="welcome-spark spark-two">✦</span></div><p class="welcome-kicker">SHIGUANG / 购物决策助手</p><h1>Hi~我是拾光</h1><p>你的专属导购 Agent<br>告诉我你的需求，我来帮你挑好物、比价格、做决策</p></div><div class="section-head"><h2>你可以想问</h2><button class="text-button" type="button" data-action="shuffle">换一批 ${icon('refresh-cw')}</button></div><div class="prompt-list" id="promptList"></div>`;renderPrompts();refreshIcons()}
 const promptSets=[['适合军训的防晒霜','通勤降噪耳机怎么选','100元内的日系桌面好物','送朋友的实用小礼物'],['油皮夏天适合的防晒','租房党需要哪些收纳好物','适合办公室的水杯','轻便又耐用的双肩包'],['预算300元的入门耳机','小户型香氛怎么挑','适合旅行的护肤套装','想买一件耐穿的白衬衫']];let promptIndex=0;
 function renderPrompts(){const list=$('#promptList');if(!list)return;list.innerHTML=promptSets[promptIndex].map(t=>`<button class="chip" type="button" data-prompt="${esc(t)}">${esc(t)}</button>`).join('')}
 function renderHistory(){const records=Object.values(conversations).filter(r=>r?.messages?.length).sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));$('#historyCount').textContent=records.length;$('#favoriteCount').textContent=Object.keys(favorites).length;$('#sideHistory').innerHTML='<p>最近对话</p>'+records.slice(0,8).map(r=>`<button class="history-item${r.id===sessionId?' selected':''}" type="button" data-session="${esc(r.id)}">${esc(r.title)}<small>${new Date(r.updatedAt||Date.now()).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})}</small></button>`).join('');refreshIcons()}
@@ -31,12 +31,63 @@ function appendAssistant(result,shouldPersist=true){taskSnapshot=result.task||ta
 function appendQuestion(q){pendingQuestion=q;messages.insertAdjacentHTML('beforeend',`<div class="question-card" data-question-card><h2>${esc(q.title||'再告诉我一点偏好')}</h2><div class="question-options">${(q.options||[]).map(o=>`<button class="option" type="button" data-answer="${esc(o)}">${esc(o)}</button>`).join('')}</div>${q.allowCustom?`<form class="free-answer" data-custom-answer><input placeholder="也可以直接告诉我…" aria-label="自定义回答"><button class="small-submit" type="submit">确定</button></form>`:''}</div>`)}
 function renderResults(result){allItems=result.items||[];taskSnapshot=result.task||taskSnapshot;const followups=result.followups||['换一批看看','便宜一点','我还想了解使用方法'];messages.insertAdjacentHTML('beforeend',`<div class="message assistant-message results-message"><span class="assistant-avatar">${icon('sparkles')}</span><div><div class="assistant-copy results-copy">${esc(result.message||'我按你的条件筛选了几款，先看这几件。')}</div><div class="product-grid">${allItems.slice(0,3).map(productCard).join('')}</div>${result.summary?`<div class="summary-box"><h3>整体归纳</h3><div>${esc(result.summary)}</div></div>`:''}<div class="cta-row"><button class="primary-cta" type="button" data-open-drawer>查看全部商品 ${icon('list')}</button></div><p class="feedback">还可以继续告诉我你的想法</p><div class="followups">${followups.slice(0,3).map(f=>`<button class="chip" type="button" data-prompt="${esc(f)}">${esc(f)}</button>`).join('')}</div></div></div>`);drawer();if(Object.values(phaseState).every(v=>v==='completed'))renderPhase()}
 function renderSummary(summary,followups){messages.insertAdjacentHTML('beforeend',`<div class="summary-box"><h3>整体归纳</h3><div>${esc(summary)}</div><div class="followups">${followups.map(f=>`<button class="chip" type="button" data-prompt="${esc(f)}">${esc(f)}</button>`).join('')}</div></div>`)}
-function phaseEvent(data){if(!data?.id)return;phaseState[data.id]=data.status||'running';renderPhase()}
-async function stream(text,answer){const body={userId,sessionId,message:text};if(answer)body.answer=answer;const response=await fetch('/api/chat/stream',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});if(!response.ok||!response.body)throw new Error('流式接口暂不可用');const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='',gotResult=false,gotQuestion=false;while(true){const {value,done}=await reader.read();buffer+=decoder.decode(value||new Uint8Array(),{stream:!done});const chunks=buffer.split('\n\n');buffer=chunks.pop()||'';for(const chunk of chunks){const event=(chunk.match(/^event:\s*(.+)$/m)||[])[1]||'message';const raw=(chunk.match(/^data:\s*(.+)$/m)||[])[1];if(!raw)continue;let data;try{data=JSON.parse(raw)}catch{continue}if(event==='phase')phaseEvent(data);else if(event==='question'||data.type==='question'){gotQuestion=true;pendingQuestion=data.question||data;appendAssistant({message:data.message||'我想再了解一点，方便帮你筛选。',question:pendingQuestion})}else if(event==='result'||data.type==='results'){gotResult=true;appendAssistant(data)}else if(event==='error')throw new Error(data.message||'商品搜索失败')}}if(!gotResult&&!gotQuestion)throw new Error('服务端未返回结果')}
-async function send(text,answer=null){if(!text||input.disabled)return;const token=++requestToken;pendingQuestion=null;taskSnapshot=null;$('#dockActions').hidden=true;messages.querySelector('.welcome')?.remove();messages.querySelectorAll('.question-card').forEach(n=>n.remove());messages.querySelector('#phaseCard')?.remove();appendUser(text);input.value='';input.disabled=true;$('.send-control').disabled=true;phaseState=Object.fromEntries(phases.map(([id])=>[id,'pending']));renderPhase();phaseState.understand='running';renderPhase();try{await stream(text,answer)}catch(firstError){try{const r=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({userId,sessionId,message:text,answer})});const data=await r.json();if(!r.ok||data.ok===false)throw new Error(data.error?.message||data.message||firstError.message);phaseState.understand='completed';phaseState.search=data.items?.length?'completed':'pending';phaseState.rank=data.items?.length?'completed':'pending';renderPhase();appendAssistant(data)}catch(error){appendAssistant({type:'error',message:`暂时没能完成这次搜索：${error.message}`})}}finally{if(token===requestToken){input.disabled=false;$('.send-control').disabled=false;input.focus()}}}
-function newChat(){requestToken++;sessionId=`demo-${crypto.randomUUID?.()||Date.now()}`;localStorage.setItem(sessionKey,sessionId);allItems=[];pendingQuestion=null;taskSnapshot=null;home();renderHistory();closeSide()}
+function showPending(){messages.insertAdjacentHTML('beforeend',`<div class="phase-card pending-feedback" id="pendingFeedback" role="status"><div class="phase-title"><span class="phase-spinner">${icon('loader-circle')}</span><span>正在处理你的需求，请稍候…</span></div></div>`);refreshIcons()}
+function clearPending(){messages.querySelector('#pendingFeedback')?.remove()}
+function finishProgress(keepCompleted=false){clearPending();if(!keepCompleted||!Object.values(phaseState).every(v=>v==='completed'))messages.querySelector('#phaseCard')?.remove()}
+function phaseEvent(data){if(!data?.id)return;clearPending();phaseState[data.id]=data.status||'running';renderPhase()}
+async function stream(text,answer,signal){
+  const body={userId,sessionId,message:text};if(answer)body.answer=answer;
+  const response=await fetch('/api/chat/stream',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),signal});
+  if(!response.ok||!response.body){const error=new Error('流式接口暂不可用');error.canFallback=response.status===404||response.status===501;throw error}
+  const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='',gotResult=false,gotQuestion=false;
+  while(true){
+    const {value,done}=await reader.read();buffer+=decoder.decode(value||new Uint8Array(),{stream:!done});
+    const chunks=buffer.split('\n\n');buffer=chunks.pop()||'';
+    for(const chunk of chunks){
+      const event=(chunk.match(/^event:\s*(.+)$/m)||[])[1]||'message';
+      const raw=(chunk.match(/^data:\s*(.+)$/m)||[])[1];if(!raw)continue;
+      let data;try{data=JSON.parse(raw)}catch{continue}
+      if(event==='phase')phaseEvent(data);
+      else if(event==='question'||data.type==='question'){
+        gotQuestion=true;finishProgress();pendingQuestion=data.question||data;
+        appendAssistant({message:data.message||'我想再了解一点，方便帮你筛选。',question:pendingQuestion});
+      }else if(event==='result'||data.type==='results'){
+        gotResult=true;finishProgress(true);appendAssistant(data);
+      }else if(event==='error')throw new Error(data.error?.message||data.message||'商品搜索失败');
+    }
+    if(done)break;
+  }
+  if(!gotResult&&!gotQuestion)throw new Error('服务端未返回结果');
+}
+async function send(text,answer=null){
+  if(!text||input.disabled)return;
+  const token=++requestToken;pendingQuestion=null;taskSnapshot=null;
+  $('#dockActions').hidden=true;messages.querySelector('.welcome')?.remove();messages.querySelectorAll('.question-card').forEach(n=>n.remove());
+  finishProgress();appendUser(text);input.value='';input.disabled=true;$('.send-control').disabled=true;
+  phaseState=Object.fromEntries(phases.map(([id])=>[id,'pending']));showPending();
+  const controller=new AbortController();activeController=controller;const timeout=setTimeout(()=>controller.abort(),55000);
+  try{await stream(text,answer,controller.signal)}catch(firstError){
+    if(token!==requestToken)return;
+    finishProgress();
+    if(firstError.canFallback){
+      try{
+        const r=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({userId,sessionId,message:text,answer}),signal:controller.signal});
+        const data=await r.json();if(!r.ok||data.ok===false)throw new Error(data.error?.message||data.message||firstError.message);
+        appendAssistant(data);
+      }catch(error){appendAssistant({type:'error',message:`暂时没能完成这次搜索：${error.message}`})}
+    }else{
+      const detail=firstError.name==='AbortError'?'等待超时，请稍后重试。':firstError.message;
+      appendAssistant({type:'error',message:`暂时没能完成这次搜索：${detail}`});
+    }
+  }finally{
+    clearTimeout(timeout);if(activeController===controller)activeController=null;
+    if(token===requestToken){input.disabled=false;$('.send-control').disabled=false;input.focus()}
+  }
+}
+function cancelRequest(){requestToken++;activeController?.abort();activeController=null;input.disabled=false;$('.send-control').disabled=false;finishProgress()}
+function newChat(){cancelRequest();sessionId=`demo-${crypto.randomUUID?.()||Date.now()}`;localStorage.setItem(sessionKey,sessionId);allItems=[];pendingQuestion=null;taskSnapshot=null;home();renderHistory();closeSide()}
 function replayMessages(record){const entries=record?.messages||[];$('#dockActions').hidden=entries.length>0;messages.innerHTML='';pendingQuestion=null;entries.forEach((m,index)=>{if(m.role==='user')appendUser(m.text,false);else if(m.role==='assistant'){const answered=m.result?.question&&entries.slice(index+1).some(next=>next.role==='user');appendAssistant(answered?{...m.result,question:undefined}:m.result,false)}})}
-function openConversation(id){const record=conversations[id];if(!record)return;sessionId=id;localStorage.setItem(sessionKey,id);replayMessages(record);closeSide()}
+function openConversation(id){const record=conversations[id];if(!record)return;cancelRequest();sessionId=id;localStorage.setItem(sessionKey,id);replayMessages(record);closeSide()}
 function openSide(){ $('#sidePanel').classList.add('is-open');$('#scrim').classList.add('is-open') }function closeSide(){ $('#sidePanel').classList.remove('is-open');$('#scrim').classList.remove('is-open') }
 function openDrawer(){drawer();$('#productDrawer').classList.add('is-open');$('#productDrawer').setAttribute('aria-hidden','false')}
 function closeDrawer(){$('#productDrawer').classList.remove('is-open');$('#productDrawer').setAttribute('aria-hidden','true')}
