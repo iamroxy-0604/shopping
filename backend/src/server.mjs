@@ -41,6 +41,23 @@ function writeSse(res, event, data) {
   res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 }
 
+const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+async function emitWitProgress(res, resultPromise) {
+  const steps = [
+    ['understand', '需求分析', 260],
+    ['clarify', '补充问卷', 420],
+    ['search', '搜索商品', 620],
+    ['rank', '筛选整理', 420]
+  ];
+  for (const [id, label, duration] of steps) {
+    writeSse(res, 'phase', { id, label, status: 'running' });
+    await wait(duration);
+    writeSse(res, 'phase', { id, label, status: 'completed', elapsedMs: duration });
+  }
+  return resultPromise;
+}
+
 function serveStatic(res, url) {
   const relative = url === '/' ? 'index.html' : url.slice(1);
   if (!/^[a-zA-Z0-9._/-]+$/.test(relative) || relative.includes('..')) return false;
@@ -98,7 +115,7 @@ const server = http.createServer(async (req, res) => {
           onPhase: async (phase) => writeSse(res, 'phase', phase)
         })
         : isWitEnabled()
-          ? await chatViaWit({ sessionId: body.sessionId, userId: body.userId, message: body.message })
+          ? await emitWitProgress(res, chatViaWit({ sessionId: body.sessionId, userId: body.userId, message: body.message }))
           : await chat({ sessionId: body.sessionId, message: body.message });
       writeSse(res, result.ok ? 'result' : 'error', result);
       writeSse(res, 'done', { ok: result.ok });

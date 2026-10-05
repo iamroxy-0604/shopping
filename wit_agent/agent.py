@@ -243,6 +243,30 @@ def compare_message(items: list, message: str) -> str:
     return "根据现有商品信息，" + "；".join(parts) + "。"
 
 
+def generic_followup(preferences: dict) -> dict | None:
+    """Ask one useful, category-aware question without blocking the first result set."""
+    category = str(preferences.get("category") or "商品")
+    if preferences.get("maxPrice") is None:
+        return {"id": "budget", "title": f"这次{category}大概希望控制在什么价位？", "options": ["100 元以内", "100 - 500 元", "500 元以上"], "allowCustom": True}
+    if not preferences.get("scene"):
+        return {"id": "scene", "title": f"这件{category}主要准备在什么场景使用？", "options": ["日常使用", "通勤 / 工作", "送礼或布置空间"], "allowCustom": True}
+    return {"id": "preference", "title": f"挑{category}时，你更在意哪一点？", "options": ["外观风格", "材质和做工", "性价比"], "allowCustom": True}
+
+
+def result_summary(items: list, preferences: dict) -> str:
+    category = str(preferences.get("category") or "商品")
+    style = str(preferences.get("style") or "")
+    material = str(preferences.get("material") or "")
+    budget = preferences.get("maxPrice")
+    parts = [f"这次先围绕{style + ' ' if style else ''}{category}整理了{len(items)}款"]
+    if material:
+        parts.append(f"优先看了{material}方向")
+    if isinstance(budget, (int, float)):
+        parts.append(f"标价尽量控制在 ¥{budget:g} 以内")
+    parts.append("建议先从图片、尺寸和商品详情页对照，选最接近你生活场景的一款")
+    return "，".join(parts) + "。"
+
+
 class ShoppingAgent:
     def __init__(self, memory_path: str | Path, search: Search = product_api_search, model=None):
         self.memory = MemoryManager(memory_path)
@@ -469,9 +493,12 @@ class ShoppingAgent:
             else:
                 message = lead_message(plan.get("lead"), state["emotion"], state["items"], prefs)
             kind = "results"
+        next_question = generic_followup(prefs) if kind == "results" and state.get("items") else None
         state["response"] = {
             "ok": kind != "error", "type": kind, "message": message,
             "items": copy.deepcopy(state["items"]) if kind == "results" else [],
+            "summary": result_summary(state["items"], prefs) if kind == "results" and state.get("items") else "",
+            "question": next_question,
             "memory": {"preferences": {**copy.deepcopy(prefs), "memoryTags": [str(prefs[k]) for k in ("style", "material", "category", "scene") if prefs.get(k)]}, "turns": state["memory"].get("turns", 0) + 1, "currentRecommendationCount": 0 if action == "forget" and forget_field(state["message"]) == "all" else len(state["items"] or state["memory"].get("current_items", []))},
             "emotion": copy.deepcopy(state["emotion"]), "policy": copy.deepcopy(state["policy"]),
         }
