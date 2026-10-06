@@ -80,7 +80,10 @@ function buildSearchQuery(session, parsed) {
 const SUNSCREEN_QUESTION_ORDER = ['skinType', 'budget'];
 
 function isSunscreenRequest(text, session) {
-  return /防晒|防晒霜|防晒乳|防晒喷雾|sunscreen/i.test(text) || session.task?.category === '防晒霜';
+  // A later message can start a new category in the same conversation. The
+  // previous sunscreen task is only continued when the client sends an
+  // explicit questionnaire answer (handled by chatStructured below).
+  return /防晒|防晒霜|防晒乳|防晒喷雾|sunscreen/i.test(text);
 }
 
 function extractSunscreenAnswers(text) {
@@ -214,7 +217,11 @@ async function chatSunscreen({ session, sessionId, text, answer, search, onPhase
 export async function chatStructured({ sessionId = 'anonymous', userId, message, answer, search = searchTaobao, onPhase }) {
   const session = getSession(sessionId);
   const text = String(message ?? '').trim();
-  if (isSunscreenRequest(text, session) || answer?.questionId) return chatSunscreen({ session, sessionId, text, answer, search, onPhase });
+  // Direct callers of this structured API may still be answering an existing
+  // sunscreen task without repeating the product name. The public HTTP router
+  // decides whether a new message belongs here, so a new category such as
+  // "笔袋" will not reach this branch merely because the session is old.
+  if (isSunscreenRequest(text, session) || answer?.questionId || session.task?.category === '防晒霜') return chatSunscreen({ session, sessionId, text, answer, search, onPhase });
   return chat({ sessionId, userId, message: text, search });
 }
 
