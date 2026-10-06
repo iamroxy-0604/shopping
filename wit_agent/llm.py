@@ -136,3 +136,36 @@ async def narrative_plan(model, invocation, text: str, emotion: dict, items: lis
                 and row["id"] in allowed_ids and row["angle"] in ALLOWED_ANGLES):
             reasons[row["id"]] = row["angle"]
     return {"lead": lead, "reasons": reasons}
+
+
+async def questionnaire_plan(model, invocation, text: str, category: str, known: dict) -> list[dict]:
+    """Generate useful category-specific clarification; reject malformed model output."""
+    instruction = (
+        "你是购物导购。用户刚提出新的购物目标。为该商品生成两道简短的中文追问，"
+        "帮助区分真正影响购买的场景、规格或体验。不要重复用户已经说清的条件，"
+        "不要询问肤质以外品类的肤质，也不要承诺商品功效。"
+        "输出 {questions:[{id:'use',title:'...',options:['...','...','...']},"
+        "{id:'priority',title:'...',options:['...','...','...']}]}。"
+        "问题与选项都要贴合当前品类，每个选项不超过18字。"
+    )
+    try:
+        raw = await _ask_json(model, invocation, instruction, {
+            "message": text, "category": category, "knownConditions": known,
+        })
+    except Exception:
+        return []
+    rows = raw.get("questions")
+    if not isinstance(rows, list):
+        return []
+    valid = []
+    for index, row in enumerate(rows[:2]):
+        if not isinstance(row, dict):
+            continue
+        title, options = row.get("title"), row.get("options")
+        if (not isinstance(title, str) or not 5 <= len(title) <= 60
+                or not isinstance(options, list) or not 2 <= len(options) <= 4
+                or not all(isinstance(option, str) and 1 <= len(option) <= 18 for option in options)):
+            continue
+        valid.append({"id": ("use", "priority")[index], "title": title.strip(),
+                      "options": [option.strip() for option in options], "allowCustom": True})
+    return valid

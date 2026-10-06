@@ -19,3 +19,18 @@ test('Wit 桥接拒绝非本机地址，且明确报告服务不可用', async (
   const unavailable = await chatViaWit({ message: 'x', env: { WIT_AGENT_URL: 'http://localhost:8765' }, fetchImpl: async () => { throw new Error('offline'); } });
   assert.equal(unavailable.error.code, 'WIT_UNAVAILABLE');
 });
+
+test('Wit 桥接把问卷答案连同会话标识转发', async () => {
+  const answer = { questionId: 'budget', value: '500 元以内' };
+  const result = await chatViaWit({
+    sessionId: 'same-session', userId: 'same-user', message: answer.value, answer,
+    env: { WIT_AGENT_URL: 'http://127.0.0.1:8765' },
+    fetchImpl: async (_url, options) => {
+      assert.deepEqual(JSON.parse(options.body), {
+        sessionId: 'same-session', userId: 'same-user', message: answer.value, answer
+      });
+      return { ok: true, json: async () => ({ ok: true, type: 'results', items: [] }) };
+    }
+  });
+  assert.equal(result.type, 'results');
+});

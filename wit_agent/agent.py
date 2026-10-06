@@ -15,9 +15,9 @@ from wit.loops.workflow import WorkflowGraph, WorkflowLoopComponent
 from wit.models import MODEL
 from wit.providers.openai import OpenAIModelComponent
 
-from .llm import interpret, narrative_plan
+from .llm import interpret, narrative_plan, questionnaire_plan
 from .memory import MemoryManager
-from .policy import forget_field, temporary_budget, understand, usual_budget
+from .policy import extract_updates, forget_field, temporary_budget, understand, usual_budget
 
 Search = Callable[[str, dict], Awaitable[dict | list]]
 CATEGORY_EQUIVALENTS = {"桌面灯": ("桌面灯", "台灯"), "台灯": ("台灯", "桌面灯"), "腮红": ("腮红", "胭脂"), "耳机": ("耳机", "耳麦"), "餐桌": ("餐桌", "饭桌", "餐台")}
@@ -72,6 +72,7 @@ def select_products(raw_items: list, preferences: dict) -> list:
     style = preferences.get("style", "")
     material = preferences.get("material", "")
     dislikes = preferences.get("dislikes") or []
+    answer_terms = preferences.get("answer_terms") or []
     seen = set()
     ranked = []
     for raw in raw_items:
@@ -102,7 +103,8 @@ def select_products(raw_items: list, preferences: dict) -> list:
         if category == "餐桌" and style == "日系" and not style_match:
             continue
         material_match = bool(material and (material in title or material in (item["facts"].get("material") or [])))
-        score = int(category_match) * 3 + int(style_match) * 3 + int(material_match) * 2 + int(item["price"] is not None)
+        score = (int(category_match) * 3 + int(style_match) * 3 + int(material_match) * 2
+                 + int(item["price"] is not None) + sum(2 for term in answer_terms if term in title))
         reasons = []
         if category_match:
             reasons.append(f"商品标题写的是{category}")
@@ -253,24 +255,71 @@ def generic_followup(preferences: dict) -> dict | None:
     return {"id": "preference", "title": f"挑{category}时，你更在意哪一点？", "options": ["外观风格", "材质和做工", "性价比"], "allowCustom": True}
 
 
+def default_questionnaire(category: str, preferences: dict) -> list[dict]:
+    """Useful questionnaire when the model is unavailable or returns invalid JSON."""
+    category = category or "好物"
+    if category == "好物":
+        first = ("想先逛哪一类好物？", ["台灯", "收纳盒", "摆件", "其他，自己描述"])
+        return [
+            {"id": "category", "title": first[0], "options": first[1], "allowCustom": True},
+            {"id": "budget", "title": "这次想把预算控制在多少？",
+             "options": ["100 元以内", "500 元以内", "1000 元以内", "暂不设预算"], "allowCustom": True},
+        ]
+    if any(word in category for word in ("防晒", "护肤", "面霜")):
+        first = ("准备给什么肤质或皮肤状态使用？", ["偏油、容易闷", "偏干、需要滋润", "敏感或不确定"])
+    elif any(word in category for word in ("台灯", "灯具")):
+        first = ("这盏灯主要放在哪里用？", ["书桌阅读", "床头放松", "氛围装饰"])
+    elif any(word in category for word in ("餐桌", "桌子", "书桌")):
+        first = ("你更想要哪种尺寸或使用场景？", ["小户型、两人用", "日常四人用", "多人聚餐"])
+    elif any(word in category for word in ("耳机", "音箱")):
+        first = ("主要会在什么场景使用？", ["通勤路上", "学习或办公", "运动时"])
+    else:
+        first = (f"挑{category}时，主要准备怎么用？", ["日常自己用", "送人或分享", "先看看搭配灵感"])
+    second = (f"这次{category}大概希望控制在什么价位？", ["100 元以内", "500 元以内", "1000 元以内", "暂不设预算"])
+    if preferences.get("maxPrice") is not None:
+        second = (f"选{category}时，你最看重什么？", ["外观和风格", "材质与使用感", "价格和实用性"])
+    return [
+        {"id": "use", "title": first[0], "options": first[1], "allowCustom": True},
+        {"id": "budget" if preferences.get("maxPrice") is None else "priority",
+         "title": second[0], "options": second[1], "allowCustom": True},
+    ]
+
+
+def questionnaire_question(questionnaire: dict) -> dict | None:
+    questions = questionnaire.get("questions", [])
+    index = len(questionnaire.get("answers", []))
+    return questions[index] if index < len(questions) else None
+
+
 def result_summary(items: list, preferences: dict) -> str:
-    category = str(preferences.get("category") or "商品")
-    style = str(preferences.get("style") or "")
-    material = str(preferences.get("material") or "")
-    budget = preferences.get("maxPrice")
-    parts = [f"这次先围绕{style + ' ' if style else ''}{category}整理了{len(items)}款"]
-    if material:
-        parts.append(f"优先看了{material}方向")
-    if isinstance(budget, (int, float)):
-        parts.append(f"标价尽量控制在 ¥{budget:g} 以内")
-    parts.append("建议先从图片、尺寸和商品详情页对照，选最接近你生活场景的一款")
-    return "，".join(parts) + "。"
+    if not items:
+        return ""
+    descriptions = []
+    for index, item in enumerate(items[:3], 1):
+        title = item["title"][:28] + ("…" if len(item["title"]) > 28 else "")
+        price = f"¥{item['price']:g}" if item.get("price") is not None else "价格待确认"
+        descriptions.append(f"第{index}款「{title}」标价{price}，{item['recommendation']}")
+    guidance = []
+    priced = [(index, item["price"]) for index, item in enumerate(items[:3], 1)
+              if item.get("price") is not None]
+    if len(priced) >= 2:
+        cheapest = min(priced, key=lambda row: row[1])
+        if sum(price == cheapest[1] for _, price in priced) == 1:
+            guidance.append(f"如果先看标价，第{cheapest[0]}款目前最低")
+    terms = preferences.get("answer_terms") or []
+    scene_match = next(((index, term) for index, item in enumerate(items[:3], 1)
+                        for term in terms if term in item["title"]), None)
+    if scene_match:
+        guidance.append(f"如果更在意“{scene_match[1]}”，第{scene_match[0]}款的标题明确提到了这一点")
+    tail = "；".join(guidance) + "。" if guidance else ""
+    return " ".join(descriptions) + " " + tail + "想比较哪两款可以直接问我；尺寸、材质和实际成交价以商品详情为准。"
 
 
 class ShoppingAgent:
-    def __init__(self, memory_path: str | Path, search: Search = product_api_search, model=None):
+    def __init__(self, memory_path: str | Path, search: Search = product_api_search, model=None, *, questionnaire_enabled=True):
         self.memory = MemoryManager(memory_path)
         self.search = search
+        self.questionnaire_enabled = questionnaire_enabled
         self._locks = defaultdict(asyncio.Lock)
         self.agent = WitAgent()
         if model is None and os.getenv("LLM_MODEL") and (os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")):
@@ -296,7 +345,7 @@ class ShoppingAgent:
     async def __aexit__(self, *_):
         await self.agent.stop()
 
-    async def chat(self, session_id: str, message: str, user_id: str | None = None, *, new_conversation: bool = False) -> dict:
+    async def chat(self, session_id: str, message: str, user_id: str | None = None, *, new_conversation: bool = False, answer: dict | None = None) -> dict:
         if not isinstance(session_id, str) or not session_id.strip() or len(session_id) > 128:
             raise ValueError("sessionId must be a nonempty string of at most 128 characters")
         if user_id is None:
@@ -307,10 +356,12 @@ class ShoppingAgent:
             raise ValueError("message must be a string of at most 4000 characters")
         if type(new_conversation) is not bool:
             raise ValueError("newConversation must be a boolean")
+        if answer is not None and (not isinstance(answer, dict) or not isinstance(answer.get("questionId"), str)):
+            raise ValueError("answer must include questionId")
         async with self._locks[user_id]:
             if new_conversation:
                 self.memory.reset_session(session_id, user_id)
-            result = await self.agent.invoke({"sessionId": session_id, "userId": user_id, "message": message.strip()})
+            result = await self.agent.invoke({"sessionId": session_id, "userId": user_id, "message": message.strip(), "answer": answer})
             return result.output.output
 
     def _load(self, ctx):
@@ -318,10 +369,50 @@ class ShoppingAgent:
         ctx.state["session_id"] = request["sessionId"]
         ctx.state["user_id"] = request["userId"]
         ctx.state["message"] = request["message"]
+        ctx.state["answer"] = request.get("answer")
         ctx.state["memory"] = self.memory.load(request["sessionId"], request["userId"])
 
     async def _plan(self, ctx):
         state = ctx.state
+        pending = copy.deepcopy(state["memory"].get("questionnaire"))
+        incoming = extract_updates(state["message"])
+        previous_category = state["memory"].get("shopping_category")
+        category_changed = bool(incoming.get("category") and previous_category
+                                and incoming["category"] != previous_category
+                                and (not pending or (not state.get("answer") and re.search(
+                                    r"想买|想找|换成|改成|重新找", state["message"]))))
+        if pending and category_changed:
+            pending = None
+        if pending and questionnaire_question(pending):
+            expected = questionnaire_question(pending)
+            answer = state.get("answer")
+            if answer and answer["questionId"] != expected["id"]:
+                state["invalid_answer"] = True
+                state["questionnaire"] = pending
+                state["policy"] = {"action": "questionnaire", "question_count": 1, "recommendation_count": 0}
+                state["preferences"] = copy.deepcopy(state["memory"]["preferences"])
+                state["durable_preferences"] = copy.deepcopy(state["preferences"])
+                state["temporary"] = copy.deepcopy(state["memory"].get("temporary", {}))
+                state["emotion"] = {}
+                return
+            if answer or not re.search(r"想买|想找|换成|改成|重新找", state["message"]):
+                value = str((answer or {}).get("value") or state["message"]).strip()[:80]
+                if expected["id"] == "category":
+                    chosen = extract_updates(value).get("category")
+                    if not chosen:
+                        state["invalid_answer"] = True
+                        state["questionnaire"] = pending
+                        state["policy"] = {"action": "questionnaire", "question_count": 1, "recommendation_count": 0}
+                        state["preferences"] = copy.deepcopy(state["memory"]["preferences"])
+                        state["durable_preferences"] = copy.deepcopy(state["preferences"])
+                        state["temporary"] = copy.deepcopy(state["memory"].get("temporary", {}))
+                        state["emotion"] = {}
+                        return
+                    pending["category"] = chosen
+                pending["answers"].append({"id": expected["id"], "title": expected["title"], "value": value})
+                state["questionnaire"] = pending
+                state["answering_questionnaire"] = True
+                state["message"] = value
         durable = copy.deepcopy(state["memory"]["preferences"])
         temporary = copy.deepcopy(state["memory"].get("temporary", {}))
         budget = temporary_budget(state["message"])
@@ -361,6 +452,39 @@ class ShoppingAgent:
         ctx.state["temporary"] = temporary
         ctx.state["emotion"] = emotion
         ctx.state["policy"] = policy
+        if state.get("answering_questionnaire"):
+            # A questionnaire answer augments the current shopping goal; it is
+            # never interpreted as a request for a different product.
+            preference["category"] = pending["category"]
+            durable_preferences["category"] = pending["category"]
+            state["preferences"] = preference
+            state["durable_preferences"] = durable_preferences
+            if pending["answers"][-1]["id"] == "budget":
+                value = pending["answers"][-1]["value"]
+                match = re.search(r"(\d+(?:\.\d+)?)\s*元\s*(?:以内|以下)", value)
+                if match:
+                    preference["maxPrice"] = float(match[1])
+                    durable_preferences["maxPrice"] = float(match[1])
+            policy["action"] = "questionnaire" if questionnaire_question(pending) else "search"
+            return
+        if action := policy.get("action"):
+            should_start = action == "search" and (not previous_category or category_changed or not state["memory"].get("last_query"))
+            if action in ("explore", "clarify") and not previous_category and not state["memory"].get("current_items"):
+                should_start = True
+            if self.questionnaire_enabled and should_start:
+                category = str(preference.get("category") or "").strip()
+                questions = default_questionnaire(category, preference)
+                try:
+                    model = ctx.invocation.component_context.get(MODEL)
+                    generated = await questionnaire_plan(model, ctx.invocation, state["message"], category, preference) if category else []
+                    if generated:
+                        questions = generated
+                        if preference.get("maxPrice") is None:
+                            questions.append(default_questionnaire(category, preference)[1])
+                except LookupError:
+                    pass
+                state["questionnaire"] = {"category": category, "questions": questions[:3], "answers": []}
+                policy["action"] = "questionnaire"
 
     async def _retrieve(self, ctx):
         state = ctx.state
@@ -413,11 +537,21 @@ class ShoppingAgent:
             if failures == 3:
                 state["search_error"] = "商品搜索暂时不可用，请稍后重试"
             return
+        answers = (state.get("questionnaire") or {}).get("answers") or state["memory"].get("shopping_answers", [])
+        answer_terms = []
+        for row in answers:
+            if row.get("id") not in ("use", "priority"):
+                continue
+            value = str(row.get("value", ""))
+            answer_terms.extend(term for term in ("书桌", "床头", "阅读", "小户型", "两人", "四人", "通勤", "运动", "油皮", "干皮", "清爽", "原木", "简约", "收纳") if term in value)
+        prefs = {**prefs, "answer_terms": list(dict.fromkeys(answer_terms))}
         query = " ".join(str(prefs[k]) for k in ("style", "material", "category", "scene") if prefs.get(k))
         state["query"] = query
         filters = {"end_price": prefs["maxPrice"]} if prefs.get("maxPrice") is not None else {}
         try:
-            queries = [query]
+            queries = [" ".join([*answer_terms[:1], query]).strip()] if answer_terms else [query]
+            if query not in queries:
+                queries.append(query)
             if prefs.get("style") == "日系" and prefs.get("category"):
                 queries.append("日式" + prefs["category"])
             if prefs.get("category"):
@@ -444,7 +578,14 @@ class ShoppingAgent:
         state = ctx.state
         action = state["policy"]["action"]
         prefs = state["preferences"]
-        if action == "forget":
+        if action == "questionnaire":
+            question = questionnaire_question(state["questionnaire"])
+            if state.get("invalid_answer"):
+                message = "这道问题已经切换了，请回答当前这一题。"
+            else:
+                message = f"好，我先了解一下你挑{state['questionnaire']['category'] or '好物'}时在意的点，再帮你找更合适的。"
+            kind = "question"
+        elif action == "forget":
             message, kind = "好的，相关偏好记忆已经删除。", "question"
         elif action == "recall":
             tags = [str(prefs[k]) for k in ("style", "material", "category", "scene") if prefs.get(k)]
@@ -493,12 +634,19 @@ class ShoppingAgent:
             else:
                 message = lead_message(plan.get("lead"), state["emotion"], state["items"], prefs)
             kind = "results"
-        next_question = generic_followup(prefs) if kind == "results" and state.get("items") else None
+        next_question = question if action == "questionnaire" else None
         state["response"] = {
             "ok": kind != "error", "type": kind, "message": message,
             "items": copy.deepcopy(state["items"]) if kind == "results" else [],
-            "summary": result_summary(state["items"], prefs) if kind == "results" and state.get("items") else "",
-            "question": next_question,
+            "summary": result_summary(state["items"], {**prefs, "answer_terms": [
+                term for row in ((state.get("questionnaire") or {}).get("answers") or state["memory"].get("shopping_answers", []))
+                for term in ("书桌", "床头", "阅读", "小户型", "两人", "四人", "通勤", "运动", "油皮", "干皮", "清爽", "原木", "简约")
+                if row.get("id") in ("use", "priority") and term in str(row.get("value", ""))
+            ]}) if kind == "results" and state.get("items") else "",
+            "question": copy.deepcopy(next_question),
+            "task": {"category": state["questionnaire"]["category"], "answers": {
+                row["id"]: row["value"] for row in state["questionnaire"]["answers"]
+            }} if state.get("questionnaire") else None,
             "memory": {"preferences": {**copy.deepcopy(prefs), "memoryTags": [str(prefs[k]) for k in ("style", "material", "category", "scene") if prefs.get(k)]}, "turns": state["memory"].get("turns", 0) + 1, "currentRecommendationCount": 0 if action == "forget" and forget_field(state["message"]) == "all" else len(state["items"] or state["memory"].get("current_items", []))},
             "emotion": copy.deepcopy(state["emotion"]), "policy": copy.deepcopy(state["policy"]),
         }
@@ -517,6 +665,9 @@ class ShoppingAgent:
         data["temporary"] = copy.deepcopy(state["temporary"])
         data["emotion"] = copy.deepcopy(state["emotion"])
         data["turns"] = data.get("turns", 0) + 1
+        if "questionnaire" in state:
+            data["questionnaire"] = copy.deepcopy(state["questionnaire"])
+            data["shopping_category"] = state["questionnaire"]["category"]
         if not forget_all and ("收藏" in state["message"] or "不喜欢" in state["message"]):
             feedback_type = "saved" if "收藏" in state["message"] else "disliked"
             index = next((i for token, i in (("第一款", 0), ("第二款", 1), ("第三款", 2)) if token in state["message"]), None)
@@ -526,6 +677,10 @@ class ShoppingAgent:
         if state["policy"]["action"] == "search" and not state.get("search_error"):
             data["current_items"] = copy.deepcopy(state["items"])
             data["last_query"] = state.get("query", "")
+            if state.get("questionnaire"):
+                data["shopping_answers"] = copy.deepcopy(state["questionnaire"]["answers"])
+            data["questionnaire"] = None
+            data["shopping_category"] = state["preferences"].get("category", "")
         self.memory.save(
             state["session_id"], data, state["user_id"],
             forget_all=forget_all,

@@ -2,7 +2,14 @@
 
 import asyncio
 
-from wit_agent.agent import ShoppingAgent
+from wit_agent.agent import ShoppingAgent as ProductionShoppingAgent
+
+
+class ShoppingAgent(ProductionShoppingAgent):
+    """Exercise historical search and memory contracts without intake UX."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, questionnaire_enabled=False, **kwargs)
 
 
 def product(pid, title, price, *, material=None, color=None, dimensions=None, url=""):

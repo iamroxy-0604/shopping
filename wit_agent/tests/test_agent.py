@@ -7,8 +7,15 @@ import pytest
 from wit.messages import AssistantMessage
 from wit.models import BaseModelComponent, ModelEvent, ModelResult
 
-from wit_agent.agent import ShoppingAgent
+from wit_agent.agent import ShoppingAgent as ProductionShoppingAgent
 from wit_agent.server import handle
+
+
+class ShoppingAgent(ProductionShoppingAgent):
+    """Keep the existing search and memory regressions independent of intake UX."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, questionnaire_enabled=False, **kwargs)
 
 
 def run_async(function):

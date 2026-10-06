@@ -44,18 +44,19 @@ function writeSse(res, event, data) {
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 async function emitWitProgress(res, resultPromise) {
-  const steps = [
-    ['understand', '需求分析', 260],
-    ['clarify', '补充问卷', 420],
-    ['search', '搜索商品', 620],
-    ['rank', '筛选整理', 420]
-  ];
-  for (const [id, label, duration] of steps) {
-    writeSse(res, 'phase', { id, label, status: 'running' });
-    await wait(duration);
-    writeSse(res, 'phase', { id, label, status: 'completed', elapsedMs: duration });
+  writeSse(res, 'phase', { id: 'understand', label: '需求分析', status: 'running' });
+  const started = Date.now();
+  const result = await resultPromise;
+  await wait(Math.max(0, 700 - (Date.now() - started)));
+  writeSse(res, 'phase', { id: 'understand', label: '需求分析', status: 'completed' });
+  if (result.type === 'question' && result.question) {
+    writeSse(res, 'phase', { id: 'clarify', label: '补充问卷', status: 'running' });
+  } else if (result.type === 'results') {
+    for (const [id, label] of [['clarify', '补充问卷'], ['search', '搜索商品'], ['rank', '筛选整理']]) {
+      writeSse(res, 'phase', { id, label, status: 'completed' });
+    }
   }
-  return resultPromise;
+  return result;
 }
 
 function serveStatic(res, url) {
@@ -85,11 +86,11 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && req.url === '/api/chat') {
     try {
       const body = JSON.parse(await readBody(req) || '{}');
-      const structured = isStructuredChatRequest(body);
+      const structured = !isWitEnabled() && isStructuredChatRequest(body);
       const result = structured
         ? await chatStructured({ sessionId: body.sessionId, userId: body.userId, message: body.message, answer: body.answer })
         : isWitEnabled()
-        ? await chatViaWit({ sessionId: body.sessionId, userId: body.userId, message: body.message })
+        ? await chatViaWit({ sessionId: body.sessionId, userId: body.userId, message: body.message, answer: body.answer })
         : await chat({ sessionId: body.sessionId, message: body.message });
       return sendJson(res, result.ok ? 200 : 502, result);
     } catch {
@@ -105,7 +106,7 @@ const server = http.createServer(async (req, res) => {
     }
     sendSseHeaders(res);
     try {
-      const structured = isStructuredChatRequest(body);
+      const structured = !isWitEnabled() && isStructuredChatRequest(body);
       const result = structured
         ? await chatStructured({
           sessionId: body.sessionId,
@@ -115,7 +116,7 @@ const server = http.createServer(async (req, res) => {
           onPhase: async (phase) => writeSse(res, 'phase', phase)
         })
         : isWitEnabled()
-          ? await emitWitProgress(res, chatViaWit({ sessionId: body.sessionId, userId: body.userId, message: body.message }))
+          ? await emitWitProgress(res, chatViaWit({ sessionId: body.sessionId, userId: body.userId, message: body.message, answer: body.answer }))
           : await chat({ sessionId: body.sessionId, message: body.message });
       writeSse(res, result.ok ? 'result' : 'error', result);
       writeSse(res, 'done', { ok: result.ok });
