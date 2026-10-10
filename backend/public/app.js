@@ -1,108 +1,170 @@
-const sessionKey='immersive-shopping-session-id', conversationKey='immersive-shopping-conversations', favoriteKey='immersive-shopping-favorites', userKey='immersive-shopping-user-id';
-const userId=localStorage.getItem(userKey)||`shopper-${crypto.randomUUID?.()||Date.now()}`;localStorage.setItem(userKey,userId);
-let sessionId=localStorage.getItem(sessionKey)||`demo-${crypto.randomUUID?.()||Date.now()}`;localStorage.setItem(sessionKey,sessionId);
-let conversations=read(conversationKey,{}), favorites=read(favoriteKey,{}), requestToken=0, pendingQuestion=null, allItems=[], taskSnapshot=null, activeController=null;
-const hasPrice=item=>item?.price!==null&&item?.price!==undefined&&item?.price!==''&&Number.isFinite(Number(item.price));
-const priceText=item=>hasPrice(item)?`¥${new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(Number(item.price))}`:'价格待确认';
-const $=s=>document.querySelector(s), messages=$('#messages'), input=$('#messageInput'), conversation=$('#conversation'), form=$('#chatForm');
-const phases=[['understand','分析需求'],['clarify','补充问卷'],['search','搜索商品'],['rank','筛选整理']];let phaseState=Object.fromEntries(phases.map(([id])=>[id,'pending']));
-function read(key,fallback){try{return JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback))}catch{return fallback}}
-function save(){try{localStorage.setItem(conversationKey,JSON.stringify(conversations))}catch{}}
-function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
-function url(v){try{const u=new URL(String(v||''));return ['http:','https:'].includes(u.protocol)?u.href:''}catch{return ''}}
-function current(){return conversations[sessionId]||null}
-function title(t){return String(t||'新对话').replace(/\s+/g,' ').trim().slice(0,22)}
-function persist(message){const r=conversations[sessionId]||{id:sessionId,title:title(message.text),messages:[]};if(message.text&&!r.messages.length)r.title=title(message.text);r.messages.push(message);r.updatedAt=new Date().toISOString();conversations[sessionId]=r;save();renderHistory()}
-function icon(name){return `<i data-lucide="${name}"></i>`}
-function refreshIcons(){globalThis.lucide?.createIcons()}
-function home(){$('#dockActions').hidden=false;messages.innerHTML=`<div class="welcome"><div class="welcome-orbit" aria-hidden="true"><span class="welcome-glow"></span><span class="welcome-spark spark-one">✦</span><span class="welcome-spark spark-two">✦</span></div><p class="welcome-kicker">SHIGUANG / 购物决策助手</p><h1>Hi~我是拾光</h1><p>你的专属导购 Agent<br>告诉我你的需求，我来帮你挑好物、比价格、做决策</p></div><div class="section-head"><h2>你可以想问</h2><button class="text-button" type="button" data-action="shuffle">换一批 ${icon('refresh-cw')}</button></div><div class="prompt-list" id="promptList"></div>`;renderPrompts();refreshIcons()}
-const promptSets=[['适合军训的防晒霜','通勤降噪耳机怎么选','100元内的日系桌面好物','送朋友的实用小礼物'],['油皮夏天适合的防晒','租房党需要哪些收纳好物','适合办公室的水杯','轻便又耐用的双肩包'],['预算300元的入门耳机','小户型香氛怎么挑','适合旅行的护肤套装','想买一件耐穿的白衬衫']];let promptIndex=0;
-function renderPrompts(){const list=$('#promptList');if(!list)return;list.innerHTML=promptSets[promptIndex].map(t=>`<button class="chip" type="button" data-prompt="${esc(t)}">${esc(t)}</button>`).join('')}
-function renderHistory(){const records=Object.values(conversations).filter(r=>r?.messages?.length).sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));$('#historyCount').textContent=records.length;$('#favoriteCount').textContent=Object.keys(favorites).length;$('#sideHistory').innerHTML='<p>最近对话</p>'+records.slice(0,8).map(r=>`<button class="history-item${r.id===sessionId?' selected':''}" type="button" data-session="${esc(r.id)}">${esc(r.title)}<small>${new Date(r.updatedAt||Date.now()).toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})}</small></button>`).join('');refreshIcons()}
-function renderFavorites(){const items=knownItems().filter(i=>favorites[productId(i)]);$('#sideHistory').innerHTML='<p>已收藏商品</p>'+(items.length?items.map(i=>`<div class="favorite-item"><span>${esc(i.title||'未命名商品')}</span><button type="button" data-favorite="${esc(productId(i))}">取消收藏</button></div>`).join(''):'<p class="reason">还没有收藏商品。</p>')}
-function productId(item){return String(item.id||`${item.title||''}|${item.source?.name||item.source||''}`)}
-function productCard(item){const id=productId(item), saved=Boolean(favorites[id]), image=url(item.imageUrl||item.image||item.media?.images?.[0]?.url), link=url(item.promotionUrl||item.url), source=typeof item.source==='object'?item.source?.name:item.source||'接口商品';return `<div class="product-recommendation"><article class="product-card"><div class="product-art">${image?`<img src="${esc(image)}" alt="${esc(item.title||'商品图片')}">`:''}</div><div class="product-info"><p class="product-brand">${esc(source)}</p><h3>${esc(item.title||'未命名商品')}</h3><div class="tag-row"><span class="tag">${esc(item.categoryName||'推荐商品')}</span></div><div class="price-row"><strong class="price">${priceText(item)}</strong><button class="heart${saved?' is-saved':''}" type="button" data-favorite="${esc(id)}" aria-label="${saved?'取消收藏':'收藏'}">${saved?'♥':'♡'}</button></div>${link?`<a class="product-link" href="${esc(link)}" target="_blank" rel="noopener">查看商品 ${icon('arrow-up-right')}</a>`:''}</div></article><p class="product-reason"><b>筛选依据：</b>${esc(item.recommendation||item.highlight||item.subtitle||'根据你的需求筛选')}</p></div>`}
-function knownItems(){const map=new Map(allItems.map(i=>[productId(i),i]));Object.values(conversations).forEach(r=>(r.messages||[]).forEach(m=>(m.result?.items||[]).forEach(i=>map.set(productId(i),i))));return [...map.values()]}
-function drawer(){const d=$('#drawerProducts');d.innerHTML=allItems.map(i=>{const id=productId(i),image=url(i.imageUrl||i.image||i.media?.images?.[0]?.url),link=url(i.promotionUrl||i.url),saved=Boolean(favorites[id]);return `<div class="drawer-product"><div class="drawer-art">${image?`<img src="${esc(image)}" alt="${esc(i.title||'商品图片')}">`:''}</div><div><h3>${esc(i.title||'未命名商品')}</h3><p>${esc(typeof i.source==='object'?i.source?.name:i.source||'接口商品')}</p><div class="drawer-actions">${link?`<a href="${esc(link)}" target="_blank" rel="noopener">查看商品</a>`:''}<button type="button" data-favorite="${esc(id)}">${saved?'取消收藏':'收藏'}</button></div></div><strong>${priceText(i)}</strong></div>`}).join('')||'<p class="reason">当前没有可展示的商品。</p>';refreshIcons()}
-function phaseAnswer(label,value){return `<div><b>${esc(label)}</b><span>${esc(value||'未填写')}</span></div>`}
-function renderPhase(){const completed=Object.values(phaseState).filter(v=>v==='completed').length, allComplete=completed===phases.length;let card=$('#phaseCard');if(allComplete){const answers=taskSnapshot?.answers||{};const skin=answers.skinType?.label||answers.skinType||'中性 / 不确定', budget=answers.budget?.label||answers.budget||'50 - 100 元', preference=answers.preference?.label||answers.preference||'清爽不黏';const html=`<div class="phase-card phase-complete-card" id="phaseCard"><div class="phase-head"><div class="phase-title"><span class="phase-dot phase-check">${icon('check')}</span><span>任务完成</span></div><button class="phase-toggle" type="button" data-toggle-phase aria-expanded="true">${icon('chevron-up')}</button></div><div class="phase-answer-list">${phaseAnswer('你的肤质或皮肤情况是？',skin)}${phaseAnswer('这次防晒霜单件预算大概在哪个范围？',budget)}${phaseAnswer('军训防晒你更看重哪些点？',preference)}${phaseAnswer('对防晒类型有偏好吗？','化学防晒 / 不确定')}</div></div>`;if(card)card.outerHTML=html;else messages.insertAdjacentHTML('beforeend',html)}else{const rows=phases.map(([id,label])=>{const status=phaseState[id],done=status==='completed',running=status==='running';return `<div class="phase-line ${status}"><span class="phase-mark">${done?icon('check'):running?icon('loader-circle'):''}</span><span>${label}${running?'　进行中':''}</span>${done?'<small>已完成</small>':''}${running?icon('chevron-up'):''}</div>`}).join('');const active=phases.find(([id])=>phaseState[id]==='running')?.[1]||'正在执行任务中...';const html=`<div class="phase-stack" id="phaseCard"><div class="phase-thought-done"><span class="phase-dot pale-dot">${icon('check')}</span><span>已完成思考</span></div><div class="phase-card phase-running-card"><div class="phase-head"><div class="phase-title"><span class="phase-spinner">${icon('loader-circle')}</span><span>${active==='正在执行任务中...'?'正在执行任务中...':`正在${active}`}</span></div><button class="phase-toggle" type="button" data-toggle-phase aria-expanded="true">${icon('chevron-up')}</button></div><div class="phase-lines">${rows}</div></div></div>`;if(card)card.outerHTML=html;else messages.insertAdjacentHTML('beforeend',html)}refreshIcons();conversation.scrollTo({top:conversation.scrollHeight,behavior:'smooth'})}
-function appendUser(text,shouldPersist=true){messages.insertAdjacentHTML('beforeend',`<div class="message user-message"><div class="user-bubble">${esc(text)}</div></div>`);if(shouldPersist)persist({role:'user',text})}
-function appendAssistant(result,shouldPersist=true){taskSnapshot=result.task||taskSnapshot;const answer=result.message||result.error?.message||'暂时没有找到合适的结果。';if(result.items?.length)renderResults(result);else{messages.insertAdjacentHTML('beforeend',`<div class="message assistant-message"><span class="assistant-avatar">${icon('sparkles')}</span><div><div class="assistant-copy">${esc(answer)}</div></div></div>`);if(result.question)appendQuestion(result.question);if(result.summary)renderSummary(result.summary,result.followups||[])}if(shouldPersist)persist({role:'assistant',result});refreshIcons();conversation.scrollTo({top:conversation.scrollHeight,behavior:'smooth'})}
-function appendQuestion(q){pendingQuestion=q;messages.insertAdjacentHTML('beforeend',`<div class="question-card" data-question-card><h2>${esc(q.title||'再告诉我一点偏好')}</h2><div class="question-options">${(q.options||[]).map(o=>`<button class="option" type="button" data-answer="${esc(o)}">${esc(o)}</button>`).join('')}</div>${q.allowCustom?`<form class="free-answer" data-custom-answer><input placeholder="也可以直接告诉我…" aria-label="自定义回答"><button class="small-submit" type="submit">确定</button></form>`:''}</div>`)}
-function renderResultsLegacy(result){allItems=result.items||[];taskSnapshot=result.task||taskSnapshot;const followups=result.followups||['换一批看看','便宜一点','我还想了解使用方法'];messages.insertAdjacentHTML('beforeend',`<div class="message assistant-message results-message"><span class="assistant-avatar">${icon('sparkles')}</span><div><div class="assistant-copy results-copy">${esc(result.message||'我按你的条件筛选了几款，先看这几件。')}</div><div class="product-grid">${allItems.slice(0,3).map(productCard).join('')}</div>${result.summary?`<div class="summary-box"><h3>整体归纳</h3><div>${esc(result.summary)}</div></div>`:''}<div class="cta-row"><button class="primary-cta" type="button" data-open-drawer>查看全部商品 ${icon('list')}</button></div><p class="feedback">还可以继续告诉我你的想法</p><div class="followups">${followups.slice(0,3).map(f=>`<button class="chip" type="button" data-prompt="${esc(f)}">${esc(f)}</button>`).join('')}</div></div></div>`);drawer();if(Object.values(phaseState).every(v=>v==='completed'))renderPhase()}
-function renderSummary(summary,followups){messages.insertAdjacentHTML('beforeend',`<div class="summary-box"><h3>整体归纳</h3><div>${esc(summary)}</div><div class="followups">${followups.map(f=>`<button class="chip" type="button" data-prompt="${esc(f)}">${esc(f)}</button>`).join('')}</div></div>`)}
-function showPending(){messages.insertAdjacentHTML('beforeend',`<div class="phase-card pending-feedback" id="pendingFeedback" role="status"><div class="phase-title"><span class="phase-spinner">${icon('loader-circle')}</span><span>正在处理你的需求，请稍候…</span></div></div>`);refreshIcons()}
-function clearPending(){messages.querySelector('#pendingFeedback')?.remove()}
-function finishProgress(keepCompleted=false){clearPending();if(!keepCompleted||!Object.values(phaseState).every(v=>v==='completed'))messages.querySelector('#phaseCard')?.remove()}
-function phaseEvent(data){if(!data?.id)return;clearPending();phaseState[data.id]=data.status||'running';renderPhasePrototype()}
-async function stream(text,answer,signal){
-  const body={userId,sessionId,message:text};if(answer)body.answer=answer;
-  const response=await fetch('/api/chat/stream',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),signal});
-  if(!response.ok||!response.body){const error=new Error('流式接口暂不可用');error.canFallback=response.status===404||response.status===501;throw error}
-  const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='',gotResult=false,gotQuestion=false;
-  while(true){
-    const {value,done}=await reader.read();buffer+=decoder.decode(value||new Uint8Array(),{stream:!done});
-    const chunks=buffer.split('\n\n');buffer=chunks.pop()||'';
-    for(const chunk of chunks){
-      const event=(chunk.match(/^event:\s*(.+)$/m)||[])[1]||'message';
-      const raw=(chunk.match(/^data:\s*(.+)$/m)||[])[1];if(!raw)continue;
-      let data;try{data=JSON.parse(raw)}catch{continue}
-      if(event==='phase')phaseEvent(data);
-      else if(event==='question'||data.type==='question'){
-        gotQuestion=true;finishProgress();pendingQuestion=data.question||data;
-        appendAssistant({message:data.message||'我想再了解一点，方便帮你筛选。',question:pendingQuestion});
-      }else if(event==='result'||data.type==='results'){
-        gotResult=true;finishProgress(true);appendAssistant(data);
-      }else if(event==='error')throw new Error(data.error?.message||data.message||'商品搜索失败');
-    }
-    if(done)break;
-  }
-  if(!gotResult&&!gotQuestion)throw new Error('服务端未返回结果');
-}
-async function send(text,answer=null){
-  if(!text||input.disabled)return;
-  const token=++requestToken;pendingQuestion=null;taskSnapshot=null;
-  $('#dockActions').hidden=true;messages.querySelector('.welcome')?.remove();messages.querySelectorAll('.question-card').forEach(n=>n.remove());
-  finishProgress();appendUser(text);input.value='';input.disabled=true;$('.send-control').disabled=true;
-  phaseState=Object.fromEntries(phases.map(([id])=>[id,'pending']));showPending();
-  const controller=new AbortController();activeController=controller;const timeout=setTimeout(()=>controller.abort(),55000);
-  try{await stream(text,answer,controller.signal)}catch(firstError){
-    if(token!==requestToken)return;
-    finishProgress();
-    if(firstError.canFallback){
-      try{
-        const r=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({userId,sessionId,message:text,answer}),signal:controller.signal});
-        const data=await r.json();if(!r.ok||data.ok===false)throw new Error(data.error?.message||data.message||firstError.message);
-        appendAssistant(data);
-      }catch(error){appendAssistant({type:'error',message:`暂时没能完成这次搜索：${error.message}`})}
-    }else{
-      const detail=firstError.name==='AbortError'?'等待超时，请稍后重试。':firstError.message;
-      appendAssistant({type:'error',message:`暂时没能完成这次搜索：${detail}`});
-    }
-  }finally{
-    clearTimeout(timeout);if(activeController===controller)activeController=null;
-    if(token===requestToken){input.disabled=false;$('.send-control').disabled=false;input.focus()}
-  }
-}
-function cancelRequest(){requestToken++;activeController?.abort();activeController=null;input.disabled=false;$('.send-control').disabled=false;finishProgress()}
-function newChat(){cancelRequest();sessionId=`demo-${crypto.randomUUID?.()||Date.now()}`;localStorage.setItem(sessionKey,sessionId);allItems=[];pendingQuestion=null;taskSnapshot=null;home();renderHistory();closeSide()}
-function replayMessages(record){const entries=record?.messages||[];$('#dockActions').hidden=entries.length>0;messages.innerHTML='';pendingQuestion=null;entries.forEach((m,index)=>{if(m.role==='user')appendUser(m.text,false);else if(m.role==='assistant'){const answered=m.result?.question&&entries.slice(index+1).some(next=>next.role==='user');appendAssistant(answered?{...m.result,question:undefined}:m.result,false)}})}
-function openConversation(id){const record=conversations[id];if(!record)return;cancelRequest();sessionId=id;localStorage.setItem(sessionKey,id);replayMessages(record);closeSide()}
-function openSide(){ $('#sidePanel').classList.add('is-open');$('#scrim').classList.add('is-open') }function closeSide(){ $('#sidePanel').classList.remove('is-open');$('#scrim').classList.remove('is-open') }
-function openDrawer(){drawer();$('#productDrawer').classList.add('is-open');$('#productDrawer').setAttribute('aria-hidden','false')}
-function closeDrawer(){$('#productDrawer').classList.remove('is-open');$('#productDrawer').setAttribute('aria-hidden','true')}
-form.addEventListener('submit',e=>{e.preventDefault();send(input.value.trim())});input.addEventListener('input',()=>{input.style.height='auto';input.style.height=`${Math.min(input.scrollHeight,86)}px`});
-messages.addEventListener('click',e=>{const prompt=e.target.closest('[data-prompt]');if(prompt)send(prompt.dataset.prompt);const answer=e.target.closest('[data-answer]');if(answer&&pendingQuestion){const q=pendingQuestion;send(answer.dataset.answer,{questionId:q.id,value:answer.dataset.answer})}const fav=e.target.closest('[data-favorite]');if(fav){const id=fav.dataset.favorite;favorites[id]?delete favorites[id]:favorites[id]=true;localStorage.setItem(favoriteKey,JSON.stringify(favorites));document.querySelectorAll(`[data-favorite="${CSS.escape(id)}"]`).forEach(b=>{b.textContent=favorites[id]?'♥':'♡';b.classList.toggle('is-saved',Boolean(favorites[id]))});renderHistory()}if(e.target.closest('[data-open-drawer]'))openDrawer();if(e.target.closest('[data-action="shuffle"]')){promptIndex=(promptIndex+1)%promptSets.length;renderPrompts()};if(e.target.closest('[data-toggle-phase]')){const card=$('#phaseCard'),list=card?.querySelector('.phase-lines,.phase-answer-list'),button=e.target.closest('[data-toggle-phase]');if(!list)return;const hidden=list.hidden;list.hidden=!hidden;button.innerHTML=icon(hidden?'chevron-up':'chevron-down');button.setAttribute('aria-expanded',String(hidden));refreshIcons()}});
-messages.addEventListener('submit',e=>{if(!e.target.matches('[data-custom-answer]'))return;e.preventDefault();const value=e.target.querySelector('input').value.trim();if(value&&pendingQuestion)send(value,{questionId:pendingQuestion.id,value})});
-$('#menuButton').addEventListener('click',openSide);$('#historyButton').addEventListener('click',openSide);$('#closeSide').addEventListener('click',closeSide);$('#scrim').addEventListener('click',closeSide);$('#newChat').addEventListener('click',newChat);$('#homeButton').addEventListener('click',newChat);$('#closeDrawer').addEventListener('click',closeDrawer);$('#sideHistory').addEventListener('click',e=>{const button=e.target.closest('[data-session]');if(button)openConversation(button.dataset.session)});
-document.addEventListener('click',e=>{if(e.target.closest('[data-side="compare"]')){closeSide();send('我想找同款或比较刚才商品的价格')}if(e.target.closest('[data-side="favorites"]')){openSide();renderFavorites()}});
-document.addEventListener('click',e=>{if(e.target.closest('[data-side="memory"]')){openSide();renderMemory()}});
-document.addEventListener('click',e=>{const fav=e.target.closest('#sideHistory [data-favorite],#drawerProducts [data-favorite]');if(!fav)return;const id=fav.dataset.favorite;favorites[id]?delete favorites[id]:favorites[id]=true;localStorage.setItem(favoriteKey,JSON.stringify(favorites));drawer();renderHistory();if(e.target.closest('#sideHistory')){const items=knownItems().filter(i=>favorites[productId(i)]);$('#sideHistory').innerHTML='<p>已收藏商品</p>'+(items.length?items.map(i=>`<button class="history-item" type="button" data-favorite="${esc(productId(i))}">${esc(i.title||'未命名商品')}<small>取消收藏</small></button>`).join(''):'<p class="reason">还没有收藏商品。</p>')}});
-document.addEventListener('click',e=>{const action=e.target.closest('[data-action]')?.dataset.action;if(action==='personal')send('我想开启个性化购物推荐');if(action==='compare')send('我想通过商品链接进行比价')});
+const $ = (selector) => document.querySelector(selector);
+const conversation = $('#conversation');
+const input = $('#messageInput');
+const overlay = $('#overlay');
+const storageKey = 'shiguang-flow-conversations-v1';
+const currentKey = 'shiguang-flow-current-v1';
+const userKey = 'shiguang-flow-user-v1';
+const userId = localStorage.getItem(userKey) || `user-${crypto.randomUUID()}`;
+localStorage.setItem(userKey, userId);
+const saved = (() => { try { return JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch { return {}; } })();
+let sessions = saved;
+let sessionId = localStorage.getItem(currentKey) || `session-${crypto.randomUUID()}`;
+let pending = null;
+let busy = false;
+let stage = 'idle';
+let task = null;
+let products = [];
+let abortController = null;
+let selectedAnswer = '';
+let activeRecord = sessions[sessionId] || { title: '新对话', messages: [], updatedAt: '' };
+const phases = ['分析需求', '补充问卷', '搜索商品', '筛选整理'];
 
-function memoryBox(memory){const prefs=memory?.preferences||{};const tags=Array.isArray(prefs.memoryTags)?prefs.memoryTags.filter(Boolean):Object.entries(prefs).filter(([key])=>!['maxPrice','memoryTags'].includes(key)).map(([,value])=>value).filter(Boolean);if(!tags.length&&prefs.maxPrice===undefined)return '';return `<section class="memory-box"><div class="memory-box-head"><span>${icon('bookmark')}</span><strong>我先记下这些偏好</strong></div><div class="memory-tags">${tags.map(tag=>`<span>${esc(tag)}</span>`).join('')}${prefs.maxPrice!==undefined?`<span>预算 ¥${esc(prefs.maxPrice)} 以内</span>`:''}</div><p>后续继续聊天时，我会用这些偏好帮你缩小范围；你也可以随时说“忘记这个偏好”。</p></section>`}
-function renderMemory(){const record=current();const latest=[...(record?.messages||[])].reverse().find(item=>item.result?.memory)?.result?.memory;const prefs=latest?.preferences||{};const tags=Array.isArray(prefs.memoryTags)?prefs.memoryTags.filter(Boolean):[];$('#sideHistory').innerHTML=`<p>当前对话记忆</p>${tags.length||prefs.maxPrice!==undefined?`<div class="memory-panel"><div class="memory-tags">${tags.map(tag=>`<span>${esc(tag)}</span>`).join('')}${prefs.maxPrice!==undefined?`<span>预算 ¥${esc(prefs.maxPrice)} 以内</span>`:''}</div><p>这些内容会留在当前用户的偏好记忆中，跨新对话也可被召回。</p><button type="button" class="memory-clear-hint" data-prompt="忘记所有记忆">说“忘记所有记忆”可以清除</button></div>`:'<p class="reason">这段对话还没有形成明确的偏好记忆。你可以说“我喜欢日系、原木材质”之类的话。</p>'}`;refreshIcons()}
-function renderPhasePrototype(){const completed=Object.values(phaseState).filter(v=>v==='completed').length,allComplete=completed===phases.length;let card=$('#phaseCard');if(allComplete){const answers=taskSnapshot?.answers||{};const rows=Object.entries(answers).map(([key,value])=>{const label={skinType:'肤质或皮肤情况',budget:'单件预算',preference:'更看重的使用感',scene:'使用场景'}[key]||key;const text=value?.label||value?.value||value;return text?`<div><b>${esc(label)}</b><span>${esc(text)}</span></div>`:''}).filter(Boolean).join('');const html=`<div class="phase-card phase-complete-card" id="phaseCard"><div class="phase-head"><div class="phase-title"><span class="phase-dot phase-check">${icon('check')}</span><span>任务完成</span></div><button class="phase-toggle" type="button" data-toggle-phase aria-expanded="true">${icon('chevron-up')}</button></div>${rows?`<div class="phase-answer-list">${rows}</div>`:'<p class="phase-finished-note">需求已经分析完成，商品也整理好了。</p>'}</div>`;if(card)card.outerHTML=html;else messages.insertAdjacentHTML('beforeend',html)}else{const rows=phases.map(([id,label])=>{const status=phaseState[id],done=status==='completed',running=status==='running';return `<div class="phase-line ${status}"><span class="phase-mark">${done?icon('check'):running?icon('loader-circle'):''}</span><span>${label}${running?'　进行中':''}</span>${done?'<small>已完成</small>':''}${running?icon('chevron-up'):''}</div>`}).join('');const active=phases.find(([id])=>phaseState[id]==='running')?.[1]||'正在执行任务中...';const html=`<div class="phase-stack" id="phaseCard"><div class="phase-thought-done"><span class="phase-dot pale-dot">${icon('check')}</span><span>已完成思考</span></div><div class="phase-card phase-running-card"><div class="phase-head"><div class="phase-title"><span class="phase-spinner">${icon('loader-circle')}</span><span>${active==='正在执行任务中...'?'正在执行任务中...':`正在${active}`}</span></div><button class="phase-toggle" type="button" data-toggle-phase aria-expanded="true">${icon('chevron-up')}</button></div><div class="phase-lines">${rows}</div></div></div>`;if(card)card.outerHTML=html;else messages.insertAdjacentHTML('beforeend',html)}refreshIcons();conversation.scrollTo({top:conversation.scrollHeight,behavior:'smooth'})}
-function renderResults(result){allItems=result.items||[];taskSnapshot=result.task||taskSnapshot;const followups=result.followups||['换一批看看','便宜一点','我还想了解使用方法'];messages.insertAdjacentHTML('beforeend',`<div class="message assistant-message results-message"><span class="assistant-avatar">${icon('sparkles')}</span><div><div class="assistant-copy results-copy">${esc(result.message||'我按你的需求先挑了几款，咱们一起看看。')}</div>${result.summary?`<div class="summary-box"><h3>这次我为什么推荐</h3><div>${esc(result.summary)}</div></div>`:''}<div class="product-grid">${allItems.slice(0,3).map(productCard).join('')}</div>${memoryBox(result.memory)}<div class="cta-row"><button class="primary-cta" type="button" data-open-drawer>查看全部商品 ${icon('list')}</button></div><p class="feedback">还可以继续告诉我你的想法</p><div class="followups">${followups.slice(0,3).map(f=>`<button class="chip" type="button" data-prompt="${esc(f)}">${esc(f)}</button>`).join('')}</div></div></div>`);drawer();if(result.question)appendQuestion(result.question);if(Object.values(phaseState).every(v=>v==='completed'))renderPhasePrototype()}
+function esc(value) { return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function safeUrl(value) { try { const u = new URL(String(value || '')); return ['https:', 'http:'].includes(u.protocol) ? u.href : ''; } catch { return ''; } }
+function money(value) { return Number.isFinite(Number(value)) && value !== null && value !== '' ? `¥${Number(value).toLocaleString('zh-CN')}` : '价格待确认'; }
+function save() { activeRecord.updatedAt = new Date().toISOString(); sessions[sessionId] = activeRecord; localStorage.setItem(storageKey, JSON.stringify(sessions)); localStorage.setItem(currentKey, sessionId); }
+function icon(name, extra = '') { return `<i class="ph ph-${name}${extra ? ` ${extra}` : ''}"></i>`; }
+function scrollBottom() { conversation.scrollTop = conversation.scrollHeight; }
+function log(role, content) { activeRecord.messages.push({ role, content }); if (role === 'user' && activeRecord.title === '新对话') activeRecord.title = String(content).slice(0, 25); save(); }
+function userMarkup(text) { return `<div class="user-row fade-in"><div class="user-bubble">${esc(text)}</div></div>`; }
+function taskMarkup(state = stage) {
+  if (state === 'idle') return '';
+  const completed = state === 'complete';
+  const label = completed ? '任务完成' : '正在执行任务中…';
+  if (completed) {
+    const detail = Object.entries(task?.answers || {}).map(([key, value]) => `<div class="answer-item"><b>${esc(questionLabels[key] || key)}</b><span>${esc(value)}</span></div>`).join('');
+    return `<button type="button" class="complete-card" data-action="toggleComplete" aria-expanded="false"><span class="check">${icon('check')}</span><span>任务完成</span>${icon('caret-down', 'chevron')}</button><div class="complete-details" hidden>${detail || '已整理本轮需求与商品'}</div>`;
+  }
+  const taskRows = phases.map((name, i) => {
+      const active = (state === 'processing' && i === 0) || (state === 'question' && i === 1) || (state === 'searching' && i === 2);
+      const done = state === 'question' ? i === 0 : state === 'searching' ? i < 2 : false;
+      return `<div class="task-row ${active ? 'no-pill' : ''}">${icon(active ? 'spinner-gap' : done ? 'check' : 'circle', active ? 'running' : '')}<span>${esc(name)}${active ? ' · 进行中' : done ? ' · 已完成' : ''}</span></div>`;
+    }).join('');
+  return `<section class="task-card fade-in"><div class="task-title"><span class="task-icon">${icon(completed ? 'check-circle' : 'sparkle')}</span><span>${label}</span></div>${taskRows}</section>`;
+}
+const questionLabels = { category: '想看的品类', use: '主要用途', scene: '使用场景', priority: '最在意的体验', budget: '预算', detail: '还想确认的细节' };
+function questionMarkup(question) {
+  if (!question) return '';
+  const step = Number(question.step) || 1;
+  const total = Number(question.total) || 4;
+  return `<section class="question-card fade-in" data-question-card><div class="question-top"><strong>${step}/${total}</strong><span>选一个最接近的，也可以自己补充</span><button class="close" type="button" data-action="dismiss" aria-label="关闭问卷">${icon('x')}</button></div><h2>${esc(question.title)}</h2><div class="options" role="radiogroup" aria-label="${esc(question.title)}">${(question.options || []).map((option) => `<label class="option"><input type="radio" name="questionChoice" value="${esc(option)}"><span>${esc(option)}</span></label>`).join('')}<label class="option"><input type="radio" name="questionChoice" value="__custom__"><span>自己补充</span></label></div><input class="custom-input" id="customAnswer" placeholder="写下更具体的要求" aria-label="自定义要求" hidden><div class="question-actions"><span class="left-placeholder"></span><button type="button" class="primary" data-action="next">${step === total ? '完成，帮我挑选' : '下一题'}</button></div></section>`;
+}
+function productMarkup(item, index) {
+  const image = safeUrl(item.imageUrl || item.media?.images?.[0]?.url);
+  const link = safeUrl(item.promotionUrl || item.source?.url);
+  return `<article class="product-card"><div>${image ? `<img src="${esc(image)}" alt="${esc(item.title)}" loading="lazy">` : '<div class="image-placeholder">暂无商品图片</div>'}</div><div class="product-content"><h4>${esc(item.title)}</h4><div class="product-tags"><span>第${index + 1}款</span><span>${esc(typeof item.source === 'object' ? item.source.name || '商品来源' : item.source || '商品来源')}</span></div><div class="product-bottom"><span class="price">${money(item.price)}</span>${link ? `<a class="product-open" href="${esc(link)}" target="_blank" rel="noopener noreferrer" aria-label="查看第${index + 1}款商品">${icon('arrow-up-right')}</a>` : ''}</div><small class="demo-label">实际成交价以商品页为准</small></div></article>`;
+}
+function resultMarkup(result) {
+  const items = (result.items || []).slice(0, 3);
+  products = items;
+  task = result.task || task;
+  const summary = String(result.summary || '').trim();
+  const lead = String(result.message || '').trim();
+  if (!items.length) return `${taskMarkup('complete')}<article class="result-article"><p>${esc(lead || '这轮还没找到合适的商品，可以补充条件再试。')}</p></article>`;
+  const recommendations = items.map((item, i) => `<h3>第${i + 1}款 · ${esc(item.title.length > 20 ? `${item.title.slice(0, 20)}…` : item.title)}</h3>${productMarkup(item, i)}<p class="recommendation">${esc(item.recommendation || '先核对商品详情，再判断是否适合自己。')}</p>`).join('');
+  const rows = items.map((item, i) => `<tr><td>第${i + 1}款</td><td>${money(item.price)}</td><td>${esc((item.matchReasons || []).slice(0, 2).join('；') || '请核对商品信息')}</td></tr>`).join('');
+  return `<section class="fade-in">${taskMarkup('complete')}<article class="result-article"><p>${esc(lead)}</p>${summary ? `<p>${esc(summary)}</p>` : ''}<h2>这几款怎么选</h2>${recommendations}<button type="button" class="list-button" data-action="products">${icon('list-bullets')} 商品列表</button><h2>快速对照</h2><table><thead><tr><th>方案</th><th>标价</th><th>已知依据</th></tr></thead><tbody>${rows}</tbody></table><p>这些推荐基于商品接口提供的标题、价格和有限属性；尺寸、成分、材质、功效及实时到手价，请在原平台详情页核对。</p><p>还想怎么调整？告诉我预算、使用场景或更在意的一点，我会接着帮你看。</p></article></section>`;
+}
+function renderEntry(entry, index) {
+  if (entry.role === 'user') return userMarkup(entry.content);
+  const result = entry.content || {};
+  if (result.type === 'question' && result.question) {
+    const answered = activeRecord.messages.slice(index + 1).some((next) => next.role === 'user');
+    return answered ? '' : `<div class="assistant-intro">${esc(result.message || '')}</div>${taskMarkup('question')}${questionMarkup(result.question)}`;
+  }
+  if (result.type === 'results') return resultMarkup(result);
+  return `<article class="result-article"><p>${esc(result.message || result.error?.message || '这轮暂时没有结果。')}</p></article>`;
+}
+function render() {
+  if (!activeRecord.messages.length) {
+    conversation.innerHTML = `<section class="welcome-flow"><span class="welcome-symbol">${icon('sparkle')}</span><h1>好物，慢慢挑。</h1><p>告诉我你想买什么，我会先问几个真正有用的问题，再一起找到适合你的选择。</p><div class="welcome-prompts"><button data-prompt="适合军训的防晒霜">适合军训的防晒霜</button><button data-prompt="想找一盏日系桌面台灯">日系桌面台灯</button><button data-prompt="我想买一个餐桌">挑一张餐桌</button></div></section>`;
+  } else {
+    conversation.innerHTML = activeRecord.messages.map(renderEntry).join('') + (busy ? taskMarkup(stage) : '');
+    const latest = [...activeRecord.messages].reverse().find((entry) => entry.role === 'assistant');
+    pending = latest?.content?.question || null;
+  }
+  const latestResult = !busy && activeRecord.messages.at(-1)?.content?.type === 'results'
+    ? [...conversation.querySelectorAll('.complete-card')].at(-1) : null;
+  if (latestResult) latestResult.scrollIntoView({ block: 'start' });
+  else scrollBottom();
+}
+function setBusy(value, nextStage = 'processing') {
+  busy = value; stage = nextStage; input.disabled = value; $('#sendButton').disabled = value;
+  $('#sendButton').innerHTML = icon(value ? 'stop-fill' : 'arrow-up');
+  render();
+}
+async function stream(message, answer, signal) {
+  const response = await fetch('/api/chat/stream', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sessionId, userId, message, answer }), signal });
+  if (!response.ok || !response.body) throw new Error('服务暂时不可用');
+  const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = ''; let result = null;
+  while (true) {
+    const { value, done } = await reader.read(); buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+    for (const chunk of buffer.split('\n\n').slice(0, -1)) {
+      const type = chunk.match(/^event:\s*(.+)$/m)?.[1]; const line = chunk.match(/^data:\s*(.+)$/m)?.[1]; if (!line) continue;
+      let data; try { data = JSON.parse(line); } catch { continue; }
+      if (type === 'phase') { stage = data.id === 'search' || data.id === 'rank' ? 'searching' : 'processing'; render(); }
+      if (type === 'result') result = data;
+      if (type === 'error') throw new Error(data.error?.message || data.message || '请求失败');
+    }
+    buffer = buffer.split('\n\n').at(-1) || '';
+    if (done) break;
+  }
+  if (!result) throw new Error('服务端没有返回结果');
+  return result;
+}
+async function send(message, answer = null) {
+  if (!message || busy) return;
+  pending = null; selectedAnswer = '';
+  log('user', message); input.value = ''; setBusy(true);
+  abortController = new AbortController();
+  const timeout = setTimeout(() => abortController.abort(), 55000);
+  try {
+    const result = await stream(message, answer, abortController.signal);
+    task = result.task || task; stage = result.type === 'question' ? 'question' : 'complete';
+    log('assistant', result);
+  } catch (error) {
+    log('assistant', { type: 'error', message: error.name === 'AbortError' ? '等待超时，请稍后重试。' : `暂时没能完成：${error.message}` });
+  } finally { clearTimeout(timeout); abortController = null; setBusy(false, stage); input.focus(); }
+}
+function openOverlay(content) { overlay.innerHTML = `<div class="scrim" data-action="close"></div>${content}`; }
+function closeOverlay() { overlay.innerHTML = ''; }
+function menu() {
+  const history = Object.entries(sessions).filter(([, record]) => record.messages?.length).sort((a, b) => String(b[1].updatedAt).localeCompare(String(a[1].updatedAt)));
+  openOverlay(`<aside class="side-panel" aria-label="菜单"><div class="side-head"><span>拾光</span><button type="button" data-action="close" aria-label="关闭菜单">${icon('x')}</button></div><button type="button" class="new-chat" data-action="new">${icon('plus')} 新对话</button><p class="side-label">历史对话</p>${history.map(([id, record]) => `<button type="button" class="stage-link" data-session="${esc(id)}">${icon('chat-circle')} ${esc(record.title)}</button>`).join('') || '<p class="side-note-inline">还没有历史对话</p>'}<p class="side-note">你的对话保存在当前浏览器；商品与价格以原平台为准。</p></aside>`);
+}
+function drawer() { openOverlay(`<section class="drawer" role="dialog" aria-modal="true" aria-label="商品列表"><div class="drawer-head"><h2>商品列表</h2><button type="button" data-action="close" aria-label="关闭商品列表">${icon('x')}</button></div>${products.map((item, index) => { const image = safeUrl(item.imageUrl); const link = safeUrl(item.promotionUrl); return `<div class="drawer-item">${image ? `<img src="${esc(image)}" alt="${esc(item.title)}">` : ''}<div><strong>第${index + 1}款 · ${esc(item.title)}</strong><small>${esc(item.recommendation || '')}</small><em>${money(item.price)}</em>${link ? `<a class="drawer-link" href="${esc(link)}" target="_blank" rel="noopener noreferrer">查看原商品 ${icon('arrow-up-right')}</a>` : ''}</div></div>`; }).join('')}</section>`); }
 
-const saved=current();if(saved?.messages?.length)replayMessages(saved);else home();renderHistory();refreshIcons();
+$('#composer').addEventListener('submit', (event) => { event.preventDefault(); send(input.value.trim()); });
+$('#menuButton').addEventListener('click', menu);
+$('#jumpBottom').addEventListener('click', scrollBottom);
+conversation.addEventListener('scroll', () => { $('#jumpBottom').hidden = conversation.scrollHeight - conversation.scrollTop - conversation.clientHeight < 200; });
+conversation.addEventListener('change', (event) => {
+  if (event.target.name !== 'questionChoice') return;
+  selectedAnswer = event.target.value;
+  $('#customAnswer').hidden = selectedAnswer !== '__custom__';
+  conversation.querySelectorAll('.option').forEach((option) => option.classList.toggle('selected', option.querySelector('input')?.checked));
+  if (selectedAnswer === '__custom__') $('#customAnswer').focus();
+});
+conversation.addEventListener('click', (event) => {
+  const prompt = event.target.closest('[data-prompt]'); if (prompt) send(prompt.dataset.prompt);
+  const action = event.target.closest('[data-action]')?.dataset.action;
+  if (action === 'products') drawer();
+  if (action === 'toggleComplete') { const button = event.target.closest('.complete-card'); const details = button?.nextElementSibling; if (details) { details.hidden = !details.hidden; button.setAttribute('aria-expanded', String(!details.hidden)); } }
+  if (action === 'dismiss') { conversation.querySelector('[data-question-card]')?.remove(); pending = null; }
+  if (action === 'next' && pending) {
+    const choice = selectedAnswer === '__custom__' ? $('#customAnswer').value.trim() : selectedAnswer;
+    if (!choice) { conversation.querySelector('.question-card h2')?.classList.add('needs-answer'); return; }
+    send(choice, { questionId: pending.id, value: choice });
+  }
+});
+overlay.addEventListener('click', (event) => {
+  const id = event.target.closest('[data-session]')?.dataset.session;
+  if (id && sessions[id]) { sessionId = id; activeRecord = sessions[id]; save(); closeOverlay(); render(); return; }
+  const action = event.target.closest('[data-action]')?.dataset.action;
+  if (action === 'close') closeOverlay();
+  if (action === 'new') { sessionId = `session-${crypto.randomUUID()}`; activeRecord = { title: '新对话', messages: [], updatedAt: '' }; pending = null; task = null; products = []; save(); closeOverlay(); render(); }
+});
+$('#addButton').addEventListener('click', () => { input.focus(); });
+$('#clock').textContent = new Date().toLocaleTimeString('zh-CN', { hour: 'numeric', minute: '2-digit', hour12: false });
+render();

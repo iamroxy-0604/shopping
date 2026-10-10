@@ -1,37 +1,25 @@
 <!doctype html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#f7f8f5" />
-    <meta name="description" content="拾光，陪你找到真正适合的好物。" />
-    <title>拾光 | 购物决策助手</title>
-    <link rel="stylesheet" href="/styles.css" />
-    <link rel="stylesheet" href="/overrides.css" />
-    <script src="https://unpkg.com/lucide@0.468.0"></script>
-  </head>
-  <body>
-    <div class="app-shell">
-      <header class="topbar">
-        <button class="icon-button" id="menuButton" type="button" aria-label="打开侧栏"><i data-lucide="menu"></i></button>
-        <button class="brand" id="homeButton" type="button" aria-label="回到首页"><span class="brand-mark">拾</span><strong>拾光</strong></button>
-        <button class="icon-button" id="historyButton" type="button" aria-label="查看历史"><i data-lucide="history"></i></button>
-      </header>
-      <main class="chat-panel">
-        <section class="conversation" id="conversation" aria-live="polite"><div class="conversation-inner" id="messages"></div></section>
-        <div class="dock-actions" id="dockActions"><button class="quick-button primary" type="button" data-action="personal"><i data-lucide="sparkles"></i>个性化开启</button><button class="quick-button" type="button" data-action="compare"><i data-lucide="link-2"></i>链接比价</button></div><form class="composer" id="chatForm"><button class="compose-add" type="button" aria-label="添加附件"><i data-lucide="plus"></i></button><textarea id="messageInput" rows="1" placeholder="说说想找什么，或点下面的快捷选项…" aria-label="输入购物需求"></textarea><button class="send-control" type="submit" aria-label="发送"><i data-lucide="arrow-up"></i></button></form>
-        <p class="composer-note">推荐仅供参考 · 购买前请在原平台核对商品信息</p>
-      </main>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#fffdfb">
+  <meta name="description" content="拾光，用对话找到真正适合的好物。">
+  <title>拾光｜购物决策助手</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+  <div class="app-stage">
+    <div class="phone" id="phone">
+      <div class="status-bar" aria-hidden="true"><span id="clock">8:46</span><span class="status-icons"><i class="ph ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph ph-battery-medium battery"></i></span></div>
+      <header class="topbar"><button type="button" class="icon-button" id="menuButton" aria-label="打开菜单"><i class="ph ph-list"></i></button><div class="brand">拾光</div><span></span></header>
+      <main class="conversation" id="conversation" aria-live="polite"></main>
+      <button type="button" class="jump-bottom" id="jumpBottom" aria-label="回到底部" hidden><i class="ph ph-arrow-down"></i></button>
+      <div class="dock"><form class="composer" id="composer"><button type="button" class="round add" id="addButton" aria-label="添加内容"><i class="ph ph-plus-circle"></i></button><input id="messageInput" type="text" placeholder="发送消息或按住说话…" aria-label="输入消息" autocomplete="off"><button type="submit" class="round send" id="sendButton" aria-label="发送消息"><i class="ph ph-arrow-up"></i></button></form><p class="disclaimer">内容由AI生成 · 商品信息以原平台为准</p></div>
+      <div id="overlay"></div>
     </div>
-    <div class="scrim" id="scrim"></div>
-    <aside class="side-panel" id="sidePanel" aria-label="侧栏">
-      <div class="side-head"><div class="side-logo"><span class="brand-mark">拾</span><strong>拾光</strong></div><button class="close-button" id="closeSide" type="button" aria-label="关闭侧栏"><i data-lucide="x"></i></button></div>
-      <button class="new-chat" id="newChat" type="button"><i data-lucide="plus"></i>新对话</button>
-      <nav class="side-nav" aria-label="会话导航"><button type="button" data-side="history"><i data-lucide="history"></i>历史对话 <small id="historyCount">0</small></button><button type="button" data-side="memory"><i data-lucide="bookmark"></i>我的记忆</button><button type="button" data-side="favorites"><i data-lucide="heart"></i>收藏夹 <small id="favoriteCount">0</small></button><button type="button" data-side="compare"><i data-lucide="arrow-left-right"></i>找同款 / 比价</button></nav>
-      <div class="side-history" id="sideHistory"><p>最近对话</p></div>
-      <div class="side-foot"><button type="button"><i data-lucide="settings"></i>偏好设置</button><span>v0.1 演示版</span></div>
-    </aside>
-    <section class="product-drawer" id="productDrawer" aria-hidden="true"><div class="drawer-head"><div><p class="eyebrow">商品清单</p><h2>这次为你找到的</h2></div><button class="icon-button" id="closeDrawer" type="button" aria-label="关闭商品清单"><i data-lucide="x"></i></button></div><div id="drawerProducts"></div></section>
-    <script src="/app.js" defer></script>
-  </body>
+  </div>
+  <script src="/app.js" defer></script>
+</body>
 </html>
