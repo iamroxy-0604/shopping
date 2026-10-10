@@ -122,82 +122,82 @@ def select_products(raw_items: list, preferences: dict) -> list:
 
 
 def grounded_reason(item: dict, preferences: dict, angle: str | None = None) -> str:
-    """Render only evidence from title, semantic tags, price, and explicit facts."""
+    """Give a natural, grounded product introduction without inventing attributes."""
     title = item["title"]
-    style = preferences.get("style")
-    material = preferences.get("material")
     category = preferences.get("category")
     budget = preferences.get("maxPrice")
-    tags = item.get("semantic", {}).get("style_tags") or []
-    style_ok = bool(style and (any(word in title for word in STYLE_EQUIVALENTS.get(style, (style,))) or style in tags))
-    material_fact = item.get("facts", {}).get("material") or []
-    material_ok = bool(material and (material in title or material in material_fact))
-    price_ok = budget is not None and item.get("price") is not None and item["price"] <= budget
-    category_ok = bool(category and any(word in title for word in CATEGORY_EQUIVALENTS.get(category, (category,))))
-    evidence = {
-        "material": material_ok,
-        "style": style_ok,
-        "price": price_ok,
-        "category": category_ok,
-        "image": True,
-    }
-    if not evidence.get(angle, False):
-        angle = next(key for key in ("material", "style", "price", "category", "image") if evidence[key])
-    if angle == "material":
-        origin = "材质字段列有" if material in material_fact else "标题提到"
-        reason = f"{origin}“{material}”，对应你提到的材质偏好。"
-    elif angle == "style":
-        origin = "风格标签" if style in tags else "标题"
-        reason = f"{origin}提到“{style}”，和你想看的风格方向一致。"
-    elif angle == "category":
-        reason = f"标题写着“{category}”，可以先看图片和规格。"
-    elif angle == "price":
-        reason = ""
-    else:
-        reason = "可以先看商品图片与详情，确认它是否符合你的需要。"
-    if price_ok:
-        reason += f"标价 ¥{item['price']:g}，在 ¥{budget:g} 预算内。"
-    elif item.get("price") is not None:
-        reason += f"目前标价 ¥{item['price']:g}，适合拿来和另外两款比较预算。"
     facts = item.get("facts") or {}
     requested = preferences.get("answer_terms") or []
-    matched = [term for term in requested if term in title]
-    if matched:
-        reason += "标题还明确提到" + "、".join(f"“{term}”" for term in matched[:2]) + "，与刚才问卷中的使用要求有关。"
-    known = []
-    if facts.get("color"):
-        value = facts["color"]
-        known.append(f"颜色标注为{'、'.join(value) if isinstance(value, list) else value}")
-    if facts.get("dimensions"):
-        value = facts["dimensions"]
-        known.append(f"尺寸标注为{'、'.join(map(str, value)) if isinstance(value, list) else value}")
-    if known:
-        reason += "已知信息还包括" + "、".join(known) + "。"
+    reason = product_talking_point(item, preferences)
+    style = preferences.get("style")
+    if style and style not in reason and any(word in title for word in STYLE_EQUIVALENTS.get(style, (style,))):
+        reason += f"整体是你想看的{style}方向。"
+    if item.get("price") is not None:
+        reason += f"目前标价 ¥{item['price']:g}"
+        reason += "，没有超过你的预算。" if budget is not None and item["price"] <= budget else "，最终到手价还得进详情确认。"
     if category in ("防晒霜", "防晒", "护肤", "面霜"):
-        if "户外" in title and "户外" in requested:
-            reason += "如果主要是军训或长时间户外，这款至少在商品标题中明确面向户外场景，值得进一步核对。"
-        if "清爽" in title and "清爽" in requested:
-            reason += "你提到怕黏腻，标题也强调清爽使用感；这仍属于商家描述，最好结合成分和评价判断。"
         if "防水" in requested or "耐汗" in requested:
-            reason += ("标题提到了防水或耐汗，但持续表现仍需查商品说明。"
-                       if any(word in title for word in ("防水", "耐汗")) else
-                       "你很在意防水耐汗，但当前资料没有可靠的实测依据，这一点购买前必须再核实。")
-        reason += "SPF/PA、防护效果、肤质适配和成分不能只凭标题确定，请在详情页核对。"
+            reason += ("实际耐汗表现还要看使用说明和评价。"
+                       if any(word in title for word in ("防水", "耐汗", "防汗")) else
+                       "你在意的防水耐汗还没有可靠的实测依据，买前一定要核实。")
+        else:
+            reason += "防护标识和成分最好到详情页再核对一下。"
     elif category in ("餐桌", "桌子", "书桌"):
-        if "小户型" in requested and "小户型" in title:
-            reason += "若空间紧凑，标题提到小户型，可以把它列为优先核对尺寸的候选。"
-        if "原木" in title and ("原木" in requested or preferences.get("style") == "日系"):
-            reason += "标题里的原木风格与你想要的自然氛围呼应，但“原木风”不等于实木材质。"
-        reason += "如果你看重是否放得下，建议重点核对长宽高、桌腿空间和实际材质。"
+        reason += "桌子的长宽高、腿部空间和实际材质，还是要结合房间尺寸确认。"
     elif category in ("台灯", "灯具"):
-        if "床头" in title and "床头" in requested:
-            reason += "如果主要放床头，标题中的床头用途与你的使用场景一致。"
-        if "书桌" in title and "书桌" in requested:
-            reason += "如果放在书桌阅读，标题明确提到书桌，可以重点看看照射范围。"
-        reason += "是否适合长时间阅读，还要核对照度、调光方式等商品参数。"
-    else:
-        reason += "实际规格和使用感还需以商品详情及评价核对。"
+        reason += "如果是长时间阅读，再留意照度、照射范围和调光方式。"
+    if facts.get("dimensions") and category not in ("餐桌", "桌子", "书桌"):
+        reason += "尺寸信息可在商品详情核对，确认是否放得下。"
     return reason
+
+
+def product_talking_point(item: dict, preferences: dict) -> str:
+    """A short shopping-guide impression, not an unverified product claim."""
+    title = item["title"]
+    category = str(preferences.get("category") or "")
+    if any(word in category for word in ("防晒", "护肤", "面霜")):
+        if "婴童" in title or "儿童" in title:
+            return "这款偏婴童使用，和成人日常或军训防晒不是同一选择；先核对适用年龄与成分。"
+        if "喷雾" in title:
+            return "这是喷雾款，和普通防晒乳用法不同；先看看面部使用说明、容量与补涂方式。"
+        if "次抛" in title or "旅行装" in title:
+            return "次抛或旅行装更值得看单次容量与携带方式，出门补涂前也要核对用法。"
+        if "户外" in title and "清爽" in title and any(word in title for word in ("防水", "防汗", "耐汗")):
+            return "同时强调户外、清爽和防水防汗，方向挺贴近军训；实际肤感仍要看评价。"
+        if "户外" in title and "清爽" in title:
+            return "偏户外、清爽路线；如果要长时间在外面用，先核对防水耐汗说明。"
+        if "SPF50" in title.upper():
+            return "商品文案标了 SPF50 系列，更适合先核对完整的 SPF/PA 标识和成分。"
+        if "户外" in title and ("防水" in title or "防汗" in title):
+            return "偏户外运动方向，文案还提到防水防汗；实际耐汗表现要看说明和评价。"
+        if "户外" in title:
+            return "主打户外使用，适合先看防护标识、容量和补涂是否方便。"
+        if "清爽" in title:
+            return "强调清爽肤感，怕黏腻的话可以重点看看成分和使用评价。"
+        if "敏感" in title:
+            return "面向特定人群的产品，先核对适用年龄、成分及个人耐受情况。"
+        if "防水" in title or "防汗" in title:
+            return "文案强调防水防汗，适合先看户外使用说明；实际耐汗表现还要看评价。"
+        return "先把它当作基础候选，重点看防护标识与真实使用反馈。"
+    if any(word in category for word in ("餐桌", "桌子", "书桌")):
+        if "折叠" in title or "伸缩" in title:
+            return "空间使用更灵活；先看展开尺寸、收起厚度和承重说明。"
+        if "原木" in title or "实木" in title:
+            return "自然木色比较容易融入日系空间；实木还是木纹饰面要看详情。"
+        if "小户型" in title:
+            return "偏小空间使用；量好摆放位置和通行距离再决定。"
+        return "先看桌面形状、尺寸和腿部空间，判断能否放进你的房间。"
+    if any(word in category for word in ("台灯", "灯具")):
+        if "调光" in title:
+            return "有调光卖点；如果阅读和氛围都要兼顾，可以看看具体档位。"
+        if "床头" in title:
+            return "偏床头使用；先看亮度和开关位置是否顺手。"
+        if "书桌" in title or "阅读" in title:
+            return "偏书桌阅读使用；照射范围和调节方式值得重点核对。"
+        return "先看摆放方式、光线参数，再判断适不适合你的空间。"
+    if preferences.get("style") and any(word in title for word in STYLE_EQUIVALENTS.get(preferences["style"], ())):
+        return f"风格方向接近你想要的{preferences['style']}，可以先看图片和实际规格。"
+    return "外观和价格可以先作参考，具体使用体验再看看详情与评价。"
 
 
 def lead_message(lead: str | None, emotion: dict, items: list, preferences: dict) -> str:
@@ -214,8 +214,8 @@ def lead_message(lead: str | None, emotion: dict, items: list, preferences: dict
     if emotion.get("mood") == "budget_sensitive" or lead == "budget":
         budget = preferences.get("maxPrice")
         limit = f"¥{budget:g}" if isinstance(budget, (int, float)) else "你给的预算"
-        price_note = "有些商品尚未标价，得进详情再确认。" if any(item.get("price") is None for item in items) else "我优先保留标价在范围内的商品。"
-        return f"预算上限是{limit}；看{direction}时，{price_note}" + ("想先核对这款的详情吗？" if one else "想先比较哪两款的价格？")
+        price_note = "有的尚未标价，得进详情再确认。" if any(item.get("price") is None for item in items) else "先看它们各自有什么特点。"
+        return f"按{limit}左右来挑{direction}，我先留了{'一款' if one else '几款'}给你慢慢看。{price_note}" + next_item
     if emotion.get("purchase_intent") == "ready":
         return f"你已经明确想买{direction}，先看这轮符合条件的商品。" + next_item
     if lead == "gentle":
@@ -351,19 +351,19 @@ def result_summary(items: list, preferences: dict) -> str:
     if not items:
         return ""
     category = preferences.get("category") or "商品"
-    opening = f"我从商品结果中先保留了{len(items[:3])}款{category}，主要核对了品类、你明确的偏好和标价。"
+    opening = f"这{len(items[:3])}款{category}各有自己的看点，下面我直接说说怎么挑。"
     priced = [(index, item["price"]) for index, item in enumerate(items[:3], 1)
               if item.get("price") is not None]
     if len(priced) >= 2:
         cheapest = min(priced, key=lambda row: row[1])
         if sum(price == cheapest[1] for _, price in priced) == 1:
-            opening += f"如果优先控制花费，第{cheapest[0]}款当前标价最低（¥{cheapest[1]:g}）。"
+            opening += f"如果最在意价格，第{cheapest[0]}款目前标价最低（¥{cheapest[1]:g}）。"
     terms = preferences.get("answer_terms") or []
     scene_match = next(((index, term) for index, item in enumerate(items[:3], 1)
                         for term in terms if term in item["title"]), None)
     if scene_match:
-        opening += f"如果更看重{scene_match[1]}，第{scene_match[0]}款标题明确提到了它，可以先核对详情。"
-    return opening + "下面逐款说清入选理由，也标出目前还不能确认的地方。"
+        opening += f"如果更在意{scene_match[1]}，第{scene_match[0]}款可以先点开看看细节。"
+    return opening
 
 
 class ShoppingAgent:
@@ -679,6 +679,9 @@ class ShoppingAgent:
                     item["matchReasons"] = [*item.get("matchReasons", []), "标题提到" + "、".join(explicit[:2])]
                 item["recommendation"] = grounded_reason(
                     item, {**prefs, "answer_terms": desired_terms, "category": state.get("browse_categories", {}).get(item["id"], prefs.get("category"))}, plan.get("reasons", {}).get(item["id"])
+                )
+                item["talkingPoint"] = product_talking_point(
+                    item, {**prefs, "category": state.get("browse_categories", {}).get(item["id"], prefs.get("category"))}
                 )
             if state.get("browse"):
                 style = prefs.get("style")

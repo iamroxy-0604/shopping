@@ -55,16 +55,41 @@ function productMarkup(item, index) {
   const link = safeUrl(item.promotionUrl || item.source?.url);
   return `<article class="product-card"><div>${image ? `<img src="${esc(image)}" alt="${esc(item.title)}" loading="lazy">` : '<div class="image-placeholder">暂无商品图片</div>'}</div><div class="product-content"><h4>${esc(item.title)}</h4><div class="product-tags"><span>第${index + 1}款</span><span>${esc(typeof item.source === 'object' ? item.source.name || '商品来源' : item.source || '商品来源')}</span></div><div class="product-bottom"><span class="price">${money(item.price)}</span>${link ? `<a class="product-open" href="${esc(link)}" target="_blank" rel="noopener noreferrer" aria-label="查看第${index + 1}款商品">${icon('arrow-up-right')}</a>` : ''}</div><small class="demo-label">实际成交价以商品页为准</small></div></article>`;
 }
+function talkingPoint(item, category) {
+  if (item.talkingPoint) return item.talkingPoint;
+  const title = String(item.title || '');
+  if (category.includes('防晒')) {
+    if (title.includes('婴童') || title.includes('儿童')) return '偏婴童使用，和成人日常或军训防晒不是同一选择；先核对适用年龄与成分。';
+    if (title.includes('喷雾')) return '喷雾款，先看看面部使用说明、容量与补涂方式。';
+    if (title.includes('次抛') || title.includes('旅行装')) return '次抛或旅行装，先看单次容量和出门补涂的用法。';
+    if (title.includes('清爽') && title.includes('户外')) return '偏户外、清爽路线；再核对防水耐汗说明。';
+    if (/SPF50/i.test(title)) return '文案标了 SPF50 系列，先核对完整防护标识和成分。';
+    if (title.includes('户外') && (title.includes('防水') || title.includes('防汗'))) return '偏户外运动方向，文案还提到防水防汗；实际耐汗表现要看评价。';
+    if (title.includes('防水') || title.includes('防汗')) return '文案强调防水防汗，可以先看户外使用说明和真实评价。';
+    return '先看防护标识、使用感和评价，再判断是否适合自己。';
+  }
+  if (title.includes('折叠') || title.includes('伸缩')) return '空间使用更灵活；先看看展开尺寸与收纳方式。';
+  if (title.includes('原木') || title.includes('实木')) return '自然木色容易搭配；实际材质和尺寸要看详情。';
+  return '先看看外观和规格是否符合你的使用场景。';
+}
 function resultMarkup(result) {
   const items = (result.items || []).slice(0, 3);
   products = items;
   task = result.task || task;
-  const summary = String(result.summary || '').trim();
-  const lead = String(result.message || '').trim();
+  let summary = String(result.summary || '').trim();
+  let lead = String(result.message || '').trim();
+  const category = String(result.task?.category || '');
   if (!items.length) return `${taskMarkup('complete')}<article class="result-article"><p>${esc(lead || '这轮还没找到合适的商品，可以补充条件再试。')}</p></article>`;
-  const recommendations = items.map((item, i) => `<h3>第${i + 1}款 · ${esc(item.title.length > 20 ? `${item.title.slice(0, 20)}…` : item.title)}</h3>${productMarkup(item, i)}<p class="recommendation">${esc(item.recommendation || '先核对商品详情，再判断是否适合自己。')}</p>`).join('');
-  const rows = items.map((item, i) => `<tr><td>第${i + 1}款</td><td>${money(item.price)}</td><td>${esc((item.matchReasons || []).slice(0, 2).join('；') || '请核对商品信息')}</td></tr>`).join('');
-  return `<section class="fade-in">${taskMarkup('complete')}<article class="result-article"><p>${esc(lead)}</p>${summary ? `<p>${esc(summary)}</p>` : ''}<h2>这几款怎么选</h2>${recommendations}<button type="button" class="list-button" data-action="products">${icon('list-bullets')} 商品列表</button><h2>快速对照</h2><table><thead><tr><th>方案</th><th>标价</th><th>已知依据</th></tr></thead><tbody>${rows}</tbody></table><p>这些推荐基于商品接口提供的标题、价格和有限属性；尺寸、成分、材质、功效及实时到手价，请在原平台详情页核对。</p><p>还想怎么调整？告诉我预算、使用场景或更在意的一点，我会接着帮你看。</p></article></section>`;
+  if (items.some((item) => !item.talkingPoint)) {
+    if (lead.includes('看已知信息')) lead = `我找到了${items.length}款${category || '商品'}，先陪你看看各自的特点。`;
+    if (summary.includes('品类、你明确的偏好和标价') || summary.includes('我从商品结果中')) summary = `这${items.length}款的方向不太一样，下面逐个聊聊。`;
+  }
+  const recommendations = items.map((item, i) => `<h3>第${i + 1}款 · ${esc(item.title.length > 20 ? `${item.title.slice(0, 20)}…` : item.title)}</h3>${productMarkup(item, i)}<p class="recommendation">${esc(item.talkingPoint ? item.recommendation : talkingPoint(item, category))}</p>`).join('');
+  const rows = items.map((item, i) => `<tr><td>第${i + 1}款</td><td>${money(item.price)}</td><td>${esc(talkingPoint(item, category))}</td></tr>`).join('');
+  const invitation = category.includes('防晒')
+    ? '如果只想留下其中一款，你更在意清爽、耐汗，还是价格？告诉我，我陪你把这三款再缩小。'
+    : `如果只想留下一款${category || '商品'}，告诉我你最在意的那一点，我帮你继续比。`;
+  return `<section class="fade-in">${taskMarkup('complete')}<article class="result-article"><p>${esc(lead)}</p>${summary ? `<p>${esc(summary)}</p>` : ''}<h2>这几款怎么选</h2>${recommendations}<button type="button" class="list-button" data-action="products">${icon('list-bullets')} 商品列表</button><h2>简单比一比</h2><table><thead><tr><th>方案</th><th>标价</th><th>这款的看点</th></tr></thead><tbody>${rows}</tbody></table><p>${esc(invitation)}</p><p class="result-caveat">以上是根据当前商品信息整理的初步印象，具体参数和到手价以商品页为准。</p></article></section>`;
 }
 function renderEntry(entry, index) {
   if (entry.role === 'user') return userMarkup(entry.content);

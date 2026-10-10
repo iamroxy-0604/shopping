@@ -397,7 +397,7 @@ async def test_persona_replies_acknowledge_state_with_one_useful_question(tmp_pa
         frustrated = await agent.chat("frustrated", "上一轮不满意，改成工业风台灯")
         assert "随便看看" in bored["message"]
         assert "不考虑购买" in stop["message"]
-        assert "预算上限" in budget["message"]
+        assert "¥100" in budget["message"]
         assert ready["emotion"]["purchase_intent"] == "ready"
         assert "目标" not in ready["message"] and "台灯" in ready["message"]
         assert frustrated["message"].startswith("抱歉")

@@ -56,3 +56,4 @@
     .side-note-inline{color:var(--muted);font-size:13px}
     .result-article{word-break:break-word}
     .result-article .product-card{margin-top:11px}
+    .result-article .result-caveat{margin-top:22px;color:var(--muted);font-size:12px;line-height:1.6}

@@ -2,7 +2,7 @@
 
 import asyncio
 
-from wit_agent.agent import ShoppingAgent, default_questionnaire, grounded_reason, normalize_product
+from wit_agent.agent import ShoppingAgent, default_questionnaire, grounded_reason, normalize_product, product_talking_point
 
 
 def run(coro):
@@ -45,7 +45,7 @@ def test_every_new_category_gets_questions_before_products(tmp_path):
             result = await agent.chat("conversation", "500 元以内", user_id="shopper",
                                       answer={"questionId": "budget", "value": "500 元以内"})
             assert result["type"] == "results" and len(result["items"]) == 3
-            assert "逐款说清入选理由" in result["summary"]
+            assert "怎么挑" in result["summary"]
             assert all(item["recommendation"] for item in result["items"])
             assert result["question"] is None
             assert all(filters.get("end_price") == 500 for _, filters in searches)
@@ -89,3 +89,21 @@ def test_questionnaire_stays_relevant_and_recommendation_is_grounded():
                                     "answer_terms": ["户外", "清爽", "防水"]})
     assert "户外" in reason and "清爽" in reason and "¥79" in reason
     assert "没有可靠的实测依据" in reason
+    point = product_talking_point(item, {"category": "防晒霜"})
+    assert "户外" in point and "清爽" in point
+    assert "商品标题写的是" not in point
+    spray = normalize_product({"id": "s2", "title": "户外防晒喷雾", "price": 69})
+    high_spf = normalize_product({"id": "s3", "title": "户外防晒霜 SPF50+", "price": 59})
+    points = [product_talking_point(row, {"category": "防晒霜"}) for row in (item, spray, high_spf)]
+    assert len(set(points)) == 3
+    historical = [
+        "【U先试用】梦丽多日婴童纯物理防晒霜运动专用高倍防晒旅行装3片",
+        "蕉下物理防晒霜运动海边防水高倍防紫外线户外旅行次抛防晒乳液",
+        "骆驼防晒霜三角形户外专业运动防水防汗防紫外线高倍防黑旅行30g",
+    ]
+    historical_points = [product_talking_point(normalize_product({"id": str(i), "title": title}),
+                                              {"category": "防晒霜"}) for i, title in enumerate(historical)]
+    assert len(set(historical_points)) == 3
+    assert "婴童" in historical_points[0]
+    assert "次抛" in historical_points[1]
+    assert "防水防汗" in historical_points[2]
