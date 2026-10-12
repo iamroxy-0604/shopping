@@ -175,7 +175,7 @@ async function send(message, answer = null) {
   pending = null; selectedAnswer = '';
   log('user', message); input.value = ''; setBusy(true);
   abortController = new AbortController();
-  const timeout = setTimeout(() => abortController.abort(), 140000);
+  const timeout = setTimeout(() => abortController.abort(), 190000);
   try {
     const result = await stream(message, answer, abortController.signal);
     task = result.task || task; stage = result.type === 'question' ? 'question' : 'complete';

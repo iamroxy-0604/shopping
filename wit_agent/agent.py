@@ -380,7 +380,7 @@ class ShoppingAgent:
                 model=os.environ["LLM_MODEL"],
                 api_key=os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY"),
                 base_url=os.getenv("LLM_BASE_URL", "https://api.openai.com/v1"),
-                api="chat.completions", timeout=15.0, max_retries=0,
+                api="chat.completions", timeout=30.0, max_retries=0,
             )
         if model is not None:
             self.agent.install(model, required=True)

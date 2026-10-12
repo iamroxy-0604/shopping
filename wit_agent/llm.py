@@ -25,7 +25,7 @@ async def _ask_json(model, invocation, instruction: str, payload: dict) -> dict:
             )),
             invocation,
         ),
-        timeout=18,
+        timeout=32,
     )
     raw = result.final_text.strip()
     if raw.startswith("```"):
