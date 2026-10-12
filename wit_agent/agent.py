@@ -15,7 +15,8 @@ from wit.loops.workflow import WorkflowGraph, WorkflowLoopComponent
 from wit.models import MODEL
 from wit.providers.openai import OpenAIModelComponent
 
-from .llm import interpret, narrative_plan, questionnaire_plan
+from .llm import (category_question_plan, interpret, product_plan,
+                  questionnaire_plan, search_plan)
 from .memory import MemoryManager
 from .policy import extract_updates, forget_field, temporary_budget, understand, usual_budget
 
@@ -66,7 +67,8 @@ def normalize_product(raw: dict) -> dict | None:
     }
 
 
-def select_products(raw_items: list, preferences: dict) -> list:
+def select_products(raw_items: list, preferences: dict, limit: int = 3,
+                    allow_style_unknown: bool = False) -> list:
     budget = preferences.get("maxPrice")
     category = preferences.get("category", "")
     style = preferences.get("style", "")
@@ -96,12 +98,12 @@ def select_products(raw_items: list, preferences: dict) -> list:
         style_aliases = STYLE_EQUIVALENTS.get(style, (style,)) if style else ()
         if style in STYLE_EQUIVALENTS and any(term in title for term in STYLE_CONFLICTS if term not in style_aliases):
             continue
-        seen.add(item["id"])
-        seen.add(title_key)
         style_tags = item["semantic"].get("style_tags") or []
         style_match = bool(style and (any(term in title for term in style_aliases) or style in style_tags))
-        if category == "餐桌" and style == "日系" and not style_match:
+        if category == "餐桌" and style == "日系" and not style_match and not allow_style_unknown:
             continue
+        seen.add(item["id"])
+        seen.add(title_key)
         material_match = bool(material and (material in title or material in (item["facts"].get("material") or [])))
         score = (int(category_match) * 3 + int(style_match) * 3 + int(material_match) * 2
                  + int(item["price"] is not None) + sum(2 for term in answer_terms if term in title))
@@ -118,7 +120,7 @@ def select_products(raw_items: list, preferences: dict) -> list:
         item["recommendation"] = grounded_reason(item, preferences)
         ranked.append((score, item))
     ranked.sort(key=lambda pair: -pair[0])
-    return [item for _, item in ranked[:3]]
+    return [item for _, item in ranked[:limit]]
 
 
 def grounded_reason(item: dict, preferences: dict, angle: str | None = None) -> str:
@@ -378,7 +380,7 @@ class ShoppingAgent:
                 model=os.environ["LLM_MODEL"],
                 api_key=os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY"),
                 base_url=os.getenv("LLM_BASE_URL", "https://api.openai.com/v1"),
-                api="chat.completions", timeout=6.0, max_retries=0,
+                api="chat.completions", timeout=15.0, max_retries=0,
             )
         if model is not None:
             self.agent.install(model, required=True)
@@ -423,6 +425,15 @@ class ShoppingAgent:
         ctx.state["answer"] = request.get("answer")
         ctx.state["memory"] = self.memory.load(request["sessionId"], request["userId"])
 
+    async def _questions_for_goal(self, ctx, category: str, preferences: dict, goal: str) -> list[dict]:
+        try:
+            model = ctx.invocation.component_context.get(MODEL)
+            planned = await questionnaire_plan(model, ctx.invocation, goal, category, preferences)
+        except LookupError:
+            planned = []
+        fallback = default_questionnaire(category, preferences)
+        return [*(planned + fallback[len(planned):3]), fallback[3]]
+
     async def _plan(self, ctx):
         state = ctx.state
         pending = copy.deepcopy(state["memory"].get("questionnaire"))
@@ -450,6 +461,9 @@ class ShoppingAgent:
                 value = str((answer or {}).get("value") or state["message"]).strip()[:80]
                 if expected["id"] == "category":
                     chosen = extract_updates(value).get("category")
+                    if not chosen and re.fullmatch(r"[\u4e00-\u9fffA-Za-z0-9]{2,12}", value):
+                        if value not in ("日系", "韩系", "北欧", "法式", "简约", "原木", "低饱和"):
+                            chosen = value
                     if not chosen:
                         state["invalid_answer"] = True
                         state["questionnaire"] = pending
@@ -461,7 +475,10 @@ class ShoppingAgent:
                         return
                     pending["category"] = chosen
                     # The remaining questions must follow the category the user chose.
-                    tailored = default_questionnaire(chosen, state["memory"]["preferences"])
+                    tailored = await self._questions_for_goal(
+                        ctx, chosen, {**state["memory"]["preferences"], "category": chosen},
+                        pending.get("goal") or state["message"],
+                    )
                     pending["questions"] = [pending["questions"][0], tailored[0], tailored[2], tailored[3]]
                 pending["answers"].append({"id": expected["id"], "title": expected["title"], "value": value})
                 state["questionnaire"] = pending
@@ -477,14 +494,15 @@ class ShoppingAgent:
         elif re.search(r"(?:预算|不超过|低于|少于|控制在|最多)\D{0,5}\d+", state["message"]):
             temporary.pop("maxPrice", None)
         model_parse = {}
-        try:
-            model = ctx.invocation.component_context.get(MODEL)
-            model_parse = await interpret(
-                model, ctx.invocation, state["message"],
-                state["memory"]["preferences"], bool(state["memory"]["current_items"]),
-            )
-        except LookupError:
-            pass
+        if not state.get("answering_questionnaire"):
+            try:
+                model = ctx.invocation.component_context.get(MODEL)
+                model_parse = await interpret(
+                    model, ctx.invocation, state["message"],
+                    state["memory"]["preferences"], bool(state["memory"]["current_items"]),
+                )
+            except LookupError:
+                pass
         working_memory = {**state["memory"], "preferences": {**durable, **temporary}}
         preference, emotion, policy = understand(state["message"], working_memory, model_parse)
         forgotten = forget_field(state["message"])
@@ -527,8 +545,20 @@ class ShoppingAgent:
                 should_start = True
             if self.questionnaire_enabled and should_start:
                 category = str(preference.get("category") or "").strip()
-                questions = default_questionnaire(category, preference)
-                state["questionnaire"] = {"category": category, "questions": questions, "answers": []}
+                if category:
+                    questions = await self._questions_for_goal(ctx, category, preference, state["message"])
+                else:
+                    questions = default_questionnaire(category, preference)
+                    try:
+                        model = ctx.invocation.component_context.get(MODEL)
+                        first = await category_question_plan(model, ctx.invocation,
+                                                             state["message"], preference)
+                        if first:
+                            questions[0] = first
+                    except LookupError:
+                        pass
+                state["questionnaire"] = {"category": category, "goal": state["message"],
+                                          "questions": questions, "answers": []}
                 policy["action"] = "questionnaire"
 
     async def _retrieve(self, ctx):
@@ -591,16 +621,28 @@ class ShoppingAgent:
             answer_terms.extend(term for term in ("书桌", "床头", "阅读", "小户型", "两人", "四人", "通勤", "运动", "户外", "军训", "清爽", "防水", "耐汗", "原木", "简约", "收纳") if term in value)
         prefs = {**prefs, "answer_terms": list(dict.fromkeys(answer_terms))}
         query = " ".join(str(prefs[k]) for k in ("style", "material", "category", "scene") if prefs.get(k))
-        state["query"] = query
         filters = {"end_price": prefs["maxPrice"]} if prefs.get("maxPrice") is not None else {}
         try:
-            queries = [" ".join([*answer_terms[:1], query]).strip()] if answer_terms else [query]
+            planned_queries = []
+            has_model = False
+            try:
+                model = ctx.invocation.component_context.get(MODEL)
+                has_model = True
+                planned_queries = await search_plan(model, ctx.invocation,
+                                                    (state.get("questionnaire") or {}).get("goal") or state["message"],
+                                                    prefs, answers)
+            except LookupError:
+                pass
+            queries = list(planned_queries[:2])
+            if answer_terms:
+                queries.append(" ".join([*answer_terms[:1], query]).strip())
             if query not in queries:
                 queries.append(query)
             if prefs.get("style") == "日系" and prefs.get("category"):
                 queries.append("日式" + prefs["category"])
             if prefs.get("category"):
                 queries.append(prefs["category"])
+            state["query"] = queries[0]
             candidates = []
             for attempt, candidate_query in enumerate(dict.fromkeys(queries)):
                 payload = await self.search(candidate_query, filters)
@@ -612,9 +654,24 @@ class ShoppingAgent:
                 raw = payload.get("items", []) if isinstance(payload, dict) else payload
                 if isinstance(raw, list):
                     candidates.extend(raw)
-                state["items"] = select_products(candidates, prefs)
-                if len(state["items"]) >= 3:
+                state["items"] = select_products(candidates, prefs, limit=12 if has_model else 3,
+                                                 allow_style_unknown=has_model)
+                if len(state["items"]) >= (6 if has_model else 3):
                     break
+            if has_model and state["items"]:
+                choice = await product_plan(model, ctx.invocation, prefs, state["items"])
+                ids = choice["ids"]
+                state["lead"] = choice["lead"]
+                by_id = {item["id"]: item for item in state["items"]}
+                selected = [by_id[item_id] for item_id in ids]
+                # Complete a short model selection only with candidates that pass
+                # the stricter evidence checks; never pad it with arbitrary goods.
+                for item in select_products(candidates, prefs):
+                    if len(selected) >= 3:
+                        break
+                    if item["id"] not in ids:
+                        selected.append(item)
+                state["items"] = selected[:3]
         except Exception:
             if not state["items"]:
                 state["search_error"] = "商品搜索暂时不可用，请稍后重试"
@@ -663,12 +720,6 @@ class ShoppingAgent:
             message = "这轮暂时没找到贴近的桌面好物。想先看台灯还是收纳？" if state.get("browse") else "按这轮条件暂时没有合适商品。要换个关键词，还是调整预算？"
             kind = "results"
         else:
-            plan = {}
-            try:
-                model = ctx.invocation.component_context.get(MODEL)
-                plan = await narrative_plan(model, ctx.invocation, state["message"], state["emotion"], state["items"])
-            except Exception:
-                pass
             answers = ((state.get("questionnaire") or {}).get("answers") or state["memory"].get("shopping_answers", []))
             desired_terms = list(dict.fromkeys(term for row in answers
                                                 for term in ("书桌", "床头", "阅读", "小户型", "通勤", "运动", "户外", "军训", "清爽", "防水", "耐汗", "原木", "简约")
@@ -678,7 +729,8 @@ class ShoppingAgent:
                 if explicit:
                     item["matchReasons"] = [*item.get("matchReasons", []), "标题提到" + "、".join(explicit[:2])]
                 item["recommendation"] = grounded_reason(
-                    item, {**prefs, "answer_terms": desired_terms, "category": state.get("browse_categories", {}).get(item["id"], prefs.get("category"))}, plan.get("reasons", {}).get(item["id"])
+                    item, {**prefs, "answer_terms": desired_terms,
+                           "category": state.get("browse_categories", {}).get(item["id"], prefs.get("category"))}
                 )
                 item["talkingPoint"] = product_talking_point(
                     item, {**prefs, "category": state.get("browse_categories", {}).get(item["id"], prefs.get("category"))}
@@ -687,7 +739,7 @@ class ShoppingAgent:
                 style = prefs.get("style")
                 message = f"好，换成{style}的桌面小物。先随便看看，哪件更合你眼缘？" if style else "先摆几样桌面小物给你逛逛，不用急着决定。哪件让你想多看一眼？"
             else:
-                message = lead_message(plan.get("lead"), state["emotion"], state["items"], prefs)
+                message = lead_message(state.get("lead"), state["emotion"], state["items"], prefs)
             kind = "results"
         next_question = ({**question, "step": len(state["questionnaire"]["answers"]) + 1,
                           "total": len(state["questionnaire"]["questions"])}

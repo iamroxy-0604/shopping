@@ -69,7 +69,7 @@ async def test_search_compare_memory_and_reopen(tmp_path, catalog):
         assert "日系" in result["items"][0]["recommendation"]
         assert "¥89" in result["items"][0]["recommendation"]
         assert calls[0][1] == {"end_price": 100.0}
-        assert model.calls == 2  # One interpretation and one constrained wording plan.
+        assert model.calls == 3  # Interpretation, retrieval plan, product choice/tone.
         first_search_count = len(calls)
         compared = await agent.chat("s1", "第一款和第二款哪个好？")
         assert compared["type"] == "comparison" and compared["items"] == []
@@ -257,13 +257,13 @@ async def test_model_interpretation_and_fact_locked_narration(tmp_path):
     model = MockModel([
         json.dumps({"query": {"style": "日系", "category": "餐桌", "material": "黄金"},
                     "memory": {"style": "日系", "imageFirst": True}, "intent": "search"}, ensure_ascii=False),
-        json.dumps({"lead": "gentle", "reasons": [{"id": "good", "angle": "material", "price": 0,
-                                                    "material": "黄金", "reason": "适合黄皮且护眼"}],
-                    "items": [{"id": "fake", "price": 0}]}, ensure_ascii=False),
+        json.dumps({"queries": ["日式餐桌", "原木餐桌"]}, ensure_ascii=False),
+        json.dumps({"ids": ["good", "fake"], "lead": "gentle", "price": 0,
+                    "reason": "适合黄皮且护眼"}, ensure_ascii=False),
         json.dumps({"query": {"category": "护肤品", "style": "北欧"},
                     "memory": {"style": "北欧"}, "intent": "search"}, ensure_ascii=False),
-        json.dumps({"lead": "direct", "reasons": [{"id": "skin", "angle": "image",
-                                                       "reason": "适合黄皮，美白见效"}]}, ensure_ascii=False),
+        json.dumps({"queries": ["护肤品"]}, ensure_ascii=False),
+        json.dumps({"ids": ["skin"], "lead": "direct", "reason": "适合黄皮，美白见效"}, ensure_ascii=False),
     ])
 
     async def search(query, filters):
@@ -292,15 +292,15 @@ async def test_model_interpretation_and_fact_locked_narration(tmp_path):
         assert "显白" not in skin["items"][0]["recommendation"]
         assert "美白" not in skin["items"][0]["recommendation"]
         assert skin["memory"]["preferences"]["style"] == "日系"
-        assert model.calls == 4
+        assert model.calls == 6
 
 
 @run_async
 async def test_malformed_model_plan_falls_back_without_changing_products(tmp_path):
     model = MockModel([
         json.dumps({"intent": ["search"], "query": {"category": ["台灯"]}}),
-        json.dumps({"lead": [], "reasons": [{"id": ["lamp"], "angle": {"price": 0}}],
-                    "items": [{"id": "forged", "price": 0}]}),
+        json.dumps({"queries": ["台灯"]}),
+        json.dumps({"ids": ["lamp", "forged"], "lead": [], "price": 0}),
     ])
 
     async def search(query, filters):

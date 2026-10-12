@@ -1,12 +1,94 @@
 """The public Wit shopping flow: intake, search, refinement, and category switch."""
 
 import asyncio
+import json
+
+from wit.messages import AssistantMessage
+from wit.models import BaseModelComponent, ModelEvent, ModelResult
 
 from wit_agent.agent import ShoppingAgent, default_questionnaire, grounded_reason, normalize_product, product_talking_point
 
 
 def run(coro):
     return asyncio.run(coro)
+
+
+class SequenceModel(BaseModelComponent):
+    def __init__(self, outputs):
+        super().__init__()
+        self.outputs = iter(outputs)
+
+    async def _stream(self, request, invocation):
+        yield ModelEvent.final(ModelResult(AssistantMessage(json.dumps(next(self.outputs), ensure_ascii=False))))
+
+
+def test_ai_questionnaire_search_terms_and_product_order(tmp_path):
+    async def scenario():
+        model = SequenceModel([
+            {},
+            {"questions": [
+                {"title": "平时几个人一起吃饭？", "options": ["两人", "四人", "更多人"]},
+                {"title": "餐桌准备摆在怎样的空间？", "options": ["小餐厅", "开放式厨房", "客厅一角"]},
+                {"title": "这次更在意什么？", "options": ["方便打理", "原木氛围", "方便收纳"]},
+            ]},
+            {"queries": ["日式原木餐桌 小户型", "日系餐桌"]},
+            {"ids": ["t2", "t1", "t3"], "lead": "gentle"},
+        ])
+        searches = []
+
+        async def search(query, filters):
+            searches.append(query)
+            if query == "日式原木餐桌 小户型":
+                return {"ok": True, "items": [
+                    {"id": "t1", "title": "日式原木餐桌", "price": 899},
+                    {"id": "t2", "title": "日系小户型餐桌", "price": 1199},
+                    {"id": "cloth", "title": "日式餐桌布", "price": 39},
+                ]}
+            return {"ok": True, "items": [{"id": "t3", "title": "日式实木餐台", "price": 1599}]}
+
+        async with ShoppingAgent(tmp_path / "ai.db", search, model) as agent:
+            result = await agent.chat("session", "我想买日系餐桌", user_id="shopper")
+            assert result["question"]["title"] == "平时几个人一起吃饭？"
+            assert searches == []
+            for question_id, value in (("use", "两人"), ("scene", "小餐厅"),
+                                       ("priority", "原木氛围")):
+                result = await agent.chat("session", value, user_id="shopper",
+                                          answer={"questionId": question_id, "value": value})
+                assert result["type"] == "question"
+            result = await agent.chat("session", "3000元以内", user_id="shopper",
+                                      answer={"questionId": "budget", "value": "3000元以内"})
+            assert searches[0] == "日式原木餐桌 小户型"
+            assert [item["id"] for item in result["items"]] == ["t2", "t1", "t3"]
+            assert all(item["price"] <= 3000 for item in result["items"])
+            assert result["question"] is None
+
+    run(scenario())
+
+
+def test_ai_can_ask_for_an_unlisted_product_category(tmp_path):
+    async def scenario():
+        model = SequenceModel([
+            {},
+            {"title": "想先逛哪种桌面小物？", "options": ["台灯", "收纳盒", "花瓶"]},
+            {"questions": [
+                {"title": "花瓶准备放在哪里？", "options": ["书桌", "餐桌", "玄关"]},
+                {"title": "通常会插什么花？", "options": ["鲜花", "干花", "暂不确定"]},
+                {"title": "更喜欢哪种摆放感？", "options": ["小巧", "有存在感", "都可以"]},
+            ]},
+        ])
+
+        async def no_search(query, filters):
+            raise AssertionError("search must wait for questionnaire")
+
+        async with ShoppingAgent(tmp_path / "category.db", no_search, model) as agent:
+            first = await agent.chat("s", "我只想逛逛，推荐一些桌面好物", user_id="u")
+            assert first["question"]["options"] == ["台灯", "收纳盒", "花瓶"]
+            second = await agent.chat("s", "花瓶", user_id="u",
+                                      answer={"questionId": "category", "value": "花瓶"})
+            assert second["question"]["title"] == "花瓶准备放在哪里？"
+            assert second["task"]["category"] == "花瓶"
+
+    run(scenario())
 
 
 def test_every_new_category_gets_questions_before_products(tmp_path):

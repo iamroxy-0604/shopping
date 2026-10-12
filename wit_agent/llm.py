@@ -25,12 +25,27 @@ async def _ask_json(model, invocation, instruction: str, payload: dict) -> dict:
             )),
             invocation,
         ),
-        timeout=7,
+        timeout=18,
     )
     raw = result.final_text.strip()
     if raw.startswith("```"):
         raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.IGNORECASE)
-    value = json.loads(raw)
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError:
+        # Some gateways wrap an otherwise valid object in explanatory text.
+        value = None
+        decoder = json.JSONDecoder()
+        for match in re.finditer(r"\{", raw):
+            try:
+                candidate, _ = decoder.raw_decode(raw[match.start():])
+            except json.JSONDecodeError:
+                continue
+            if isinstance(candidate, dict):
+                value = candidate
+                break
+        if value is None:
+            raise
     return value if isinstance(value, dict) else {}
 
 
@@ -139,14 +154,14 @@ async def narrative_plan(model, invocation, text: str, emotion: dict, items: lis
 
 
 async def questionnaire_plan(model, invocation, text: str, category: str, known: dict) -> list[dict]:
-    """Generate useful category-specific clarification; reject malformed model output."""
+    """Generate three category-specific questions; reject incomplete model output."""
     instruction = (
-        "你是购物导购。用户刚提出新的购物目标。为该商品生成两道简短的中文追问，"
-        "帮助区分真正影响购买的场景、规格或体验。不要重复用户已经说清的条件，"
-        "不要询问肤质以外品类的肤质，也不要承诺商品功效。"
-        "输出 {questions:[{id:'use',title:'...',options:['...','...','...']},"
-        "{id:'priority',title:'...',options:['...','...','...']}]}。"
-        "问题与选项都要贴合当前品类，每个选项不超过18字。"
+        "你是购物导购。根据本轮目标和已有条件，为当前商品设计三道不同的简短追问，"
+        "分别帮助判断使用方式、实际场景和最在意的取舍；按商品品类调整问题，不套固定题干。"
+        "不要重复用户已经说清的条件，不要问与品类无关的属性，例如防晒霜的材质。"
+        "不要承诺功效。输出 {questions:[{title:'...',options:['...','...','...']},"
+        "{title:'...',options:['...','...','...']},{title:'...',options:['...','...','...']}]}。"
+        "每题给2到4个可区分的选项，选项不超过18字。"
     )
     try:
         raw = await _ask_json(model, invocation, instruction, {
@@ -158,7 +173,7 @@ async def questionnaire_plan(model, invocation, text: str, category: str, known:
     if not isinstance(rows, list):
         return []
     valid = []
-    for index, row in enumerate(rows[:2]):
+    for row in rows[:3]:
         if not isinstance(row, dict):
             continue
         title, options = row.get("title"), row.get("options")
@@ -166,6 +181,97 @@ async def questionnaire_plan(model, invocation, text: str, category: str, known:
                 or not isinstance(options, list) or not 2 <= len(options) <= 4
                 or not all(isinstance(option, str) and 1 <= len(option) <= 18 for option in options)):
             continue
-        valid.append({"id": ("use", "priority")[index], "title": title.strip(),
+        if any(word in category for word in ("防晒", "护肤", "面霜")) and "材质" in title:
+            continue
+        valid.append({"id": ("use", "scene", "priority")[len(valid)], "title": title.strip(),
                       "options": [option.strip() for option in options], "allowCustom": True})
-    return valid
+    return valid if len({row["title"] for row in valid}) == len(valid) else []
+
+
+async def category_question_plan(model, invocation, text: str, known: dict) -> dict | None:
+    """Ask a context-aware first question when the user has not named a product."""
+    instruction = (
+        "你是购物导购。用户想逛或描述了场景，但尚未说清想看哪种商品。"
+        "请用一题轻松追问具体品类，给出2到4个和场景有关、确实能购买的商品类别选项。"
+        "选项必须是商品名词，例如台灯、收纳盒，不要抽象的风格、用途或品牌。"
+        "输出 {title:'...',options:['...','...']}。不要猜用户已经决定购买。"
+    )
+    try:
+        raw = await _ask_json(model, invocation, instruction,
+                              {"message": text, "knownPreferences": known})
+    except Exception:
+        return None
+    title, options = raw.get("title"), raw.get("options")
+    if (not isinstance(title, str) or not 5 <= len(title) <= 60
+            or not isinstance(options, list) or not 2 <= len(options) <= 4
+            or not all(isinstance(value, str) and 1 <= len(value.strip()) <= 12
+                       and not any(word in value for word in ("好物", "东西", "随便", "风格"))
+                       for value in options)):
+        return None
+    return {"id": "category", "title": title.strip(),
+            "options": [value.strip() for value in options], "allowCustom": True}
+
+
+async def search_plan(model, invocation, text: str, preferences: dict, answers: list[dict]) -> list[str]:
+    """Let the model plan retrieval terms while keeping the requested product type anchored."""
+    category = str(preferences.get("category") or "").strip()
+    if not category:
+        return []
+    instruction = (
+        "你是电商检索助手。根据当前购物目标、已记住的条件和问卷回答，输出2到4个不同的商品搜索词。"
+        "每个词都必须指向用户要买的商品本身，保留核心品类；可以使用常见同义词与风格词。"
+        "不要把餐桌改成桌布、椅子；不要把台灯改成灯罩。不要添加用户未说的品牌、功效或硬性预算。"
+        "先具体后宽泛。只输出 {queries:['搜索词1','搜索词2']}。"
+    )
+    try:
+        raw = await _ask_json(model, invocation, instruction, {
+            "message": text, "category": category, "preferences": preferences,
+            "questionnaireAnswers": answers,
+        })
+    except Exception:
+        return []
+    aliases = {"餐桌": ("餐桌", "饭桌", "餐台"), "台灯": ("台灯", "桌面灯"),
+               "桌面灯": ("桌面灯", "台灯"), "腮红": ("腮红", "胭脂"),
+               "耳机": ("耳机", "耳麦")}.get(category, (category,))
+    queries = raw.get("queries")
+    if not isinstance(queries, list):
+        return []
+    accepted = []
+    for value in queries[:4]:
+        if not isinstance(value, str):
+            continue
+        value = " ".join(value.split())
+        if 2 <= len(value) <= 40 and any(alias in value for alias in aliases) and value not in accepted:
+            accepted.append(value)
+    return accepted
+
+
+async def product_plan(model, invocation, preferences: dict, items: list[dict]) -> dict:
+    """Choose existing candidate IDs and a response tone in one model call."""
+    if not items:
+        return {"ids": [], "lead": None}
+    instruction = (
+        "你是购物导购。只从候选商品中选择最符合用户要求的最多三款，"
+        "输出 {ids:['商品ID'],lead:'direct|gentle|budget|acknowledge'}。"
+        "优先商品本体、明确符合风格和问卷需求的款式；避免配件、重复款和风格明显冲突的款式。"
+        "lead 选择最贴合用户情绪的一种导购语气。"
+        "不要猜测图片、材质、功效或未给出的商品事实。若证据不足，可少选。"
+    )
+    try:
+        raw = await _ask_json(model, invocation, instruction, {
+            "preferences": preferences,
+            "candidates": [{"id": item["id"], "title": item["title"],
+                            "price": item.get("price"),
+                            "styleTags": (item.get("semantic") or {}).get("style_tags") or []}
+                           for item in items[:12]],
+        })
+    except Exception:
+        return {"ids": [], "lead": None}
+    allowed = {item["id"] for item in items[:12]}
+    ids = raw.get("ids")
+    if not isinstance(ids, list):
+        ids = []
+    lead = raw.get("lead")
+    return {"ids": list(dict.fromkeys(value for value in ids
+                                     if isinstance(value, str) and value in allowed))[:3],
+            "lead": lead if isinstance(lead, str) and lead in ALLOWED_LEADS else None}
