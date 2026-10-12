@@ -3,13 +3,14 @@
 import asyncio
 
 from wit_agent.agent import ShoppingAgent as ProductionShoppingAgent
+from wit_agent.tests.narrative_stub import EvidenceNarrator
 
 
 class ShoppingAgent(ProductionShoppingAgent):
     """Exercise the browse ranking independently of questionnaire entry."""
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, questionnaire_enabled=False, **kwargs)
+        super().__init__(*args, questionnaire_enabled=False, narrator=EvidenceNarrator(), **kwargs)
 from wit_agent.llm import validate_interpretation
 from wit_agent.policy import extract_updates
 

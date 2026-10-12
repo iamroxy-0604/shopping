@@ -16,6 +16,10 @@ ALLOWED_ANGLES = {"category", "style", "material", "price", "image"}
 ALLOWED_LEADS = {"direct", "gentle", "budget", "acknowledge"}
 
 
+class NarrativeGenerationError(Exception):
+    """The model did not produce a complete, source-grounded shopping narrative."""
+
+
 async def _ask_json(model, invocation, instruction: str, payload: dict) -> dict:
     result = await asyncio.wait_for(
         model.complete(
@@ -277,15 +281,19 @@ async def product_plan(model, invocation, preferences: dict, items: list[dict]) 
             "lead": lead if isinstance(lead, str) and lead in ALLOWED_LEADS else None}
 
 
-def _safe_copy(value, evidence: str, *, minimum: int = 12, maximum: int = 220) -> str:
+def _safe_copy(value, evidence: str, *, minimum: int = 12, maximum: int = 220,
+               item_count: int = 0) -> str:
     """Reject unsupported numeric specifications and unverifiable sales/efficacy claims."""
     if not isinstance(value, str):
         return ""
     value = value.strip()
     if not minimum <= len(value) <= maximum or any(mark in value for mark in ("```", "<script", "| ---")):
         return ""
+    allowed_numbers = set(re.findall(r"\d+(?:\.\d+)?", evidence))
+    allowed_numbers.update(number[:-2] for number in tuple(allowed_numbers) if number.endswith(".0"))
+    allowed_numbers.update(str(i) for i in range(1, item_count + 1))
     for number in re.findall(r"\d+(?:\.\d+)?", value):
-        if number not in evidence:
+        if number not in allowed_numbers:
             return ""
     if re.search(r"保证|一定适合|绝对|实测|全网最低|销量第一|已经验证|亲测|认证|零风险", value):
         return ""
@@ -301,9 +309,11 @@ def _safe_copy(value, evidence: str, *, minimum: int = 12, maximum: int = 220) -
 
 async def recommendation_plan(model, invocation, goal: str, preferences: dict,
                               answers: list[dict], items: list[dict]) -> dict:
-    """Write a grounded, conversational result for the *selected* source products."""
+    """Require a complete model-written result for the selected source products."""
     if not items:
-        return {}
+        raise NarrativeGenerationError("no_products")
+    if model is None:
+        raise NarrativeGenerationError("model_unavailable")
     instruction = (
         "你是有温度、自然简洁的购物导购。只根据用户的本轮目标、问卷回答和商品资料写推荐，"
         "不要套用'第N款符合品类/在预算内'的机械句式。先用1-2句自然回应需求；"
@@ -320,29 +330,38 @@ async def recommendation_plan(model, invocation, goal: str, preferences: dict,
                  "facts": item.get("facts") or {},
                  "styleTags": (item.get("semantic") or {}).get("style_tags") or []}
                 for item in items[:3]]
-    try:
-        raw = await _ask_json(model, invocation, instruction, {
-            "goal": goal, "preferences": preferences, "questionnaireAnswers": answers,
-            "products": evidence,
-        })
-    except Exception:
-        return {}
+    payload = {"goal": goal, "preferences": preferences, "questionnaireAnswers": answers,
+               "products": evidence}
     context = json.dumps({"goal": goal, "preferences": preferences,
                           "answers": answers, "products": evidence}, ensure_ascii=False)
-    intro = _safe_copy(raw.get("intro"), context, maximum=180)
-    summary = _safe_copy(raw.get("summary"), context, maximum=260)
-    follow_up = _safe_copy(raw.get("followUp"), context, minimum=5, maximum=100)
-    rows = raw.get("items")
-    if not isinstance(rows, list):
-        rows = []
-    per_item = {}
-    for row in rows:
-        if not isinstance(row, dict) or row.get("id") not in {item["id"] for item in items}:
+    last_failure = "invalid_output"
+    for attempt in range(2):
+        try:
+            raw = await _ask_json(model, invocation, instruction + (
+                " 上一次输出不完整或不可信；这次必须填写全部字段、逐款给出不同理由。" if attempt else ""
+            ), payload)
+        except Exception as exc:
+            last_failure = "model_timeout" if isinstance(exc, asyncio.TimeoutError) else "model_request_failed"
             continue
-        source = next(item for item in items if item["id"] == row["id"])
-        item_evidence = json.dumps({"goal": goal, "preferences": preferences,
-                                    "answers": answers, "product": source}, ensure_ascii=False)
-        reason = _safe_copy(row.get("reason"), item_evidence, maximum=260)
-        if reason:
+        intro = _safe_copy(raw.get("intro"), context, maximum=180, item_count=len(items))
+        summary = _safe_copy(raw.get("summary"), context, maximum=260, item_count=len(items))
+        follow_up = _safe_copy(raw.get("followUp"), context, minimum=5, maximum=100,
+                               item_count=len(items))
+        rows = raw.get("items")
+        expected = {item["id"] for item in items}
+        if not intro or not summary or not follow_up or not isinstance(rows, list) or len(rows) != len(items):
+            last_failure = "missing_narrative_fields"
+            continue
+        per_item = {}
+        for row in rows:
+            if not isinstance(row, dict) or row.get("id") not in expected or row["id"] in per_item:
+                break
+            reason = _safe_copy(row.get("reason"), context, maximum=260, item_count=len(items))
+            if not reason:
+                break
             per_item[row["id"]] = reason
-    return {"intro": intro, "summary": summary, "followUp": follow_up, "items": per_item}
+        if len(per_item) != len(items) or len(set(per_item.values())) != len(items):
+            last_failure = "invalid_product_reasons"
+            continue
+        return {"intro": intro, "summary": summary, "followUp": follow_up, "items": per_item}
+    raise NarrativeGenerationError(last_failure)

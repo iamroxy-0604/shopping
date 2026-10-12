@@ -72,7 +72,7 @@ def extract_updates(text: str) -> dict:
             candidate = re.sub(r"\d+(?:\.\d+)?\s*元\s*(?:以内|以下)?|预算|不超过|低于|少于|控制在|最多", "", candidate)
             for word in (*STYLES, *SCENES, *MATERIALS):
                 candidate = candidate.replace(word, "")
-            candidate = re.sub(r"^(个|一款|一些|点|的)+|(?:的|商品|东西|有吗)$", "", candidate).strip()
+            candidate = re.sub(r"^(?:一个|一条|一件|一双|一把|一张|一台|一套|一款|一些|个|条|件|双|把|张|台|套|款|点|的)+|(?:的|商品|东西|有吗)$", "", candidate).strip()
             if candidate and not any(word in candidate for word in ("好物", "东西", "给我看看", "给我", "随便")) and len(candidate) <= 12:
                 updates["category"] = candidate
     return updates

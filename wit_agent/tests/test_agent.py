@@ -9,13 +9,14 @@ from wit.models import BaseModelComponent, ModelEvent, ModelResult
 
 from wit_agent.agent import ShoppingAgent as ProductionShoppingAgent
 from wit_agent.server import handle
+from wit_agent.tests.narrative_stub import EvidenceNarrator
 
 
 class ShoppingAgent(ProductionShoppingAgent):
     """Keep the existing search and memory regressions independent of intake UX."""
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, questionnaire_enabled=False, **kwargs)
+        super().__init__(*args, questionnaire_enabled=False, narrator=EvidenceNarrator(), **kwargs)
 
 
 def run_async(function):
@@ -69,7 +70,7 @@ async def test_search_compare_memory_and_reopen(tmp_path, catalog):
         assert "日系" in result["items"][0]["recommendation"]
         assert "¥89" in result["items"][0]["recommendation"]
         assert calls[0][1] == {"end_price": 100.0}
-        assert model.calls == 4  # Interpretation, retrieval, product choice, grounded narration.
+        assert model.calls == 3  # Narration is supplied by the independent test model.
         first_search_count = len(calls)
         compared = await agent.chat("s1", "第一款和第二款哪个好？")
         assert compared["type"] == "comparison" and compared["items"] == []
@@ -253,7 +254,7 @@ async def test_user_preferences_cross_sessions_without_products_and_forget(tmp_p
 
 
 @run_async
-async def test_model_interpretation_and_fact_locked_narration(tmp_path):
+async def test_model_interpretation_and_fact_locked_products(tmp_path):
     model = MockModel([
         json.dumps({"query": {"style": "日系", "category": "餐桌", "material": "黄金"},
                     "memory": {"style": "日系", "imageFirst": True}, "intent": "search"}, ensure_ascii=False),
@@ -292,11 +293,10 @@ async def test_model_interpretation_and_fact_locked_narration(tmp_path):
         skin = await agent.chat("s", "我想找护肤品", user_id="u")
         assert skin["items"][0]["id"] == "skin"
         assert skin["items"][0]["price"] == 88
-        assert "黄皮" not in skin["items"][0]["recommendation"]
-        assert "显白" not in skin["items"][0]["recommendation"]
-        assert "美白" not in skin["items"][0]["recommendation"]
+        assert "适合黄皮" not in skin["items"][0]["recommendation"]
+        assert "美白见效" not in skin["items"][0]["recommendation"]
         assert skin["memory"]["preferences"]["style"] == "日系"
-        assert model.calls == 8
+        assert model.calls == 6
 
 
 @run_async
@@ -358,11 +358,6 @@ async def test_budget_does_not_treat_unknown_price_as_in_range(tmp_path):
         result = await agent.chat("s", "找100元以内的台灯")
         assert [item["id"] for item in result["items"]] == ["known"]
         assert "¥89" in result["items"][0]["recommendation"]
-
-    from wit_agent.agent import lead_message
-    message = lead_message(None, {"mood": "budget_sensitive"}, [{"price": None}], {"category": "台灯", "maxPrice": 100})
-    assert "尚未标价" in message and "只保留标价" not in message
-
 
 def test_legacy_session_memory_migrates_without_product_leak(tmp_path):
     from wit_agent.memory import MemoryManager

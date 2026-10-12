@@ -6,7 +6,10 @@ import json
 from wit.messages import AssistantMessage
 from wit.models import BaseModelComponent, ModelEvent, ModelResult
 
-from wit_agent.agent import ShoppingAgent, default_questionnaire, grounded_reason, normalize_product, product_talking_point
+from wit_agent.agent import ShoppingAgent, default_questionnaire, normalize_product
+from wit_agent.llm import NarrativeGenerationError, recommendation_plan
+from wit_agent.tests.narrative_stub import EvidenceNarrator
+from wit_agent.policy import extract_updates
 
 
 def run(coro):
@@ -121,7 +124,7 @@ def test_every_new_category_gets_questions_before_products(tmp_path):
                 {"id": "l3", "title": "简约护眼台灯", "price": 139},
             ]}
 
-        async with ShoppingAgent(tmp_path / "flow.db", search) as agent:
+        async with ShoppingAgent(tmp_path / "flow.db", search, narrator=EvidenceNarrator()) as agent:
             first = await agent.chat("conversation", "我想买台灯", user_id="shopper")
             assert first["type"] == "question" and first["question"]["id"] == "use"
             assert searches == []
@@ -139,7 +142,7 @@ def test_every_new_category_gets_questions_before_products(tmp_path):
             result = await agent.chat("conversation", "500 元以内", user_id="shopper",
                                       answer={"questionId": "budget", "value": "500 元以内"})
             assert result["type"] == "results" and len(result["items"]) == 3
-            assert "怎么挑" in result["summary"]
+            assert "商品页核对" in result["summary"]
             assert all(item["recommendation"] for item in result["items"])
             assert result["question"] is None
             assert all(filters.get("end_price") == 500 for _, filters in searches)
@@ -172,32 +175,81 @@ def test_sunscreen_and_vague_browse_use_same_questionnaire(tmp_path):
     run(scenario())
 
 
-def test_questionnaire_stays_relevant_and_recommendation_is_grounded():
+def test_questionnaire_stays_relevant_and_normalization_preserves_facts():
     sunscreen = default_questionnaire("防晒霜", {})
     table = default_questionnaire("餐桌", {})
     assert len(sunscreen) == len(table) == 4
     assert all("材质" not in row["title"] for row in sunscreen)
     assert "几个人" in table[0]["title"]
     item = normalize_product({"id": "s1", "title": "户外清爽防晒霜", "price": 79})
-    reason = grounded_reason(item, {"category": "防晒霜", "maxPrice": 100,
-                                    "answer_terms": ["户外", "清爽", "防水"]})
-    assert "户外" in reason and "清爽" in reason and "¥79" in reason
-    assert "没有可靠的实测依据" in reason
-    point = product_talking_point(item, {"category": "防晒霜"})
-    assert "户外" in point and "清爽" in point
-    assert "商品标题写的是" not in point
-    spray = normalize_product({"id": "s2", "title": "户外防晒喷雾", "price": 69})
-    high_spf = normalize_product({"id": "s3", "title": "户外防晒霜 SPF50+", "price": 59})
-    points = [product_talking_point(row, {"category": "防晒霜"}) for row in (item, spray, high_spf)]
-    assert len(set(points)) == 3
-    historical = [
-        "【U先试用】梦丽多日婴童纯物理防晒霜运动专用高倍防晒旅行装3片",
-        "蕉下物理防晒霜运动海边防水高倍防紫外线户外旅行次抛防晒乳液",
-        "骆驼防晒霜三角形户外专业运动防水防汗防紫外线高倍防黑旅行30g",
-    ]
-    historical_points = [product_talking_point(normalize_product({"id": str(i), "title": title}),
-                                              {"category": "防晒霜"}) for i, title in enumerate(historical)]
-    assert len(set(historical_points)) == 3
-    assert "婴童" in historical_points[0]
-    assert "次抛" in historical_points[1]
-    assert "防水防汗" in historical_points[2]
+    assert item["facts"]["title"] == "户外清爽防晒霜"
+    assert item["price"] == 79
+    assert "recommendation" not in item
+
+
+def test_product_category_drops_chinese_classifier():
+    assert extract_updates("我想买一条日系裤子，预算300元以内")["category"] == "裤子"
+
+
+def test_narration_failure_has_no_template_and_retry_reuses_products(tmp_path):
+    async def scenario():
+        searches = []
+
+        async def search(query, filters):
+            searches.append(query)
+            return {"ok": True, "items": [
+                {"id": "pants-a", "title": "日系休闲裤子", "price": 128},
+                {"id": "pants-b", "title": "日系宽松裤子", "price": 89},
+            ]}
+
+        async with ShoppingAgent(tmp_path / "retry.db", search, questionnaire_enabled=False) as agent:
+            failed = await agent.chat("s", "我想买一条日系裤子，预算300元以内")
+            assert failed["type"] == "error" and failed["error"]["code"] == "NARRATIVE_UNAVAILABLE"
+            assert failed["items"] == [] and failed["summary"] == ""
+            assert "各有自己的看点" not in failed["message"]
+            stored = agent.memory.load("s")
+            assert stored["preferences"]["category"] == "裤子"
+            assert stored["current_items"] == []
+            assert len(stored["pending_result"]["items"]) == 2
+            search_count = len(searches)
+            agent.narrator = EvidenceNarrator()
+            recovered = await agent.chat("s", "重试生成推荐")
+            assert recovered["type"] == "results" and recovered["narrativeSource"] == "ai"
+            assert {item["id"] for item in recovered["items"]} == {"pants-a", "pants-b"}
+            assert all(item["recommendation"] for item in recovered["items"])
+            assert len(searches) == search_count
+            assert agent.memory.load("s")["pending_result"] is None
+
+    run(scenario())
+
+
+def test_narration_retries_incomplete_model_output_and_rejects_hallucinated_specs():
+    class FlakyNarrator(EvidenceNarrator):
+        def __init__(self):
+            self.calls = 0
+
+        async def complete(self, request, invocation):
+            self.calls += 1
+            if self.calls == 1:
+                return ModelResult(AssistantMessage('{"intro":"不完整"}'))
+            return await super().complete(request, invocation)
+
+    class UnsupportedNarrator(EvidenceNarrator):
+        async def complete(self, request, invocation):
+            result = json.loads((await super().complete(request, invocation)).final_text)
+            result["items"][0]["reason"] = "这款防晒霜经实测具有SPF50防护效果，适合敏感肌使用。"
+            return ModelResult(AssistantMessage(json.dumps(result, ensure_ascii=False)))
+
+    async def scenario():
+        item = normalize_product({"id": "s1", "title": "户外防晒霜", "price": 79})
+        flaky = FlakyNarrator()
+        result = await recommendation_plan(flaky, None, "找防晒霜", {"category": "防晒霜"}, [], [item])
+        assert flaky.calls == 2 and result["items"]["s1"]
+        try:
+            await recommendation_plan(UnsupportedNarrator(), None, "找防晒霜", {"category": "防晒霜"}, [], [item])
+        except NarrativeGenerationError as exc:
+            assert str(exc) == "invalid_product_reasons"
+        else:
+            raise AssertionError("unsupported product claims must not be shown")
+
+    run(scenario())

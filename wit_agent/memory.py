@@ -7,7 +7,8 @@ from pathlib import Path
 
 def _session_default() -> dict:
     return {"current_items": [], "last_query": "", "turns": 0, "emotion": {}, "temporary": {},
-            "questionnaire": None, "shopping_category": "", "shopping_answers": []}
+            "questionnaire": None, "shopping_category": "", "shopping_answers": [],
+            "pending_result": None}
 
 
 class MemoryManager:

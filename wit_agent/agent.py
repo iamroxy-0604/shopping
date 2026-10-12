@@ -2,9 +2,11 @@
 
 import asyncio
 import copy
+import json
 import os
 import math
 import re
+from datetime import datetime, timezone
 from collections import defaultdict
 from pathlib import Path
 from typing import Awaitable, Callable
@@ -15,13 +17,13 @@ from wit.loops.workflow import WorkflowGraph, WorkflowLoopComponent
 from wit.models import MODEL
 from wit.providers.openai import OpenAIModelComponent
 
-from .llm import (category_question_plan, interpret, product_plan,
+from .llm import (NarrativeGenerationError, category_question_plan, interpret, product_plan,
                   questionnaire_plan, recommendation_plan, search_plan)
 from .memory import MemoryManager
 from .policy import extract_updates, forget_field, temporary_budget, understand, usual_budget
 
 Search = Callable[[str, dict], Awaitable[dict | list]]
-CATEGORY_EQUIVALENTS = {"桌面灯": ("桌面灯", "台灯"), "台灯": ("台灯", "桌面灯"), "腮红": ("腮红", "胭脂"), "耳机": ("耳机", "耳麦"), "餐桌": ("餐桌", "饭桌", "餐台")}
+CATEGORY_EQUIVALENTS = {"桌面灯": ("桌面灯", "台灯"), "台灯": ("台灯", "桌面灯"), "腮红": ("腮红", "胭脂"), "耳机": ("耳机", "耳麦"), "餐桌": ("餐桌", "饭桌", "餐台"), "裤子": ("裤子", "裤")}
 STYLE_EQUIVALENTS = {"日系": ("日系", "日式"), "韩系": ("韩系", "韩式"), "北欧": ("北欧",), "法式": ("法式",)}
 STYLE_CONFLICTS = ("日系", "日式", "韩系", "韩式", "北欧", "欧式", "美式", "法式")
 
@@ -117,112 +119,9 @@ def select_products(raw_items: list, preferences: dict, limit: int = 3,
         if budget is not None and item["price"] is not None:
             reasons.append(f"标价 ¥{item['price']:g}，在你 ¥{budget:g} 的预算内")
         item["matchReasons"] = reasons
-        item["recommendation"] = grounded_reason(item, preferences)
         ranked.append((score, item))
     ranked.sort(key=lambda pair: -pair[0])
     return [item for _, item in ranked[:limit]]
-
-
-def grounded_reason(item: dict, preferences: dict, angle: str | None = None) -> str:
-    """Give a natural, grounded product introduction without inventing attributes."""
-    title = item["title"]
-    category = preferences.get("category")
-    budget = preferences.get("maxPrice")
-    facts = item.get("facts") or {}
-    requested = preferences.get("answer_terms") or []
-    reason = product_talking_point(item, preferences)
-    style = preferences.get("style")
-    if style and style not in reason and any(word in title for word in STYLE_EQUIVALENTS.get(style, (style,))):
-        reason += f"整体是你想看的{style}方向。"
-    if item.get("price") is not None:
-        reason += f"目前标价 ¥{item['price']:g}"
-        reason += "，没有超过你的预算。" if budget is not None and item["price"] <= budget else "，最终到手价还得进详情确认。"
-    if category in ("防晒霜", "防晒", "护肤", "面霜"):
-        if "防水" in requested or "耐汗" in requested:
-            reason += ("实际耐汗表现还要看使用说明和评价。"
-                       if any(word in title for word in ("防水", "耐汗", "防汗")) else
-                       "你在意的防水耐汗还没有可靠的实测依据，买前一定要核实。")
-        else:
-            reason += "防护标识和成分最好到详情页再核对一下。"
-    elif category in ("餐桌", "桌子", "书桌"):
-        reason += "桌子的长宽高、腿部空间和实际材质，还是要结合房间尺寸确认。"
-    elif category in ("台灯", "灯具"):
-        reason += "如果是长时间阅读，再留意照度、照射范围和调光方式。"
-    if facts.get("dimensions") and category not in ("餐桌", "桌子", "书桌"):
-        reason += "尺寸信息可在商品详情核对，确认是否放得下。"
-    return reason
-
-
-def product_talking_point(item: dict, preferences: dict) -> str:
-    """A short shopping-guide impression, not an unverified product claim."""
-    title = item["title"]
-    category = str(preferences.get("category") or "")
-    if any(word in category for word in ("防晒", "护肤", "面霜")):
-        if "婴童" in title or "儿童" in title:
-            return "这款偏婴童使用，和成人日常或军训防晒不是同一选择；先核对适用年龄与成分。"
-        if "喷雾" in title:
-            return "这是喷雾款，和普通防晒乳用法不同；先看看面部使用说明、容量与补涂方式。"
-        if "次抛" in title or "旅行装" in title:
-            return "次抛或旅行装更值得看单次容量与携带方式，出门补涂前也要核对用法。"
-        if "户外" in title and "清爽" in title and any(word in title for word in ("防水", "防汗", "耐汗")):
-            return "同时强调户外、清爽和防水防汗，方向挺贴近军训；实际肤感仍要看评价。"
-        if "户外" in title and "清爽" in title:
-            return "偏户外、清爽路线；如果要长时间在外面用，先核对防水耐汗说明。"
-        if "SPF50" in title.upper():
-            return "商品文案标了 SPF50 系列，更适合先核对完整的 SPF/PA 标识和成分。"
-        if "户外" in title and ("防水" in title or "防汗" in title):
-            return "偏户外运动方向，文案还提到防水防汗；实际耐汗表现要看说明和评价。"
-        if "户外" in title:
-            return "主打户外使用，适合先看防护标识、容量和补涂是否方便。"
-        if "清爽" in title:
-            return "强调清爽肤感，怕黏腻的话可以重点看看成分和使用评价。"
-        if "敏感" in title:
-            return "面向特定人群的产品，先核对适用年龄、成分及个人耐受情况。"
-        if "防水" in title or "防汗" in title:
-            return "文案强调防水防汗，适合先看户外使用说明；实际耐汗表现还要看评价。"
-        return "先把它当作基础候选，重点看防护标识与真实使用反馈。"
-    if any(word in category for word in ("餐桌", "桌子", "书桌")):
-        if "折叠" in title or "伸缩" in title:
-            return "空间使用更灵活；先看展开尺寸、收起厚度和承重说明。"
-        if "原木" in title or "实木" in title:
-            return "自然木色比较容易融入日系空间；实木还是木纹饰面要看详情。"
-        if "小户型" in title:
-            return "偏小空间使用；量好摆放位置和通行距离再决定。"
-        return "先看桌面形状、尺寸和腿部空间，判断能否放进你的房间。"
-    if any(word in category for word in ("台灯", "灯具")):
-        if "调光" in title:
-            return "有调光卖点；如果阅读和氛围都要兼顾，可以看看具体档位。"
-        if "床头" in title:
-            return "偏床头使用；先看亮度和开关位置是否顺手。"
-        if "书桌" in title or "阅读" in title:
-            return "偏书桌阅读使用；照射范围和调节方式值得重点核对。"
-        return "先看摆放方式、光线参数，再判断适不适合你的空间。"
-    if preferences.get("style") and any(word in title for word in STYLE_EQUIVALENTS.get(preferences["style"], ())):
-        return f"风格方向接近你想要的{preferences['style']}，可以先看图片和实际规格。"
-    return "外观和价格可以先作参考，具体使用体验再看看详情与评价。"
-
-
-def lead_message(lead: str | None, emotion: dict, items: list, preferences: dict) -> str:
-    """One state-specific acknowledgement and at most one next-step question."""
-    one = len(items) == 1
-    category = preferences.get("category")
-    style = preferences.get("style")
-    direction = "".join(str(part) for part in (style, category) if part) or "这个方向"
-    next_item = "想先看这款的哪项信息？" if one else "想先看哪一款的图片或详情？"
-    if emotion.get("mood") == "frustrated":
-        return f"抱歉，前面没贴近你的想法。这次按你新说的{direction}重新筛过。" + next_item
-    if emotion.get("mood") in ("bored", "stop_selling"):
-        return "只逛逛也很好，不用急着决定。" + ("想先看这款的图片吗？" if one else "哪款图片让你想多看一眼？")
-    if emotion.get("mood") == "budget_sensitive" or lead == "budget":
-        budget = preferences.get("maxPrice")
-        limit = f"¥{budget:g}" if isinstance(budget, (int, float)) else "你给的预算"
-        price_note = "有的尚未标价，得进详情再确认。" if any(item.get("price") is None for item in items) else "先看它们各自有什么特点。"
-        return f"按{limit}左右来挑{direction}，我先留了{'一款' if one else '几款'}给你慢慢看。{price_note}" + next_item
-    if emotion.get("purchase_intent") == "ready":
-        return f"你已经明确想买{direction}，先看这轮符合条件的商品。" + next_item
-    if lead == "gentle":
-        return f"先慢慢看{direction}，不用马上决定。" + ("这款的哪一点最想确认？" if one else "哪款更接近你想要的感觉？")
-    return f"先围绕{direction}看已知信息。" + next_item
 
 
 def compare_message(items: list, message: str) -> str:
@@ -287,16 +186,6 @@ def compare_message(items: list, message: str) -> str:
     return "根据现有商品信息，" + "；".join(parts) + "。"
 
 
-def generic_followup(preferences: dict) -> dict | None:
-    """Ask one useful, category-aware question without blocking the first result set."""
-    category = str(preferences.get("category") or "商品")
-    if preferences.get("maxPrice") is None:
-        return {"id": "budget", "title": f"这次{category}大概希望控制在什么价位？", "options": ["100 元以内", "100 - 500 元", "500 元以上"], "allowCustom": True}
-    if not preferences.get("scene"):
-        return {"id": "scene", "title": f"这件{category}主要准备在什么场景使用？", "options": ["日常使用", "通勤 / 工作", "送礼或布置空间"], "allowCustom": True}
-    return {"id": "preference", "title": f"挑{category}时，你更在意哪一点？", "options": ["外观风格", "材质和做工", "性价比"], "allowCustom": True}
-
-
 def default_questionnaire(category: str, preferences: dict) -> list[dict]:
     """Four category-aware decisions; never ask for irrelevant product attributes."""
     category = category or "好物"
@@ -349,30 +238,12 @@ def questionnaire_question(questionnaire: dict) -> dict | None:
     return questions[index] if index < len(questions) else None
 
 
-def result_summary(items: list, preferences: dict) -> str:
-    if not items:
-        return ""
-    category = preferences.get("category") or "商品"
-    opening = f"这{len(items[:3])}款{category}各有自己的看点，下面我直接说说怎么挑。"
-    priced = [(index, item["price"]) for index, item in enumerate(items[:3], 1)
-              if item.get("price") is not None]
-    if len(priced) >= 2:
-        cheapest = min(priced, key=lambda row: row[1])
-        if sum(price == cheapest[1] for _, price in priced) == 1:
-            opening += f"如果最在意价格，第{cheapest[0]}款目前标价最低（¥{cheapest[1]:g}）。"
-    terms = preferences.get("answer_terms") or []
-    scene_match = next(((index, term) for index, item in enumerate(items[:3], 1)
-                        for term in terms if term in item["title"]), None)
-    if scene_match:
-        opening += f"如果更在意{scene_match[1]}，第{scene_match[0]}款可以先点开看看细节。"
-    return opening
-
-
 class ShoppingAgent:
-    def __init__(self, memory_path: str | Path, search: Search = product_api_search, model=None, *, questionnaire_enabled=True):
+    def __init__(self, memory_path: str | Path, search: Search = product_api_search, model=None, *, questionnaire_enabled=True, narrator=None):
         self.memory = MemoryManager(memory_path)
         self.search = search
         self.questionnaire_enabled = questionnaire_enabled
+        self.narrator = narrator  # Test-only dependency injection; production uses the installed model.
         self._locks = defaultdict(asyncio.Lock)
         self.agent = WitAgent()
         if model is None and os.getenv("LLM_MODEL") and (os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")):
@@ -436,6 +307,18 @@ class ShoppingAgent:
 
     async def _plan(self, ctx):
         state = ctx.state
+        if state["message"] == "重试生成推荐" and state["memory"].get("pending_result"):
+            pending_result = copy.deepcopy(state["memory"]["pending_result"])
+            state["preferences"] = pending_result["preferences"]
+            state["durable_preferences"] = copy.deepcopy(state["memory"]["preferences"])
+            state["temporary"] = copy.deepcopy(state["memory"].get("temporary", {}))
+            state["emotion"] = copy.deepcopy(state["memory"].get("emotion") or {})
+            state["policy"] = {"action": "narrative_retry", "question_count": 0,
+                               "recommendation_count": len(pending_result["items"])}
+            state["items"] = pending_result["items"]
+            state["questionnaire"] = pending_result.get("questionnaire")
+            state["query"] = pending_result.get("query", "")
+            return
         pending = copy.deepcopy(state["memory"].get("questionnaire"))
         incoming = extract_updates(state["message"])
         previous_category = state["memory"].get("shopping_category")
@@ -564,6 +447,8 @@ class ShoppingAgent:
     async def _retrieve(self, ctx):
         state = ctx.state
         action = state["policy"]["action"]
+        if action == "narrative_retry":
+            return  # Reuse the exact source products; do not search for different goods.
         state["items"] = []
         if action in ("compare_current", "current_detail"):
             state["current_items"] = copy.deepcopy(state["memory"].get("current_items", []))
@@ -720,45 +605,47 @@ class ShoppingAgent:
             message = "这轮暂时没找到贴近的桌面好物。想先看台灯还是收纳？" if state.get("browse") else "按这轮条件暂时没有合适商品。要换个关键词，还是调整预算？"
             kind = "results"
         else:
-            answers = ((state.get("questionnaire") or {}).get("answers") or state["memory"].get("shopping_answers", []))
-            desired_terms = list(dict.fromkeys(term for row in answers
-                                                for term in ("书桌", "床头", "阅读", "小户型", "通勤", "运动", "户外", "军训", "清爽", "防水", "耐汗", "原木", "简约")
-                                                if term in str(row.get("value", ""))))
-            for item in state["items"]:
-                explicit = [term for term in desired_terms if term in item["title"]]
-                if explicit:
-                    item["matchReasons"] = [*item.get("matchReasons", []), "标题提到" + "、".join(explicit[:2])]
-                item["recommendation"] = grounded_reason(
-                    item, {**prefs, "answer_terms": desired_terms,
-                           "category": state.get("browse_categories", {}).get(item["id"], prefs.get("category"))}
-                )
-                item["talkingPoint"] = product_talking_point(
-                    item, {**prefs, "category": state.get("browse_categories", {}).get(item["id"], prefs.get("category"))}
-                )
-            if state.get("browse"):
-                style = prefs.get("style")
-                message = f"好，换成{style}的桌面小物。先随便看看，哪件更合你眼缘？" if style else "先摆几样桌面小物给你逛逛，不用急着决定。哪件让你想多看一眼？"
-            else:
-                message = lead_message(state.get("lead"), state["emotion"], state["items"], prefs)
+            message = ""
             kind = "results"
-        narrative = {}
+        narrative = None
         if kind == "results" and state["items"]:
             try:
-                model = ctx.invocation.component_context.get(MODEL)
+                try:
+                    model = self.narrator or ctx.invocation.component_context.get(MODEL)
+                except LookupError:
+                    model = None
                 answers = ((state.get("questionnaire") or {}).get("answers")
                            or state["memory"].get("shopping_answers", []))
                 narrative = await recommendation_plan(
                     model, ctx.invocation,
-                    (state.get("questionnaire") or {}).get("goal") or state["message"],
+                    (state.get("questionnaire") or {}).get("goal")
+                    or (state["memory"].get("pending_result") or {}).get("goal")
+                    or state["message"],
                     prefs, answers, state["items"],
                 )
-            except LookupError:
-                pass
-            for item in state["items"]:
-                if reason := narrative.get("items", {}).get(item["id"]):
+            except NarrativeGenerationError as exc:
+                state["narrative_error"] = str(exc)
+                try:
+                    with Path(self.memory.path).with_suffix(".events.log").open("a", encoding="utf-8") as log:
+                        log.write(json.dumps({"time": datetime.now(timezone.utc).isoformat(),
+                                              "event": "narrative_failed", "reason": str(exc),
+                                              "productCount": len(state["items"])}, ensure_ascii=False) + "\n")
+                except OSError:
+                    pass  # Logging must never replace the user-facing retry response.
+                state["pending_result"] = {
+                    "items": copy.deepcopy(state["items"]),
+                    "preferences": copy.deepcopy(prefs),
+                    "questionnaire": copy.deepcopy(state.get("questionnaire")),
+                    "query": state.get("query", ""),
+                    "goal": (state.get("questionnaire") or {}).get("goal") or state["message"],
+                }
+                message = "商品已经找到，但 AI 导购分析暂时没生成成功。请重试生成；这次不会用固定话术代替。"
+                kind = "error"
+            else:
+                for item in state["items"]:
+                    reason = narrative["items"][item["id"]]
                     item["talkingPoint"] = reason
                     item["recommendation"] = reason
-            if narrative.get("intro"):
                 message = narrative["intro"]
         next_question = ({**question, "step": len(state["questionnaire"]["answers"]) + 1,
                           "total": len(state["questionnaire"]["questions"])}
@@ -766,13 +653,9 @@ class ShoppingAgent:
         state["response"] = {
             "ok": kind != "error", "type": kind, "message": message,
             "items": copy.deepcopy(state["items"]) if kind == "results" else [],
-            "summary": narrative.get("summary") or result_summary(state["items"], {**prefs, "answer_terms": [
-                term for row in ((state.get("questionnaire") or {}).get("answers") or state["memory"].get("shopping_answers", []))
-                for term in ("书桌", "床头", "阅读", "小户型", "两人", "四人", "通勤", "运动", "油皮", "干皮", "清爽", "原木", "简约")
-                if row.get("id") in ("use", "scene", "priority", "detail") and term in str(row.get("value", ""))
-            ]}) if kind == "results" and state.get("items") else "",
-            "followUp": narrative.get("followUp") or "",
-            "narrativeSource": "ai" if narrative.get("summary") or narrative.get("items") else "template",
+            "summary": narrative["summary"] if narrative else "",
+            "followUp": narrative["followUp"] if narrative else "",
+            "narrativeSource": "ai" if narrative else "none",
             "question": copy.deepcopy(next_question),
             "task": {"category": state["questionnaire"]["category"], "answers": {
                 row["id"]: row["value"] for row in state["questionnaire"]["answers"]
@@ -781,7 +664,7 @@ class ShoppingAgent:
             "emotion": copy.deepcopy(state["emotion"]), "policy": copy.deepcopy(state["policy"]),
         }
         if kind == "error":
-            state["response"]["error"] = {"code": "SEARCH_ERROR", "message": message}
+            state["response"]["error"] = {"code": "NARRATIVE_UNAVAILABLE" if state.get("narrative_error") else "SEARCH_ERROR", "message": message}
 
     def _save(self, ctx):
         state = ctx.state
@@ -791,11 +674,12 @@ class ShoppingAgent:
             data["current_items"] = []
             data["last_query"] = ""
             data["feedback"] = []
+            data["pending_result"] = None
         data["preferences"] = copy.deepcopy(state["durable_preferences"])
         data["temporary"] = copy.deepcopy(state["temporary"])
         data["emotion"] = copy.deepcopy(state["emotion"])
         data["turns"] = data.get("turns", 0) + 1
-        if "questionnaire" in state:
+        if state.get("questionnaire"):
             data["questionnaire"] = copy.deepcopy(state["questionnaire"])
             data["shopping_category"] = state["questionnaire"]["category"]
         if not forget_all and ("收藏" in state["message"] or "不喜欢" in state["message"]):
@@ -804,13 +688,16 @@ class ShoppingAgent:
             current_items = data.get("current_items", [])
             item_ids = [current_items[index]["id"]] if index is not None and index < len(current_items) else []
             data["feedback"] = [*data.get("feedback", []), {"type": feedback_type, "itemIds": item_ids}][-20:]
-        if state["policy"]["action"] == "search" and not state.get("search_error"):
+        if state.get("narrative_error"):
+            data["pending_result"] = copy.deepcopy(state["pending_result"])
+        if state["policy"]["action"] in ("search", "narrative_retry") and not state.get("search_error") and not state.get("narrative_error"):
             data["current_items"] = copy.deepcopy(state["items"])
             data["last_query"] = state.get("query", "")
             if state.get("questionnaire"):
                 data["shopping_answers"] = copy.deepcopy(state["questionnaire"]["answers"])
             data["questionnaire"] = None
             data["shopping_category"] = state["preferences"].get("category", "")
+            data["pending_result"] = None
         self.memory.save(
             state["session_id"], data, state["user_id"],
             forget_all=forget_all,

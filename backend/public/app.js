@@ -55,74 +55,16 @@ function productMarkup(item, index) {
   const link = safeUrl(item.promotionUrl || item.source?.url);
   return `<article class="product-card"><div>${image ? `<img src="${esc(image)}" alt="${esc(item.title)}" loading="lazy">` : '<div class="image-placeholder">暂无商品图片</div>'}</div><div class="product-content"><h4>${esc(item.title)}</h4><div class="product-tags"><span>第${index + 1}款</span><span>${esc(typeof item.source === 'object' ? item.source.name || '商品来源' : item.source || '商品来源')}</span></div><div class="product-bottom"><span class="price">${money(item.price)}</span>${link ? `<a class="product-open" href="${esc(link)}" target="_blank" rel="noopener noreferrer" aria-label="查看第${index + 1}款商品">${icon('arrow-up-right')}</a>` : ''}</div><small class="demo-label">实际成交价以商品页为准</small></div></article>`;
 }
-function talkingPoint(item, category) {
-  if (item.talkingPoint) return item.talkingPoint;
-  const title = String(item.title || '');
-  if (category.includes('防晒')) {
-    if (title.includes('婴童') || title.includes('儿童')) return '偏婴童使用，和成人日常或军训防晒不是同一选择；先核对适用年龄与成分。';
-    if (title.includes('喷雾')) return '喷雾款，先看看面部使用说明、容量与补涂方式。';
-    if (title.includes('次抛') || title.includes('旅行装')) return '次抛或旅行装，先看单次容量和出门补涂的用法。';
-    if (title.includes('清爽') && title.includes('户外')) return '偏户外、清爽路线；再核对防水耐汗说明。';
-    if (/SPF50/i.test(title)) return '文案标了 SPF50 系列，先核对完整防护标识和成分。';
-    if (title.includes('户外') && (title.includes('防水') || title.includes('防汗'))) return '偏户外运动方向，文案还提到防水防汗；实际耐汗表现要看评价。';
-    if (title.includes('防水') || title.includes('防汗')) return '文案强调防水防汗，可以先看户外使用说明和真实评价。';
-    return '先看防护标识、使用感和评价，再判断是否适合自己。';
-  }
-  if (title.includes('折叠') || title.includes('伸缩')) return '空间使用更灵活；先看看展开尺寸与收纳方式。';
-  if (title.includes('原木') || title.includes('实木')) return '自然木色容易搭配；实际材质和尺寸要看详情。';
-  return '先看看外观和规格是否符合你的使用场景。';
-}
-function productNotes(items, category) {
-  const seen = new Map();
-  return items.map((item, index) => {
-    const point = talkingPoint(item, category);
-    const first = seen.get(point);
-    if (first === undefined) {
-      seen.set(point, index);
-      return point;
-    }
-    const price = item.price == null ? '价格还没标明' : `目前标价${money(item.price)}`;
-    const title = String(item.title || '');
-    if (category.includes('防晒') && title.includes('敏感肌')) {
-      return `这款的文案还提到敏感肌，${price}；但仅凭这几个字不能判断你的皮肤是否适用，建议再看成分和使用反馈。`;
-    }
-    const cheapest = items.reduce((best, candidate) => candidate.price != null && (best == null || Number(candidate.price) < best) ? Number(candidate.price) : best, null);
-    const difference = item.price != null && cheapest != null ? Number(item.price) - cheapest : null;
-    const comparison = difference != null && difference > 0 ? `比当前最低标价高${money(difference)}，` : '';
-    return `它和第${first + 1}款描述很像，${price}，${comparison}现有资料看不出明确的使用差异。比起继续猜，点开看看容量和真实评价更有帮助。`;
-  });
-}
-function shoppingIntro(items, category, summary) {
-  if (!category.includes('防晒')) return summary;
-  const prices = items.map((item) => Number(item.price)).filter((price) => Number.isFinite(price) && price > 0);
-  const priceLine = prices.length === items.length
-    ? `这${items.length}款目前标价从${money(Math.min(...prices))}到${money(Math.max(...prices))}，价格有差别，但不能只按贵便宜判断适不适合。`
-    : `这${items.length}款的价格和规格信息还不够完整，先看使用场景，别急着按价格定。`;
-  return `如果是军训或长时间待在户外，挑防晒时先看商品详情里的防护标识、耐汗说明和是否方便补涂；怕闷的话，再看看质地描述与实际评价。${priceLine}`;
-}
-function shoppingTips(category) {
-  if (!category.includes('防晒')) return '';
-  return `<aside class="shopping-tips"><h2>出门前顺手提醒</h2><p>防晒不是涂一次就能管一整天。户外活动时记得按产品说明补涂，流汗或擦拭后更要留意；帽子、衣物和遮阴也一起用。</p><a href="https://www.aad.org/public/everyday-care/sun-protection/shade-clothing-sunscreen/how-to-apply-sunscreen" target="_blank" rel="noopener noreferrer">查看皮肤科医师协会的防晒建议 ↗</a></aside>`;
-}
 function resultMarkup(result) {
   const items = (result.items || []).slice(0, 3);
   products = items;
   task = result.task || task;
-  let summary = String(result.summary || '').trim();
-  let lead = String(result.message || '').trim();
-  const category = String(result.task?.category || '');
-  if (!items.length) return `${taskMarkup('complete')}<article class="result-article"><p>${esc(lead || '这轮还没找到合适的商品，可以补充条件再试。')}</p></article>`;
-  if (lead.includes('看已知信息')) lead = `先找到${items.length}款${category || '商品'}，我们慢慢看看。`;
-  if (items.some((item) => !item.talkingPoint)) {
-    if (summary.includes('品类、你明确的偏好和标价') || summary.includes('我从商品结果中')) summary = `这${items.length}款的方向不太一样，下面逐个聊聊。`;
+  if (!items.length) return `${taskMarkup('complete')}<article class="result-article"><p>${esc(result.message || '这轮暂时没有商品结果。')}</p></article>`;
+  if (result.narrativeSource !== 'ai' || !result.message || !result.summary || !result.followUp || items.some((item) => !item.recommendation)) {
+    return '<article class="result-article"><p>导购分析尚未完成，请重试生成。</p><button type="button" class="list-button" data-action="retry-narrative">重试生成推荐</button></article>';
   }
-  const notes = productNotes(items, category);
-  const recommendations = items.map((item, i) => `<h3>第${i + 1}款 · ${esc(item.title.length > 20 ? `${item.title.slice(0, 20)}…` : item.title)}</h3>${productMarkup(item, i)}<p class="recommendation">${esc(notes[i])}</p>`).join('');
-  const invitation = String(result.followUp || '').trim() || (category.includes('防晒')
-    ? '如果只想留下其中一款，你更在意清爽、耐汗，还是价格？告诉我，我陪你把这三款再缩小。'
-    : `如果只想留下一款${category || '商品'}，告诉我你最在意的那一点，我帮你继续比。`);
-  const introduction = result.narrativeSource === 'ai' ? summary : shoppingIntro(items, category, summary);
-  return `<section class="fade-in">${taskMarkup('complete')}<article class="result-article"><p>${esc(lead)}</p><p>${esc(introduction)}</p><h2>这几款怎么选</h2>${recommendations}<button type="button" class="list-button" data-action="products">${icon('list-bullets')} 商品列表</button>${shoppingTips(category)}<p>${esc(invitation)}</p><p class="result-caveat">商品描述只能作为初步参考，具体参数、适用情况和到手价请以商品页为准。</p></article></section>`;
+  const recommendations = items.map((item, i) => `<h3>第${i + 1}款 · ${esc(item.title.length > 20 ? `${item.title.slice(0, 20)}…` : item.title)}</h3>${productMarkup(item, i)}<p class="recommendation">${esc(item.recommendation)}</p>`).join('');
+  return `<section class="fade-in">${taskMarkup('complete')}<article class="result-article"><p>${esc(result.message)}</p><p>${esc(result.summary)}</p><h2>这几款怎么选</h2>${recommendations}<button type="button" class="list-button" data-action="products">${icon('list-bullets')} 商品列表</button><p>${esc(result.followUp)}</p><p class="result-caveat">商品描述只能作为初步参考，具体参数、适用情况和到手价请以商品页为准。</p></article></section>`;
 }
 function renderEntry(entry, index) {
   if (entry.role === 'user') return userMarkup(entry.content);
@@ -132,7 +74,7 @@ function renderEntry(entry, index) {
     return answered ? '' : `<div class="assistant-intro">${esc(result.message || '')}</div>${taskMarkup('question')}${questionMarkup(result.question)}`;
   }
   if (result.type === 'results') return resultMarkup(result);
-  return `<article class="result-article"><p>${esc(result.message || result.error?.message || '这轮暂时没有结果。')}</p></article>`;
+  return `<article class="result-article"><p>${esc(result.message || result.error?.message || '这轮暂时没有结果。')}</p>${result.error?.code === 'NARRATIVE_UNAVAILABLE' ? '<button type="button" class="list-button" data-action="retry-narrative">重试生成推荐</button>' : ''}</article>`;
 }
 function render() {
   if (!activeRecord.messages.length) {
@@ -163,7 +105,7 @@ async function stream(message, answer, signal) {
       let data; try { data = JSON.parse(line); } catch { continue; }
       if (type === 'phase') { stage = data.id === 'search' || data.id === 'rank' ? 'searching' : 'processing'; render(); }
       if (type === 'result') result = data;
-      if (type === 'error') throw new Error(data.error?.message || data.message || '请求失败');
+      if (type === 'error') { const error = new Error(data.error?.message || data.message || '请求失败'); error.code = data.error?.code; throw error; }
     }
     buffer = buffer.split('\n\n').at(-1) || '';
     if (done) break;
@@ -182,7 +124,7 @@ async function send(message, answer = null) {
     task = result.task || task; stage = result.type === 'question' ? 'question' : 'complete';
     log('assistant', result);
   } catch (error) {
-    log('assistant', { type: 'error', message: error.name === 'AbortError' ? '等待超时，请稍后重试。' : `暂时没能完成：${error.message}` });
+    log('assistant', { type: 'error', message: error.name === 'AbortError' ? '等待超时，请稍后重试。' : `暂时没能完成：${error.message}`, error: { code: error.code } });
   } finally { clearTimeout(timeout); abortController = null; setBusy(false, stage); input.focus(); }
 }
 function openOverlay(content) { overlay.innerHTML = `<div class="scrim" data-action="close"></div>${content}`; }
@@ -208,6 +150,7 @@ conversation.addEventListener('click', (event) => {
   const prompt = event.target.closest('[data-prompt]'); if (prompt) send(prompt.dataset.prompt);
   const action = event.target.closest('[data-action]')?.dataset.action;
   if (action === 'products') drawer();
+  if (action === 'retry-narrative') send('重试生成推荐');
   if (action === 'toggleComplete') { const button = event.target.closest('.complete-card'); const details = button?.nextElementSibling; if (details) { details.hidden = !details.hidden; button.setAttribute('aria-expanded', String(!details.hidden)); } }
   if (action === 'dismiss') { conversation.querySelector('[data-question-card]')?.remove(); pending = null; }
   if (action === 'next' && pending) {
