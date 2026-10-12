@@ -33,6 +33,14 @@ def test_ai_questionnaire_search_terms_and_product_order(tmp_path):
             ]},
             {"queries": ["日式原木餐桌 小户型", "日系餐桌"]},
             {"ids": ["t2", "t1", "t3"], "lead": "gentle"},
+            {"intro": "想找有日系氛围的餐桌，我挑了三张不同价位的给你慢慢看。",
+             "summary": "第一张偏小户型，第二张强调原木氛围，第三张是实木餐台方向；实际尺寸要看详情。",
+             "followUp": "你更在意桌面大小，还是木色的感觉？",
+             "items": [
+                 {"id": "t2", "reason": "标题写着小户型，想留出更多活动空间的话可以先看看尺寸。"},
+                 {"id": "t1", "reason": "原木方向很贴近你说的氛围，建议对照家里的地板颜色。"},
+                 {"id": "t3", "reason": "这张餐台的标价更高，可以先比较它和前两张的尺寸与材质说明。"},
+             ]},
         ])
         searches = []
 
@@ -60,6 +68,10 @@ def test_ai_questionnaire_search_terms_and_product_order(tmp_path):
             assert searches[0] == "日式原木餐桌 小户型"
             assert [item["id"] for item in result["items"]] == ["t2", "t1", "t3"]
             assert all(item["price"] <= 3000 for item in result["items"])
+            assert result["narrativeSource"] == "ai"
+            assert "日系氛围" in result["message"]
+            assert "小户型" in result["items"][0]["talkingPoint"]
+            assert result["followUp"].startswith("你更在意")
             assert result["question"] is None
 
     run(scenario())

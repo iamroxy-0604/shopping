@@ -275,3 +275,74 @@ async def product_plan(model, invocation, preferences: dict, items: list[dict]) 
     return {"ids": list(dict.fromkeys(value for value in ids
                                      if isinstance(value, str) and value in allowed))[:3],
             "lead": lead if isinstance(lead, str) and lead in ALLOWED_LEADS else None}
+
+
+def _safe_copy(value, evidence: str, *, minimum: int = 12, maximum: int = 220) -> str:
+    """Reject unsupported numeric specifications and unverifiable sales/efficacy claims."""
+    if not isinstance(value, str):
+        return ""
+    value = value.strip()
+    if not minimum <= len(value) <= maximum or any(mark in value for mark in ("```", "<script", "| ---")):
+        return ""
+    for number in re.findall(r"\d+(?:\.\d+)?", value):
+        if number not in evidence:
+            return ""
+    if re.search(r"保证|一定适合|绝对|实测|全网最低|销量第一|已经验证|亲测|认证|零风险", value):
+        return ""
+    if re.search(r"(?:适合|适用于|专为).{0,8}(?:油皮|干皮|敏感肌|黄皮|肤质)|"
+                 r"(?:美白|淡斑|抗皱|护眼|防晒|防水|耐汗).{0,6}(?:见效|保证|显著|有效)", value):
+        return ""
+    for property_name in ("黄金", "纯棉", "实木", "玻璃", "防水", "耐汗", "SPF", "PA+++",
+                          "敏感肌", "油皮", "干皮", "黄皮", "美白", "显白", "抗皱", "无毒"):
+        if property_name in value and property_name not in evidence:
+            return ""
+    return value
+
+
+async def recommendation_plan(model, invocation, goal: str, preferences: dict,
+                              answers: list[dict], items: list[dict]) -> dict:
+    """Write a grounded, conversational result for the *selected* source products."""
+    if not items:
+        return {}
+    instruction = (
+        "你是有温度、自然简洁的购物导购。只根据用户的本轮目标、问卷回答和商品资料写推荐，"
+        "不要套用'第N款符合品类/在预算内'的机械句式。先用1-2句自然回应需求；"
+        "再用2-3句比较这些商品已知的差异；为每个商品分别写1-2句独特的介绍，"
+        "说清它吸引人的点及用户需要核实的一点。最后问一个贴合本轮需求的追问。"
+        "可以介绍品类选择思路，但不要把通用品类知识写成某款商品已验证的功效。"
+        "商品标题只是卖家描述，不是独立验证；未提供的规格、成分、肤质适配、材质、"
+        "容量、防护效果、销量、评价、库存、折扣和实际到手价都不能猜。"
+        "不要臆测图片内容。没有差异证据就坦率说尚无法比较，不要硬编。"
+        "输出 JSON {intro:'',summary:'',followUp:'',items:[{id:'',reason:''}]}，"
+        "items 必须逐一对应输入的商品 ID，不能新增商品。不要 Markdown。"
+    )
+    evidence = [{"id": item["id"], "title": item["title"], "price": item.get("price"),
+                 "facts": item.get("facts") or {},
+                 "styleTags": (item.get("semantic") or {}).get("style_tags") or []}
+                for item in items[:3]]
+    try:
+        raw = await _ask_json(model, invocation, instruction, {
+            "goal": goal, "preferences": preferences, "questionnaireAnswers": answers,
+            "products": evidence,
+        })
+    except Exception:
+        return {}
+    context = json.dumps({"goal": goal, "preferences": preferences,
+                          "answers": answers, "products": evidence}, ensure_ascii=False)
+    intro = _safe_copy(raw.get("intro"), context, maximum=180)
+    summary = _safe_copy(raw.get("summary"), context, maximum=260)
+    follow_up = _safe_copy(raw.get("followUp"), context, minimum=5, maximum=100)
+    rows = raw.get("items")
+    if not isinstance(rows, list):
+        rows = []
+    per_item = {}
+    for row in rows:
+        if not isinstance(row, dict) or row.get("id") not in {item["id"] for item in items}:
+            continue
+        source = next(item for item in items if item["id"] == row["id"])
+        item_evidence = json.dumps({"goal": goal, "preferences": preferences,
+                                    "answers": answers, "product": source}, ensure_ascii=False)
+        reason = _safe_copy(row.get("reason"), item_evidence, maximum=260)
+        if reason:
+            per_item[row["id"]] = reason
+    return {"intro": intro, "summary": summary, "followUp": follow_up, "items": per_item}

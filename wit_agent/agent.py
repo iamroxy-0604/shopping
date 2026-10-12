@@ -16,7 +16,7 @@ from wit.models import MODEL
 from wit.providers.openai import OpenAIModelComponent
 
 from .llm import (category_question_plan, interpret, product_plan,
-                  questionnaire_plan, search_plan)
+                  questionnaire_plan, recommendation_plan, search_plan)
 from .memory import MemoryManager
 from .policy import extract_updates, forget_field, temporary_budget, understand, usual_budget
 
@@ -741,17 +741,38 @@ class ShoppingAgent:
             else:
                 message = lead_message(state.get("lead"), state["emotion"], state["items"], prefs)
             kind = "results"
+        narrative = {}
+        if kind == "results" and state["items"]:
+            try:
+                model = ctx.invocation.component_context.get(MODEL)
+                answers = ((state.get("questionnaire") or {}).get("answers")
+                           or state["memory"].get("shopping_answers", []))
+                narrative = await recommendation_plan(
+                    model, ctx.invocation,
+                    (state.get("questionnaire") or {}).get("goal") or state["message"],
+                    prefs, answers, state["items"],
+                )
+            except LookupError:
+                pass
+            for item in state["items"]:
+                if reason := narrative.get("items", {}).get(item["id"]):
+                    item["talkingPoint"] = reason
+                    item["recommendation"] = reason
+            if narrative.get("intro"):
+                message = narrative["intro"]
         next_question = ({**question, "step": len(state["questionnaire"]["answers"]) + 1,
                           "total": len(state["questionnaire"]["questions"])}
                          if action == "questionnaire" and question else None)
         state["response"] = {
             "ok": kind != "error", "type": kind, "message": message,
             "items": copy.deepcopy(state["items"]) if kind == "results" else [],
-            "summary": result_summary(state["items"], {**prefs, "answer_terms": [
+            "summary": narrative.get("summary") or result_summary(state["items"], {**prefs, "answer_terms": [
                 term for row in ((state.get("questionnaire") or {}).get("answers") or state["memory"].get("shopping_answers", []))
                 for term in ("书桌", "床头", "阅读", "小户型", "两人", "四人", "通勤", "运动", "油皮", "干皮", "清爽", "原木", "简约")
                 if row.get("id") in ("use", "scene", "priority", "detail") and term in str(row.get("value", ""))
             ]}) if kind == "results" and state.get("items") else "",
+            "followUp": narrative.get("followUp") or "",
+            "narrativeSource": "ai" if narrative.get("summary") or narrative.get("items") else "template",
             "question": copy.deepcopy(next_question),
             "task": {"category": state["questionnaire"]["category"], "answers": {
                 row["id"]: row["value"] for row in state["questionnaire"]["answers"]

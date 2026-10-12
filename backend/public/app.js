@@ -118,10 +118,11 @@ function resultMarkup(result) {
   }
   const notes = productNotes(items, category);
   const recommendations = items.map((item, i) => `<h3>第${i + 1}款 · ${esc(item.title.length > 20 ? `${item.title.slice(0, 20)}…` : item.title)}</h3>${productMarkup(item, i)}<p class="recommendation">${esc(notes[i])}</p>`).join('');
-  const invitation = category.includes('防晒')
+  const invitation = String(result.followUp || '').trim() || (category.includes('防晒')
     ? '如果只想留下其中一款，你更在意清爽、耐汗，还是价格？告诉我，我陪你把这三款再缩小。'
-    : `如果只想留下一款${category || '商品'}，告诉我你最在意的那一点，我帮你继续比。`;
-  return `<section class="fade-in">${taskMarkup('complete')}<article class="result-article"><p>${esc(lead)}</p><p>${esc(shoppingIntro(items, category, summary))}</p><h2>这几款怎么选</h2>${recommendations}<button type="button" class="list-button" data-action="products">${icon('list-bullets')} 商品列表</button>${shoppingTips(category)}<p>${esc(invitation)}</p><p class="result-caveat">商品描述只能作为初步参考，具体参数、适用情况和到手价请以商品页为准。</p></article></section>`;
+    : `如果只想留下一款${category || '商品'}，告诉我你最在意的那一点，我帮你继续比。`);
+  const introduction = result.narrativeSource === 'ai' ? summary : shoppingIntro(items, category, summary);
+  return `<section class="fade-in">${taskMarkup('complete')}<article class="result-article"><p>${esc(lead)}</p><p>${esc(introduction)}</p><h2>这几款怎么选</h2>${recommendations}<button type="button" class="list-button" data-action="products">${icon('list-bullets')} 商品列表</button>${shoppingTips(category)}<p>${esc(invitation)}</p><p class="result-caveat">商品描述只能作为初步参考，具体参数、适用情况和到手价请以商品页为准。</p></article></section>`;
 }
 function renderEntry(entry, index) {
   if (entry.role === 'user') return userMarkup(entry.content);
