@@ -189,6 +189,37 @@ def test_questionnaire_stays_relevant_and_normalization_preserves_facts():
 
 def test_product_category_drops_chinese_classifier():
     assert extract_updates("我想买一条日系裤子，预算300元以内")["category"] == "裤子"
+    assert extract_updates("我要买一件裙子")["category"] == "裙子"
+    assert extract_updates("想买一条裙子")["category"] == "裙子"
+    assert extract_updates("换成裙子")["category"] == "裙子"
+    assert extract_updates("我想买一把雨伞")["category"] == "雨伞"
+    assert "category" not in extract_updates("我想买点东西")
+
+
+def test_new_session_and_explicit_category_switch_reset_shopping_task(tmp_path):
+    async def scenario():
+        async def no_search(query, filters):
+            raise AssertionError("questionnaire must precede search")
+
+        async with ShoppingAgent(tmp_path / "sessions.db", no_search) as agent:
+            umbrella = await agent.chat("old", "我想买一把雨伞，预算100元以内", user_id="same")
+            assert umbrella["task"]["category"] == "雨伞"
+            dress = await agent.chat("new", "我要买一件裙子", user_id="same")
+            assert dress["type"] == "question"
+            assert dress["task"]["category"] == "裙子"
+            assert "雨伞" not in dress["message"] + dress["question"]["title"]
+            assert agent.memory.load("new", "same")["preferences"].get("maxPrice") is None
+            assert agent.memory.load("new", "same")["current_items"] == []
+            changed = await agent.chat("old", "换成裙子", user_id="same")
+            assert changed["type"] == "question"
+            assert changed["task"]["category"] == "裙子"
+            assert "雨伞" not in changed["message"] + changed["question"]["title"]
+            assert agent.memory.load("old", "same")["preferences"].get("maxPrice") is None
+            unknown = await agent.chat("unknown", "我想买点东西", user_id="same")
+            assert unknown["task"]["category"] == ""
+            assert unknown["question"]["id"] == "category"
+
+    run(scenario())
 
 
 def test_narration_failure_has_no_template_and_retry_reuses_products(tmp_path):

@@ -106,8 +106,10 @@ def test_explicit_dislike_excludes_matching_later_product(tmp_path):
 
         async with ShoppingAgent(tmp_path / "dislikes.db", search) as agent:
             await agent.chat("first", "我不喜欢黑色金属感。", user_id="same")
-            result = await agent.chat("second", "找桌面灯", user_id="same")
+            result = await agent.chat("first", "找桌面灯", user_id="same")
             assert [item["id"] for item in result["items"]] == ["wood"]
+            fresh = await agent.chat("second", "找桌面灯", user_id="same")
+            assert [item["id"] for item in fresh["items"]] == ["black", "wood"]
 
     run(scenario())
 
@@ -158,7 +160,7 @@ def test_negative_forget_and_temporary_user_budget(tmp_path):
             temporary = await agent.chat("m22", "这次买灯可以到150元。", user_id="u22")
             assert temporary["memory"]["preferences"]["maxPrice"] == 150
             assert agent.memory.load("m22", "u22")["preferences"]["maxPrice"] == 100
-            assert agent.memory.load("fresh", "u22")["preferences"]["maxPrice"] == 100
+            assert agent.memory.load("fresh", "u22")["preferences"] == {}
             regular = await agent.chat("m22", "下次再找桌面灯时，按我平常预算来。", user_id="u22")
             assert regular["memory"]["preferences"]["maxPrice"] == 100
             assert agent.memory.load("m22", "u22")["temporary"] == {}

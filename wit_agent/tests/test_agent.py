@@ -217,7 +217,7 @@ async def test_explicit_no_purchase_overrides_bored_exploration(tmp_path):
 
 
 @run_async
-async def test_user_preferences_cross_sessions_without_products_and_forget(tmp_path):
+async def test_shopping_preferences_and_products_stay_in_session(tmp_path):
     calls = []
 
     async def search(query, filters):
@@ -229,7 +229,8 @@ async def test_user_preferences_cross_sessions_without_products_and_forget(tmp_p
         found = await agent.chat("old", "我喜欢日系餐桌，预算1000元以内", user_id="u1")
         assert [item["id"] for item in found["items"]] == ["table"]
         new = await agent.chat("new", "还记得我的偏好吗？", user_id="u1")
-        assert "日系" in new["message"] and "1000" in new["message"]
+        assert "没有记下" in new["message"]
+        assert agent.memory.load("new", "u1")["preferences"] == {}
         assert agent.memory.load("new", "u1")["current_items"] == []
         count = len(calls)
         orphan = await agent.chat("new", "第一款的材质呢？", user_id="u1")
@@ -240,7 +241,7 @@ async def test_user_preferences_cross_sessions_without_products_and_forget(tmp_p
         assert len(calls) == count
         reset = await agent.chat("old", "第一款呢？", user_id="u1", new_conversation=True)
         assert reset["type"] == "question" and len(calls) == count
-        assert agent.memory.load("old", "u1")["preferences"]["style"] == "日系"
+        assert agent.memory.load("old", "u1")["preferences"] == {}
         await agent.chat("new", "忘记我的风格", user_id="u1")
         assert "style" not in agent.memory.load("old", "u1")["preferences"]
         await agent.chat("new", "忘记所有记忆", user_id="u1")
@@ -295,7 +296,7 @@ async def test_model_interpretation_and_fact_locked_products(tmp_path):
         assert skin["items"][0]["price"] == 88
         assert "适合黄皮" not in skin["items"][0]["recommendation"]
         assert "美白见效" not in skin["items"][0]["recommendation"]
-        assert skin["memory"]["preferences"]["style"] == "日系"
+        assert "style" not in skin["memory"]["preferences"]
         assert model.calls == 6
 
 
@@ -373,13 +374,31 @@ def test_legacy_session_memory_migrates_without_product_leak(tmp_path):
     old = memory.load("legacy")
     assert old["preferences"]["style"] == "日系"
     assert old["current_items"][0]["id"] == "old-product"
-    assert memory.load("other", "legacy")["preferences"]["style"] == "日系"
+    assert memory.load("other", "legacy")["preferences"] == {}
     assert memory.load("other", "legacy")["current_items"] == []
     with sqlite3.connect(path) as db:
         stored = json.loads(db.execute(
             "SELECT data FROM chat_sessions WHERE session_id='legacy'"
         ).fetchone()[0])
-    assert "preferences" not in stored
+    assert stored["preferences"]["style"] == "日系"
+
+
+def test_old_user_level_category_is_never_loaded_into_a_new_session(tmp_path):
+    from wit_agent.memory import MemoryManager
+
+    path = tmp_path / "old-user.db"
+    memory = MemoryManager(path)
+    with sqlite3.connect(path) as db:
+        db.execute("INSERT INTO users VALUES (?,?)", ("same", json.dumps({
+            "preferences": {"category": "把雨伞", "maxPrice": 100},
+        }, ensure_ascii=False)))
+        db.execute("INSERT INTO chat_sessions VALUES (?,?,?)", ("same", "old", json.dumps({
+            "shopping_category": "雨伞", "current_items": [{"id": "umbrella"}],
+        }, ensure_ascii=False)))
+    assert memory.load("new", "same")["preferences"] == {}
+    assert memory.load("new", "same")["current_items"] == []
+    assert memory.load("old", "same")["preferences"] == {"category": "雨伞"}
+    assert memory.load("old", "same")["current_items"][0]["id"] == "umbrella"
 
 
 @run_async

@@ -7,7 +7,7 @@ PRIMARY_STYLES = ("日系", "韩系", "北欧", "法式", "奶油风", "工业�
 STYLES = (*PRIMARY_STYLES, "原木", "低饱和")
 MATERIALS = ("原木", "实木", "竹", "金属", "玻璃", "陶瓷")
 SCENES = ("出租屋", "宿舍", "桌面", "卧室", "客厅", "办公室", "通勤", "旅行", "户外")
-CATEGORIES = ("防晒霜", "防晒乳", "桌面灯", "台灯", "收纳盒", "收纳", "餐桌", "书桌", "椅子", "腮红", "口红", "耳机", "衣服", "包", "香薰", "摆件", "护肤品", "水杯", "背包", "衬衫", "笔袋")
+CATEGORIES = ("防晒霜", "防晒乳", "桌面灯", "台灯", "收纳盒", "收纳", "餐桌", "书桌", "椅子", "腮红", "口红", "耳机", "裙子", "雨伞", "衣服", "包", "香薰", "摆件", "护肤品", "水杯", "背包", "衬衫", "笔袋")
 REFERENCE = r"第一款|第二款|第三款|上一轮|刚才那|这几款|那几款|这款|那款|这个商品|这盏|那盏|这张|那张|这个|那个|它(?:的|是|有|呢)|左边|右边|前者|后者|便宜的"
 
 
@@ -64,7 +64,7 @@ def extract_updates(text: str) -> dict:
     if budget:
         updates["maxPrice"] = float(budget[1])
     if "category" not in updates:
-        match = re.search(r"(?:想找|想买|想要|帮我找|推荐|看看|找)\s*([^，。！？?]{1,24})", text)
+        match = re.search(r"(?:我要买|我想买|想找|想买|想要|帮我找|推荐|看看|找|换成|改成)\s*([^，。！？?]{1,24})", text)
         if match:
             candidate = match[1]
             if "东西" in candidate:
@@ -73,7 +73,7 @@ def extract_updates(text: str) -> dict:
             for word in (*STYLES, *SCENES, *MATERIALS):
                 candidate = candidate.replace(word, "")
             candidate = re.sub(r"^(?:一个|一条|一件|一双|一把|一张|一台|一套|一款|一些|个|条|件|双|把|张|台|套|款|点|的)+|(?:的|商品|东西|有吗)$", "", candidate).strip()
-            if candidate and not any(word in candidate for word in ("好物", "东西", "给我看看", "给我", "随便")) and len(candidate) <= 12:
+            if candidate and candidate not in STYLES and not any(word in candidate for word in ("好物", "东西", "给我看看", "给我", "随便")) and len(candidate) <= 12:
                 updates["category"] = candidate
     return updates
 
@@ -101,12 +101,12 @@ def forget_field(text: str) -> str | None:
 def understand(text: str, memory: dict, model_parse: dict | None = None) -> tuple[dict, dict, dict]:
     updates = extract_updates(text)
     model_parse = model_parse or {}
-    updates.update(model_parse.get("query", {}))
+    updates = {**model_parse.get("query", {}), **updates}
     preference = dict(memory.get("preferences", {}))
     legacy_browse_category = isinstance(preference.get("category"), str) and any(
         word in preference["category"] for word in ("好物", "东西", "给我看看", "给我", "随便")
     )
-    if memory.get("current_items") and re.search(REFERENCE, text) and not re.search(r"想找|帮我找|想买|改成|换成|以后喜欢|我喜欢.{0,8}(?:风|材质)", text):
+    if memory.get("current_items") and re.search(REFERENCE, text) and not re.search(r"想找|帮我找|想买|我要买|改成|换成|以后喜欢|我喜欢.{0,8}(?:风|材质)", text):
         for key in ("category", "style", "material", "scene"):
             updates.pop(key, None)
     negative_only = bool(re.search(r"不喜欢|不要|排除", text)) and not bool(re.search(r"改成|换成|想找|帮我找|推荐|想买", text))
@@ -140,7 +140,7 @@ def understand(text: str, memory: dict, model_parse: dict | None = None) -> tupl
     current = bool(memory.get("current_items"))
     orphan_reference = not current and bool(re.search(REFERENCE, text))
     stop = bool(re.search(r"不想买|不打算买|暂时不买|先不买|今天不买|不买|别推销|不要推销|只想.{0,4}逛|纯逛", text))
-    explicit_buy = not stop and bool(re.search(r"想买|准备买|需要买|打算买|下单", text))
+    explicit_buy = not stop and bool(re.search(r"想买|我要买|准备买|需要买|打算买|下单", text))
     bored = bool(re.search(r"无聊|累了|随便逛|随手逛|随便看看|找灵感|不想做选择|搭配参考", text))
     frustrated = bool(re.search(r"不喜欢|不满意|太差|失望|不合适", text))
     compare = current and bool(re.search(r"比较|对比|哪一款|哪款|哪个好|哪个更|哪个便宜|怎么选|这几款|这两|两个|两盏|第一款.*第二款|左边.*(右边|竹制)", text))

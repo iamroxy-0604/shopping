@@ -1,4 +1,4 @@
-"""SQLite memory: durable user preferences, isolated current-session products."""
+"""SQLite memory for independent shopping conversations."""
 
 import json
 import sqlite3
@@ -8,7 +8,7 @@ from pathlib import Path
 def _session_default() -> dict:
     return {"current_items": [], "last_query": "", "turns": 0, "emotion": {}, "temporary": {},
             "questionnaire": None, "shopping_category": "", "shopping_answers": [],
-            "pending_result": None}
+            "pending_result": None, "preferences": {}, "feedback": []}
 
 
 class MemoryManager:
@@ -30,7 +30,6 @@ class MemoryManager:
         user_id = user_id or session_id
         legacy_data = None
         with self._connect() as db:
-            user_row = db.execute("SELECT data FROM users WHERE id=?", (user_id,)).fetchone()
             session_row = db.execute(
                 "SELECT data FROM chat_sessions WHERE user_id=? AND session_id=?",
                 (user_id, session_id),
@@ -49,27 +48,23 @@ class MemoryManager:
             with self._connect() as db:
                 db.execute("DELETE FROM sessions WHERE id=?", (session_id,))
             return self.load(session_id, user_id)
-        user = json.loads(user_row[0]) if user_row else {}
         session = json.loads(session_row[0]) if session_row else _session_default()
+        if session_row and "preferences" not in session:
+            # Before preferences became session-scoped, the session retained only
+            # its own category. Recover that category without borrowing user data.
+            category = session.get("shopping_category") or (session.get("questionnaire") or {}).get("category")
+            session["preferences"] = {"category": category} if category else {}
         return {
             **_session_default(), **session,
-            "preferences": user.get("preferences", {}),
-            "feedback": user.get("feedback", []),
         }
 
     def save(self, session_id: str, data: dict, user_id: str | None = None, *, forget_all: bool = False) -> None:
         user_id = user_id or session_id
-        user = {"preferences": data.get("preferences", {}), "feedback": data.get("feedback", [])}
         session = {key: data.get(key, default) for key, default in _session_default().items()}
         with self._connect() as db:
             if forget_all:
                 db.execute("DELETE FROM users WHERE id=?", (user_id,))
                 db.execute("DELETE FROM chat_sessions WHERE user_id=?", (user_id,))
-            db.execute(
-                "INSERT INTO users(id,data) VALUES(?,?) "
-                "ON CONFLICT(id) DO UPDATE SET data=excluded.data",
-                (user_id, json.dumps(user, ensure_ascii=False)),
-            )
             db.execute(
                 "INSERT INTO chat_sessions(user_id,session_id,data) VALUES(?,?,?) "
                 "ON CONFLICT(user_id,session_id) DO UPDATE SET data=excluded.data",

@@ -324,8 +324,14 @@ class ShoppingAgent:
         previous_category = state["memory"].get("shopping_category")
         category_changed = bool(incoming.get("category") and previous_category
                                 and incoming["category"] != previous_category
-                                and (not pending or (not state.get("answer") and re.search(
-                                    r"想买|想找|换成|改成|重新找", state["message"]))))
+                                and not state.get("answer") and re.search(
+                                    r"想买|我要买|想找|换成|改成|重新找", state["message"]))
+        if category_changed:
+            # A different product is a new shopping task within this conversation.
+            # Conditions and products for the previous product cannot guide it.
+            state["memory"].update(preferences={}, temporary={}, current_items=[],
+                                   last_query="", questionnaire=None, pending_result=None,
+                                   shopping_answers=[])
         if pending and category_changed:
             pending = None
         if pending and questionnaire_question(pending):
@@ -340,7 +346,7 @@ class ShoppingAgent:
                 state["temporary"] = copy.deepcopy(state["memory"].get("temporary", {}))
                 state["emotion"] = {}
                 return
-            if answer or not re.search(r"想买|想找|换成|改成|重新找", state["message"]):
+            if answer or not re.search(r"想买|我要买|想找|换成|改成|重新找", state["message"]):
                 value = str((answer or {}).get("value") or state["message"]).strip()[:80]
                 if expected["id"] == "category":
                     chosen = extract_updates(value).get("category")
