@@ -284,3 +284,26 @@ def test_narration_retries_incomplete_model_output_and_rejects_hallucinated_spec
             raise AssertionError("unsupported product claims must not be shown")
 
     run(scenario())
+
+
+def test_narration_does_not_repeat_timed_out_gateway_request():
+    class TimedOutNarrator(EvidenceNarrator):
+        def __init__(self):
+            self.calls = 0
+
+        async def complete(self, request, invocation):
+            self.calls += 1
+            raise asyncio.TimeoutError()
+
+    async def scenario():
+        item = normalize_product({"id": "s1", "title": "户外防晒霜", "price": 79})
+        narrator = TimedOutNarrator()
+        try:
+            await recommendation_plan(narrator, None, "找防晒霜", {"category": "防晒霜"}, [], [item])
+        except NarrativeGenerationError as exc:
+            assert str(exc) == "model_timeout"
+        else:
+            raise AssertionError("timed out model request must fail")
+        assert narrator.calls == 1
+
+    run(scenario())

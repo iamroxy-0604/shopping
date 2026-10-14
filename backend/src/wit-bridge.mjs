@@ -1,4 +1,4 @@
-const DEFAULT_TIMEOUT_MS = 180000;
+const DEFAULT_TIMEOUT_MS = 240000;
 
 export function isWitEnabled(env = process.env) {
   return Boolean(env.WIT_AGENT_URL);

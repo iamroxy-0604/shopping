@@ -20,7 +20,7 @@ class NarrativeGenerationError(Exception):
     """The model did not produce a complete, source-grounded shopping narrative."""
 
 
-async def _ask_json(model, invocation, instruction: str, payload: dict) -> dict:
+async def _ask_json(model, invocation, instruction: str, payload: dict, *, timeout: float = 32) -> dict:
     result = await asyncio.wait_for(
         model.complete(
             ModelRequest(messages=(
@@ -29,7 +29,7 @@ async def _ask_json(model, invocation, instruction: str, payload: dict) -> dict:
             )),
             invocation,
         ),
-        timeout=32,
+        timeout=timeout,
     )
     raw = result.final_text.strip()
     if raw.startswith("```"):
@@ -339,10 +339,13 @@ async def recommendation_plan(model, invocation, goal: str, preferences: dict,
         try:
             raw = await _ask_json(model, invocation, instruction + (
                 " 上一次输出不完整或不可信；这次必须填写全部字段、逐款给出不同理由。" if attempt else ""
-            ), payload)
+            ), payload, timeout=95)
+        except json.JSONDecodeError:
+            last_failure = "invalid_output"
+            continue
         except Exception as exc:
             last_failure = "model_timeout" if isinstance(exc, asyncio.TimeoutError) else "model_request_failed"
-            continue
+            break
         intro = _safe_copy(raw.get("intro"), context, maximum=180, item_count=len(items))
         summary = _safe_copy(raw.get("summary"), context, maximum=260, item_count=len(items))
         follow_up = _safe_copy(raw.get("followUp"), context, minimum=5, maximum=100,
