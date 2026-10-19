@@ -314,24 +314,25 @@ export async function resolveLink(input, { fetchImpl = fetch, lookupImpl = looku
   const rawVideo = publicMediaUrl(first(browserData.video, typeof cliData.video === 'string' ? cliData.video : cliData.video?.url, pageData.video), base);
   const video = /\.(?:mp4|webm)(?:$|[?#])/i.test(rawVideo) ? rawVideo : '';
   const finalRoute = openCliRoute(source || parsed);
+  const landingPage = ['/', '/index.html'].includes((source || parsed).pathname);
   const embed = finalRoute.embed || route.embed || '';
   const videoType = Boolean(route.type === 'video' || finalRoute.type === 'video' || browserData.videoType || pageData.videoType || cliData.type === 'video' || cliData.note_type === 'video' || video || embed);
-  const contentType = videoType ? 'video'
+  const contentType = landingPage ? 'unknown' : videoType ? 'video'
     : route.kind === 'generic' && (body || description) ? 'article'
       : images.length ? 'image' : title || body || description ? 'article' : 'unknown';
-  const status = videoType && !video ? title || body || description || images.length || embed ? 'partial' : 'unavailable'
+  const status = landingPage ? 'partial' : videoType && !video ? title || body || description || images.length || embed ? 'partial' : 'unavailable'
     : body || video ? 'complete' : title || description || images.length ? 'partial' : 'unavailable';
   const record = {
     id: `link:${randomUUID()}`, source: { url: base, platform: route.platform === parsed.hostname ? finalRoute.platform : route.platform },
-    contentType, title: title || (status === 'unavailable' ? '暂时无法读取此链接' : source?.hostname || parsed.hostname),
-    body: route.kind === 'bilibili' && !cliData.body && description ? description.split(/,?\s*视频播放量/)[0] : body,
-    description, cover: cover || images[0] || '', images, video, embed,
+    contentType, title: landingPage ? '平台首页链接' : title || (status === 'unavailable' ? '暂时无法读取此链接' : source?.hostname || parsed.hostname),
+    body: landingPage ? '' : route.kind === 'bilibili' && !cliData.body && description ? description.split(/,?\s*视频播放量/)[0] : body,
+    description: landingPage ? '' : description, cover: landingPage ? '' : cover || images[0] || '', images: landingPage ? [] : images, video: landingPage ? '' : video, embed: landingPage ? '' : embed,
     products: [],
     analysis: { takeaways: [], pros: [], cons: [], metrics: [], suitableFor: [], notFor: [], buyingAdvice: null },
     evidence: [],
     readBy,
-    status, availability: { text: Boolean(body || description), cover: Boolean(cover || images.length), video: Boolean(video), embed: Boolean(embed) },
-    issue: embed && !video ? 'official_embed' : videoType && !video ? 'video_unavailable' : status === 'complete' ? ''
+    status, availability: { text: landingPage ? false : Boolean(body || description), cover: landingPage ? false : Boolean(cover || images.length), video: landingPage ? false : Boolean(video), embed: landingPage ? false : Boolean(embed) },
+    issue: landingPage ? 'landing_page' : embed && !video ? 'official_embed' : videoType && !video ? 'video_unavailable' : status === 'complete' ? ''
       : problems.includes('content_unavailable') ? 'content_unavailable' : problems.find(Boolean) || 'metadata_only'
   };
   return { ok: true, record };

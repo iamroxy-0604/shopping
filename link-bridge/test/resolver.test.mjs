@@ -23,6 +23,20 @@ test('does not pass an internal DNS target to OpenCLI', async () => {
   assert.equal(called, false);
 });
 
+test('platform homepage is not presented as a content article or cover', async () => {
+  const result = await resolveLink('https://www.bilibili.com/', {
+    cli: noCli,
+    lookupImpl: publicLookup,
+    browser: async () => ({ ok: false, code: 'browser_unavailable' }),
+    fetchImpl: async () => new Response('<title>哔哩哔哩</title><meta property="og:image" content="https://example.com/wide.jpg"><meta name="description" content="首页推荐">', { headers: { 'content-type': 'text/html' } }),
+  });
+  assert.equal(result.record.contentType, 'unknown');
+  assert.equal(result.record.title, '平台首页链接');
+  assert.equal(result.record.cover, '');
+  assert.deepEqual(result.record.images, []);
+  assert.equal(result.record.issue, 'landing_page');
+});
+
 test('reads a public article without inventing image or video', async () => {
   const html = '<html><head><meta property="og:title" content="桌面阅读灯使用记录"><meta name="description" content="七天体验"><meta property="og:image" content="/cover.jpg"></head><body><article><p>夜间阅读时把灯放在书桌左侧。</p></article></body></html>';
   const result = await resolveLink('https://example.com/post', {

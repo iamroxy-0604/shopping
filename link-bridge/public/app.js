@@ -13,6 +13,7 @@ function issueText(issue) {
   return ({ navigation_rejected: '平台拒绝读取详情，已保留能够取得的内容。', login_required: '详情需要登录后读取。',
     fetch_failed: '网页暂时无法访问。', video_unavailable: '已识别视频，但未取得可播放文件。',
     official_embed: '已取得官方播放器入口；播放由原平台提供。',
+    landing_page: '这是平台首页，不是单条内容。请粘贴包含视频 BV 号或帖子编号的完整链接。',
     content_unavailable: '原平台显示页面不存在或链接已失效，请检查完整链接。',
     opencli_missing: '小红书读取组件尚未安装。', metadata_only: '只取得页面基础信息。' })[issue] || '部分内容无法读取，可打开原链接查看。';
 }
@@ -26,7 +27,8 @@ function showRecord(record) {
   current = record;
   output.className = '';
   const readPath = record.readBy?.length ? record.readBy.join(' → ') : '未能读取页面';
-  output.innerHTML = `<div class="result-wrap"><button class="result-card" id="openCard" type="button" aria-label="查看${esc(label(record.contentType))}内容：${esc(record.title)}"><span class="result-cover">${coverMarkup(record, 'result-cover')}<span class="type-badge">${esc(label(record.contentType))}</span></span><span class="result-card-body"><strong>${esc(record.title)}</strong><small>${esc(record.source.platform)}</small></span></button><div class="result-notes"><h3>读取结果</h3><p>${record.status === 'complete' ? '内容已整理成可展开的卡片。' : issueText(record.issue)}</p>${stateRow('文字', record.availability.text)}${stateRow('封面地址', record.availability.cover)}${stateRow(record.embed ? '官方播放器入口' : '视频文件', record.embed ? record.availability.embed : record.availability.video)}<div class="read-path">读取方式：${esc(readPath)}</div><span class="open-hint">点击卡片查看详情 ↗</span></div></div>`;
+  const canOpen = record.issue !== 'landing_page';
+  output.innerHTML = `<div class="result-wrap"><button class="result-card" id="openCard" type="button" ${canOpen ? '' : 'disabled'} aria-label="查看${esc(label(record.contentType))}内容：${esc(record.title)}"><span class="result-cover">${coverMarkup(record, 'result-cover')}<span class="type-badge">${esc(label(record.contentType))}</span></span><span class="result-card-body"><strong>${esc(record.title)}</strong><small>${esc(record.source.platform)}</small></span></button><div class="result-notes"><h3>读取结果</h3><p>${record.status === 'complete' ? '内容已整理成可展开的卡片。' : issueText(record.issue)}</p>${stateRow('文字', record.availability.text)}${stateRow('封面地址', record.availability.cover)}${stateRow(record.embed ? '官方播放器入口' : '视频文件', record.embed ? record.availability.embed : record.availability.video)}<div class="read-path">读取方式：${esc(readPath)}</div>${canOpen ? '<span class="open-hint">点击卡片查看详情 ↗</span>' : ''}</div></div>`;
 }
 function openDetail() {
   if (!current) return;
