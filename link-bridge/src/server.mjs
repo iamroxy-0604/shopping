@@ -12,7 +12,7 @@ const moduleRoot = path.resolve(root, '..');
 try { process.loadEnvFile(path.join(moduleRoot, '.env')); } catch (error) {
   if (error?.code !== 'ENOENT') throw error;
 }
-const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8' };
+const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
 
 function json(res, status, value) {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
@@ -73,7 +73,7 @@ export function createServer({ resolve = resolveLink, plan = planDetailComponent
     }
     if (req.method === 'GET') {
       const name = req.url === '/' ? 'index.html' : req.url?.slice(1);
-      if (typeof name === 'string' && /^(?:index\.html|app\.js|styles\.css|a2ui\.html|a2ui\.bundle\.js|a2ui\.css)$/.test(name)) {
+      if (typeof name === 'string' && (/^(?:index\.html|app\.js|styles\.css|a2ui\.html|a2ui\.bundle\.js|a2ui\.css)$/.test(name) || /^assets\/themes\/(?:western|journal)\/[a-z-]+\.svg$/.test(name))) {
         const file = path.join(root, name);
         res.writeHead(200, { 'content-type': types[path.extname(file)], 'cache-control': 'no-store' });
         return fs.createReadStream(file).pipe(res);

@@ -35,6 +35,9 @@ test('reads a public article without inventing image or video', async () => {
   assert.equal(result.record.cover, 'https://example.com/cover.jpg');
   assert.equal(result.record.contentType, 'article');
   assert.equal(result.record.availability.video, false);
+  assert.deepEqual(result.record.products, []);
+  assert.deepEqual(result.record.evidence, []);
+  assert.deepEqual(result.record.analysis.metrics, []);
 });
 
 test('recognizes playable direct video and video pages without a playable file', async () => {
@@ -228,5 +231,8 @@ test('standalone HTTP service exposes its own resolver', async () => {
     assert.match(await page.text(), /链接转接台/);
     const result = await fetch(`${base}/api/resolve`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: 'https://example.com' }) });
     assert.equal((await result.json()).record.title, 'https://example.com');
+    const texture = await fetch(`${base}/assets/themes/western/denim-texture.svg`);
+    assert.equal(texture.status, 200);
+    assert.match(texture.headers.get('content-type'), /image\/svg\+xml/);
   } finally { server.close(); }
 });

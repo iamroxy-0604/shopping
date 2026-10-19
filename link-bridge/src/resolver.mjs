@@ -326,6 +326,9 @@ export async function resolveLink(input, { fetchImpl = fetch, lookupImpl = looku
     contentType, title: title || (status === 'unavailable' ? '暂时无法读取此链接' : source?.hostname || parsed.hostname),
     body: route.kind === 'bilibili' && !cliData.body && description ? description.split(/,?\s*视频播放量/)[0] : body,
     description, cover: cover || images[0] || '', images, video, embed,
+    products: [],
+    analysis: { takeaways: [], pros: [], cons: [], metrics: [], suitableFor: [], notFor: [], buyingAdvice: null },
+    evidence: [],
     readBy,
     status, availability: { text: Boolean(body || description), cover: Boolean(cover || images.length), video: Boolean(video), embed: Boolean(embed) },
     issue: embed && !video ? 'official_embed' : videoType && !video ? 'video_unavailable' : status === 'complete' ? ''

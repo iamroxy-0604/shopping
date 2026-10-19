@@ -62938,8 +62938,8 @@ var base = {
 var definitions = {
   warm: { label: "\u6696\u6A59\u7F16\u8F91\u98CE" },
   y2k: { label: "\u5343\u79A7\u6570\u7801\u98CE", colors: { page: "#e9e5ff", surface: "#fffaff", surfaceMuted: "#ffe3f7", text: "#21152d", textMuted: "#675b75", primary: "#cf178f", onPrimary: "#fff", positive: "#16736d", warning: "#8a5b00", negative: "#a42356", evidence: "#345e9a", border: "#c7bbeb" }, shape: { cardRadius: 22, sheetRadius: 28 }, elevation: { card: "5px 5px 0 #21152d" } },
-  western: { label: "\u725B\u4ED4\u98CE", colors: { page: "#ece8df", surface: "#fffaf0", surfaceMuted: "#e3d4bc", text: "#182f42", textMuted: "#536271", primary: "#24516e", onPrimary: "#fff", positive: "#2f654d", warning: "#896022", negative: "#a13d32", evidence: "#3d6883", border: "#a99377" }, typography: { displayFamily: 'Georgia, "Noto Serif SC", serif' }, shape: { cardRadius: 7, sheetRadius: 18 }, elevation: { card: "4px 4px 0 #a99377" }, assets: { divider: "/assets/themes/western/stitch.svg" } },
-  journal: { label: "\u624B\u8D26\u98CE", colors: { page: "#eeeae0", surface: "#fffdf6", surfaceMuted: "#f4e5d8", text: "#292b2b", textMuted: "#616363", primary: "#526c66", onPrimary: "#fff", positive: "#456c56", warning: "#8d6a24", negative: "#a14e4e", evidence: "#4e7191", border: "#d4c8b3" }, typography: { displayFamily: '"Segoe Print", "KaiTi", cursive' }, shape: { cardRadius: 3, sheetRadius: 12 }, elevation: { card: "3px 5px 0 #d4c8b3" }, assets: { divider: "/assets/themes/journal/stamp.svg" } }
+  western: { label: "\u725B\u4ED4\u98CE", colors: { page: "#ece8df", surface: "#fffaf0", surfaceMuted: "#e3d4bc", text: "#182f42", textMuted: "#536271", primary: "#24516e", onPrimary: "#fff", positive: "#2f654d", warning: "#896022", negative: "#a13d32", evidence: "#3d6883", border: "#a99377" }, typography: { displayFamily: 'Georgia, "Noto Serif SC", serif' }, shape: { cardRadius: 7, sheetRadius: 18 }, elevation: { card: "4px 4px 0 #a99377" }, assets: { pageTexture: "/assets/themes/western/denim-texture.svg", divider: "/assets/themes/western/stitch.svg" } },
+  journal: { label: "\u624B\u8D26\u98CE", colors: { page: "#eeeae0", surface: "#fffdf6", surfaceMuted: "#f4e5d8", text: "#292b2b", textMuted: "#616363", primary: "#526c66", onPrimary: "#fff", positive: "#456c56", warning: "#8d6a24", negative: "#a14e4e", evidence: "#4e7191", border: "#d4c8b3" }, typography: { displayFamily: '"Segoe Print", "KaiTi", cursive' }, shape: { cardRadius: 3, sheetRadius: 12 }, elevation: { card: "3px 5px 0 #d4c8b3" }, assets: { pageTexture: "/assets/themes/journal/paper-texture.svg", divider: "/assets/themes/journal/stamp.svg" } }
 };
 function getThemeTokens(name) {
   const item = definitions[name] || definitions.warm;
@@ -62953,7 +62953,7 @@ function createShiguangTheme(name) {
 }
 function themeStyle(name) {
   const t9 = getThemeTokens(name);
-  return { "--accent": t9.colors.primary, "--accent-soft": t9.colors.surfaceMuted, "--page": t9.colors.page, "--surface": t9.colors.surface, "--line": t9.colors.border, "--ink": t9.colors.text, "--muted": t9.colors.textMuted, "--positive": t9.colors.positive, "--negative": t9.colors.negative, "--evidence": t9.colors.evidence, "--shadow": t9.elevation.card, "--section-gap": `${t9.spacing.section}px`, "--card-radius": `${t9.shape.cardRadius}px`, "--display-family": t9.typography.displayFamily };
+  return { "--accent": t9.colors.primary, "--accent-soft": t9.colors.surfaceMuted, "--page": t9.colors.page, "--surface": t9.colors.surface, "--line": t9.colors.border, "--ink": t9.colors.text, "--muted": t9.colors.textMuted, "--positive": t9.colors.positive, "--negative": t9.colors.negative, "--evidence": t9.colors.evidence, "--shadow": t9.elevation.card, "--section-gap": `${t9.spacing.section}px`, "--card-radius": `${t9.shape.cardRadius}px`, "--display-family": t9.typography.displayFamily, "--page-texture": t9.assets.pageTexture ? `url(${t9.assets.pageTexture})` : "none" };
 }
 
 // src/a2ui-client.jsx

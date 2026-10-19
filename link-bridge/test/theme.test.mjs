@@ -10,4 +10,6 @@ test('four themes provide required semantic tokens and shared spacing', () => {
     assert.equal(themeStyle(name)['--section-gap'], '24px');
   }
   assert.equal(getThemeTokens('missing').colors.primary, getThemeTokens('warm').colors.primary);
+  assert.match(getThemeTokens('western').assets.pageTexture, /denim-texture\.svg$/);
+  assert.match(getThemeTokens('journal').assets.pageTexture, /paper-texture\.svg$/);
 });
