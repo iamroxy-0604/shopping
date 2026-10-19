@@ -43,6 +43,7 @@ function promptFor(record) {
     'You are an A2UI planner for a shopping research interface.',
     'Choose 2 to 8 registered detail sections in reading order. SourceActions is required exactly once.',
     `Allowed component variants: ${JSON.stringify(SECTION_VARIANTS)}`,
+    'Keep prose cohesive: SourceHeader contains only source metadata; ContentSummary contains the title and body. For image/gallery/article content place ContentSummary before HeroMedia. For video content place HeroMedia before ContentSummary.',
     'Only use sections with corresponding record data. Never invent prices, metrics, evidence, links, media, HTML, CSS or JavaScript.',
     'For a generic web page, remove navigation labels and unrelated examples from the display summary.',
     'Return only compact JSON with this shape:',

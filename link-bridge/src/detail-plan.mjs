@@ -13,9 +13,11 @@ export function buildFallbackPlan(record) {
   const hasMedia = Boolean(record?.video || record?.cover || record?.images?.length);
   if (!hasText && !hasMedia) return { planVersion: '1', reason: '内容不可用', sections: [] };
   const sections = [section('source', 'SourceHeader')];
-  if (hasMedia) sections.push(section('hero', 'HeroMedia', record?.video ? 'video' : record?.contentType === 'video' ? 'poster' : record?.images?.length > 1 ? 'gallery' : 'image'));
-  if (record?.analysis?.takeaways?.length) sections.push(section('takeaways', 'KeyTakeaways'));
+  const hero = section('hero', 'HeroMedia', record?.video ? 'video' : record?.contentType === 'video' ? 'poster' : record?.images?.length > 1 ? 'gallery' : 'image');
+  if (record?.contentType === 'video' && hasMedia) sections.push(hero);
   if (hasText) sections.push(section('summary', 'ContentSummary'));
+  if (record?.contentType !== 'video' && hasMedia) sections.push(hero);
+  if (record?.analysis?.takeaways?.length) sections.push(section('takeaways', 'KeyTakeaways'));
   if (record?.analysis?.metrics?.some((item) => record?.evidence?.some((source) => source.id === item.evidenceId))) sections.push(section('metrics', 'TestMetrics', 'grid'));
   if (record?.analysis?.pros?.length || record?.analysis?.cons?.length) sections.push(section('pros-cons', 'ProsCons', 'balanced'));
   if (record?.products?.length >= 2) sections.push(section('comparison', 'ProductComparison', 'cards'));
@@ -23,7 +25,8 @@ export function buildFallbackPlan(record) {
   if (record?.analysis?.buyingAdvice) sections.push(section('advice', 'BuyingAdvice'));
   if (record?.evidence?.length && sections.length < 7) sections.push(section('evidence', 'EvidenceList'));
   sections.push(section('actions', 'SourceActions'));
-  for (const component of ['ContentSummary', 'EvidenceList', 'ProductMention', 'ProsCons', 'HeroMedia']) {
+  // Keep the title/body and primary media together; trim supporting analysis first.
+  for (const component of ['EvidenceList', 'ProductMention', 'ProsCons', 'KeyTakeaways', 'TestMetrics', 'ProductComparison']) {
     if (sections.length <= 8) break;
     const index = sections.findIndex((item) => item.component === component);
     if (index >= 0) sections.splice(index, 1);

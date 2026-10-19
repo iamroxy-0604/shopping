@@ -25,7 +25,6 @@ export const DetailStack = api('DetailStack', { children: CommonSchemas.ChildLis
 
 export const SourceHeader = api('SourceHeader', { variant: z.literal('default'), platform: text, author: optional, title: optional, engagement: optional }, ({ props }) => section('source', <>
   <Stack direction="row" alignItems="center" spacing={1}><Chip size="small" label={props.platform} /><Typography variant="body2">{props.author || '网页内容'}</Typography><Box sx={{ flex: 1 }} /><Typography variant="caption">{props.engagement}</Typography></Stack>
-  {props.title && <Typography component="h2" className="shopping-title">{props.title}</Typography>}
 </>));
 
 export const HeroMedia = api('HeroMedia', { variant: z.enum(['video', 'gallery', 'image', 'poster']), title: text, cover: optional, video: optional, images: z.array(url).max(8).optional(), duration: optional }, ({ props }) => section('hero', <>
@@ -34,7 +33,7 @@ export const HeroMedia = api('HeroMedia', { variant: z.enum(['video', 'gallery',
   {props.duration && <span className="shopping-duration">{props.duration}</span>}
 </>));
 
-export const ContentSummary = api('ContentSummary', { variant: z.literal('default'), title: text, body: optional }, ({ props }) => section('summary', props.body ? <p>{props.body}</p> : empty));
+export const ContentSummary = api('ContentSummary', { variant: z.literal('default'), title: text, body: optional }, ({ props }) => section('summary', <><Typography component="h2" className="shopping-title">{props.title}</Typography>{props.body ? <p>{props.body}</p> : empty}</>));
 export const KeyTakeaways = api('KeyTakeaways', { variant: z.literal('default'), items: z.array(takeaway).max(4) }, ({ props }) => section('takeaways', <>{heading('核心结论')}{props.items.length ? <ul>{props.items.map((item, i) => <li key={i} className={`sentiment-${item.sentiment}`}>{item.text}{item.evidenceId && <small> · {item.evidenceId}</small>}</li>)}</ul> : empty}</>));
 export const ProsCons = api('ProsCons', { variant: z.enum(['balanced', 'compact', 'evidence-first']), pros: z.array(z.string().max(150)).max(4), cons: z.array(z.string().max(150)).max(4) }, ({ props }) => section('pros-cons', <>{heading('优点与不足')}<div className="shopping-columns">{props.pros.length > 0 && <div><b>优点</b><ul>{props.pros.map((value, i) => <li key={i}>{value}</li>)}</ul></div>}{props.cons.length > 0 && <div><b>不足</b><ul>{props.cons.map((value, i) => <li key={i}>{value}</li>)}</ul></div>}{!props.pros.length && !props.cons.length && empty}</div></>));
 export const TestMetrics = api('TestMetrics', { variant: z.literal('grid'), items: z.array(metric).max(6) }, ({ props }) => section('metrics', <>{heading('实测指标')}<div className="shopping-metrics">{props.items.length ? props.items.map((item, i) => <div key={i}><small>{item.label}</small><strong>{item.value}</strong><small>证据：{item.evidenceId}</small></div>) : empty}</div></>));

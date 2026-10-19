@@ -35,6 +35,9 @@ test('unavailable record keeps source action', () => {
 
 test('fallback combinations differ by content and media', () => {
   const video = buildFallbackPlan(record).sections.map((item) => item.component);
+  const image = buildFallbackPlan({ ...record, contentType: 'image', products: [], analysis: {} }).sections.map((item) => item.component);
   const article = buildFallbackPlan({ ...record, contentType: 'article', cover: '', products: [], analysis: {} }).sections.map((item) => item.component);
   assert.notDeepEqual(video, article);
+  assert.ok(video.indexOf('HeroMedia') < video.indexOf('ContentSummary'));
+  assert.ok(image.indexOf('ContentSummary') < image.indexOf('HeroMedia'));
 });
