@@ -29,13 +29,15 @@ test('LLM planner sends the registered catalog choices and accepts a valid plan'
     return {
       ok: true,
       async json() {
-        return { choices: [{ message: { content: '{"component":"VideoExperienceDetail","reason":"这是横向测试视频，应优先展示视频封面和摘要。","confidence":0.96}' } }] };
+        return { choices: [{ message: { content: '{"component":"VideoExperienceDetail","reason":"这是横向测试视频，应优先展示视频封面和摘要。","confidence":0.96,"displayTitle":"16款充电宝实测","displayBody":"内容比较了快充、发热和重量。","showCover":true}' } }] };
       },
     };
   };
   const result = await planDetailComponent(record, { fetchImpl, env });
   assert.equal(result.component, 'VideoExperienceDetail');
   assert.equal(result.model, 'test-model');
+  assert.equal(result.displayTitle, '16款充电宝实测');
+  assert.equal(result.showCover, true);
   assert.equal(request.url, 'https://gateway.example/v1/chat/completions');
   assert.equal(request.options.headers.authorization, 'Bearer test-key');
   const payload = JSON.parse(request.options.body);

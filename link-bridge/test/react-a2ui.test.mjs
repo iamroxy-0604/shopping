@@ -25,9 +25,18 @@ test('React composer selects source-aware detail components', () => {
 });
 
 test('React composer accepts a validated LLM component plan', () => {
-  const result = composeReactA2ui(base, 'detail', { component: 'ArticleExperienceDetail' });
+  const result = composeReactA2ui(base, 'detail', {
+    component: 'ArticleExperienceDetail',
+    displayTitle: '精炼后的标题',
+    displayBody: '只保留与商品决策相关的真实内容。',
+    showCover: false,
+  });
   assert.equal(result.component, 'ArticleExperienceDetail');
   assert.equal(result.messages[1].updateComponents.components[0].component, 'ArticleExperienceDetail');
+  assert.equal(result.messages[2].updateDataModel.value.title, '精炼后的标题');
+  assert.equal(result.messages[2].updateDataModel.value.body, '只保留与商品决策相关的真实内容。');
+  assert.equal(result.messages[2].updateDataModel.value.cover, '');
+  assert.deepEqual(result.messages[2].updateDataModel.value.images, []);
 });
 
 test('React composer validates input and keeps actions declarative', () => {
@@ -36,5 +45,10 @@ test('React composer validates input and keeps actions declarative', () => {
   const root = result.messages[1].updateComponents.components[0];
   assert.equal(root.onOpenSource.event.name, 'open_source');
   assert.equal(root.onOpenSource.event.context.sourceUrl, base.source.url);
+});
+
+test('generic web pages use a truthful author fallback', () => {
+  const result = composeReactA2ui({ ...base, author: '', source: { platform: 'mui.com', url: 'https://mui.com/material-ui/' } }, 'preview');
+  assert.equal(result.messages[2].updateDataModel.value.author, '网页内容');
 });
 

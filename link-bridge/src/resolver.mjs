@@ -149,7 +149,7 @@ function attributes(tag) {
 }
 
 function plainHtml(value) {
-  return decodeHtml(value.replace(/<(?:script|style|svg|nav|header|footer|aside)\b[^>]*>[\s\S]*?<\/\s*(?:script|style|svg|nav|header|footer|aside)\s*>/gi, ' ')
+  return decodeHtml(value.replace(/<(?:script|style|svg|nav|header|footer|aside|form|button|select|noscript|template|dialog)\b[^>]*>[\s\S]*?<\/\s*(?:script|style|svg|nav|header|footer|aside|form|button|select|noscript|template|dialog)\s*>/gi, ' ')
     .replace(/<(?:br|\/p|\/div|\/li|\/h[1-6])\b[^>]*>/gi, '\n').replace(/<[^>]+>/g, ' ')
     .replace(/[\t ]+/g, ' ').replace(/\n\s*\n+/g, '\n')).slice(0, 6000);
 }
@@ -210,12 +210,21 @@ const BROWSER_EXTRACT = `(() => {
   const meta = key => document.querySelector('meta[property="' + key + '"],meta[name="' + key + '"]')?.content || '';
   const answer = /zhihu\\.com$/.test(location.hostname) && /\\/answer\\//.test(location.pathname)
     ? document.querySelector('.RichContent-inner') : null;
-  const desc = answer?.innerText || document.querySelector('#detail-desc, .note-content, article, main')?.innerText || '';
+  const contentRoot = answer || document.querySelector('#detail-desc, .note-content, article, [role="main"], main');
+  const clone = contentRoot?.cloneNode(true);
+  clone?.querySelectorAll('script,style,svg,nav,header,footer,aside,form,button,select,noscript,template,dialog,[aria-hidden="true"],pre code').forEach(node => node.remove());
+  const rawText = clone?.innerText || '';
+  const seen = new Set();
+  const desc = rawText.split(/\\n+/).map(line => line.replace(/\\s+/g, ' ').trim()).filter(line => {
+    if (!line || seen.has(line)) return false;
+    seen.add(line);
+    return true;
+  }).join('\\n');
   const video = document.querySelector('video')?.currentSrc || document.querySelector('video source')?.src || '';
   return { title: document.querySelector('#detail-title, h1')?.innerText || meta('og:title') || document.title,
     body: desc.slice(0, 6000), description: meta('og:description') || meta('description'), cover: meta('og:image') || meta('twitter:image'), video,
     videoType: !!document.querySelector('video') || /video/i.test(meta('og:type')),
-    images: Array.from(document.querySelectorAll('#noteContainer img, .swiper-slide img, article img')).map(img => img.currentSrc || img.src).filter(Boolean).slice(0, 12) };
+    images: Array.from(document.querySelectorAll('#noteContainer img, .swiper-slide img, article img, main img')).filter(img => (img.naturalWidth || img.width || 0) >= 240 && (img.naturalHeight || img.height || 0) >= 160).map(img => img.currentSrc || img.src).filter(Boolean).slice(0, 12) };
 })()`;
 
 async function browserRead(url, cli) {
@@ -307,7 +316,9 @@ export async function resolveLink(input, { fetchImpl = fetch, lookupImpl = looku
   const finalRoute = openCliRoute(source || parsed);
   const embed = finalRoute.embed || route.embed || '';
   const videoType = Boolean(route.type === 'video' || finalRoute.type === 'video' || browserData.videoType || pageData.videoType || cliData.type === 'video' || cliData.note_type === 'video' || video || embed);
-  const contentType = videoType ? 'video' : images.length ? 'image' : title || body || description ? 'article' : 'unknown';
+  const contentType = videoType ? 'video'
+    : route.kind === 'generic' && (body || description) ? 'article'
+      : images.length ? 'image' : title || body || description ? 'article' : 'unknown';
   const status = videoType && !video ? title || body || description || images.length || embed ? 'partial' : 'unavailable'
     : body || video ? 'complete' : title || description || images.length ? 'partial' : 'unavailable';
   const record = {

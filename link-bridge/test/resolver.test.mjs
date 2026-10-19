@@ -33,7 +33,7 @@ test('reads a public article without inventing image or video', async () => {
   assert.equal(result.record.title, '桌面阅读灯使用记录');
   assert.match(result.record.body, /夜间阅读/);
   assert.equal(result.record.cover, 'https://example.com/cover.jpg');
-  assert.equal(result.record.contentType, 'image');
+  assert.equal(result.record.contentType, 'article');
   assert.equal(result.record.availability.video, false);
 });
 
@@ -68,6 +68,19 @@ test('uses main text when a public page has no article element', () => {
   assert.equal(video.video, 'https://example.com/movie.mp4');
   const simple = parseHtmlMetadata('<body><div><h1>Example Domain</h1><p>This domain is for documentation.</p></div></body>', 'https://example.com');
   assert.match(simple.body, /This domain is for documentation/);
+});
+
+test('removes generic page chrome and does not classify an article as an image post', async () => {
+  const html = '<html><head><title>Material UI installation</title><meta name="description" content="Install Material UI for React"><meta property="og:image" content="/social-card.png"></head><body><nav>Search Docs Pricing</nav><main><form><button>Copy</button></form><h1>Install Material UI</h1><p>Install the default package manager dependencies.</p><button>Copy command</button><p>Components are self-contained and inject only the styles they need.</p></main><footer>GitHub Twitter</footer></body></html>';
+  const result = await resolveLink('https://docs.example.com/install', {
+    cli: noCli,
+    lookupImpl: publicLookup,
+    fetchImpl: async () => new Response(html, { headers: { 'content-type': 'text/html' } }),
+  });
+  assert.equal(result.record.contentType, 'article');
+  assert.match(result.record.body, /Components are self-contained/);
+  assert.doesNotMatch(result.record.body, /Search Docs|Copy command|GitHub Twitter/);
+  assert.equal(result.record.cover, 'https://docs.example.com/social-card.png');
 });
 
 test('Bilibili video takes metadata from OpenCLI and uses its official embed', async () => {

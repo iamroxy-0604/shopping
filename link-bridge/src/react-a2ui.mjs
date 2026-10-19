@@ -37,9 +37,11 @@ function engagement(value) {
 function commonData(record) {
   const sourceUrl = safeUrl(record?.source?.url);
   const images = [...new Set((Array.isArray(record?.images) ? record.images : []).map(media).filter(Boolean))].slice(0, 8);
+  const platform = platformOf(record);
+  const genericWebPage = /\./.test(platform) && !/(?:小红书|知乎|B站|bilibili|YouTube|微博)/i.test(platform);
   return {
-    platform: platformOf(record),
-    author: clean(record?.author, 48) || '真实用户',
+    platform,
+    author: clean(record?.author, 48) || (genericWebPage ? '网页内容' : '真实用户'),
     title: clean(record?.title, 180) || '未取得标题',
     body: clean(record?.body || record?.description, 700),
     excerpt: clean(record?.description || record?.body, 86),
@@ -58,6 +60,14 @@ export function composeReactA2ui(record, mode = 'preview', plan = null) {
     return { ok: false, code: 'invalid_compose_input', message: '界面编排参数不正确。' };
   }
   const data = commonData(record);
+  if (mode === 'detail' && plan) {
+    if (plan.displayTitle) data.title = clean(plan.displayTitle, 180);
+    if (plan.displayBody) data.body = clean(plan.displayBody, 700);
+    if (plan.showCover === false) {
+      data.cover = '';
+      data.images = [];
+    }
+  }
   if (!data.sourceUrl) return { ok: false, code: 'invalid_compose_input', message: '记录缺少有效原链接。' };
   const surfaceId = `shiguang-${mode}-${String(record.id || Date.now()).replace(/[^a-zA-Z0-9_-]/g, '-').slice(-48)}`;
   let component = 'ExperiencePreview';

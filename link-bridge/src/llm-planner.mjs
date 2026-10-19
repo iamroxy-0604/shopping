@@ -36,6 +36,7 @@ function recordForPrompt(record) {
     imageCount: Array.isArray(record?.images) ? Math.min(record.images.length, 8) : 0,
     hasPlayableVideo: Boolean(record?.video),
     duration: clean(record?.duration, 20),
+    coverUrl: clean(record?.cover, 500),
   };
 }
 
@@ -49,8 +50,11 @@ function promptFor(record) {
     '- ArticleExperienceDetail: long-form article, analysis, Q&A or text-led content.',
     '- MediaUnavailable: only when there is no useful cover, image, video, description or body.',
     'Judge from the actual content semantics and available media, not platform name alone.',
+    'Create a clean display title and a grounded Chinese display body using only facts present in the record.',
+    'For a generic web page, remove navigation labels, install commands, repeated UI text and unrelated examples.',
+    'Set showCover to false when the URL appears to be a generic logo, social preview or unrelated marketing image.',
     'Return only compact JSON with this shape:',
-    '{"component":"ComponentName","reason":"one concise Chinese sentence","confidence":0.0}',
+    '{"component":"ComponentName","reason":"one concise Chinese sentence","confidence":0.0,"displayTitle":"clean title","displayBody":"2-4 concise grounded Chinese sentences","showCover":true}',
     `Content record: ${JSON.stringify(recordForPrompt(record))}`,
   ].join('\n');
 }
@@ -72,6 +76,9 @@ function validatePlan(value) {
     component: value.component,
     reason,
     confidence: Number.isFinite(confidence) ? Math.min(Math.max(confidence, 0), 1) : null,
+    displayTitle: clean(value.displayTitle, 180),
+    displayBody: clean(value.displayBody, 700),
+    showCover: value.showCover !== false,
   };
 }
 
