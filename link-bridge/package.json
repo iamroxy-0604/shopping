@@ -1,0 +1,32 @@
+{
+  "name": "link-bridge",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:a2ui": "esbuild src/a2ui-client.jsx --bundle --format=esm --platform=browser --target=es2022 --outfile=public/a2ui.bundle.js",
+    "build:shopping": "esbuild src/shopping-a2ui-client.mjs --bundle --format=esm --platform=browser --target=es2022 --outfile=../backend/public/shopping-a2ui.bundle.js",
+    "start": "npm run build:a2ui && node src/server.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@a2ui/lit": "0.13.0",
+    "@a2ui/markdown-it": "^0.2.1",
+    "@a2ui/react": "^0.13.0",
+    "@a2ui/web_core": "0.13.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@jackwener/opencli": "1.8.8",
+    "@mui/material": "^7.3.5",
+    "@phosphor-icons/react": "^2.1.10",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "embla-carousel-react": "^8.6.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "overrides": {
+    "undici": "7.29.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}

@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1060" viewBox="0 0 1440 1060" role="img" aria-labelledby="title description">
+  <title id="title">独立链接转接台的当前架构</title>
+  <desc id="description">链接进入本地界面和解析服务，优先使用 OpenCLI 站点命令或 Browser Bridge，缺失字段由公开网页补齐，合并为统一内容记录，最后显示卡片和弹窗。</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#f7f9fc"/><stop offset="1" stop-color="#edf3fa"/></linearGradient>
+    <linearGradient id="blue" x2="1" y2="1"><stop stop-color="#e4edff"/><stop offset="1" stop-color="#f3f7ff"/></linearGradient>
+    <linearGradient id="cyan" x2="1" y2="1"><stop stop-color="#e3f5f6"/><stop offset="1" stop-color="#f4fbfc"/></linearGradient>
+    <linearGradient id="amber" x2="1" y2="1"><stop stop-color="#fff0d6"/><stop offset="1" stop-color="#fff9ee"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-25%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#304964" flood-opacity=".09"/></filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#657f9f" stroke-width="1.8"/></marker>
+    <style>
+      text{font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",Arial,sans-serif;fill:#1a3049}
+      .eyebrow{font-size:17px;font-weight:700;letter-spacing:2px;fill:#3970be}
+      .title{font-size:39px;font-weight:750;letter-spacing:-1px}
+      .sub{font-size:17px;fill:#607187}
+      .step{font-size:12px;font-weight:800;letter-spacing:1.4px;fill:#4a74ae}
+      .head{font-size:24px;font-weight:750}
+      .body{font-size:16px;fill:#53657a}
+      .small{font-size:14px;fill:#687b8f}
+      .code{font-size:14px;font-family:Consolas,monospace;fill:#426081}
+      .label{font-size:14px;font-weight:700;fill:#6d8097}
+      .link{fill:none;stroke:#7088a5;stroke-width:2.5;marker-end:url(#arrow)}
+      .feed{fill:none;stroke:#99abc0;stroke-width:2;stroke-dasharray:6 6;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1440" height="1060" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1440" height="12" fill="#4273ce"/>
+  <text x="70" y="77" class="eyebrow">LINK / LAB · CURRENT ARCHITECTURE</text>
+  <text x="70" y="133" class="title">一个链接如何变成图文 / 视频卡片</text>
+  <text x="70" y="170" class="sub">独立服务运行在 127.0.0.1:3100，与购物智能体链路分开</text>
+
+  <rect x="65" y="218" width="340" height="150" rx="20" fill="#fff" stroke="#dbe5f0" filter="url(#shadow)"/>
+  <text x="91" y="250" class="step">01 · INPUT</text>
+  <text x="91" y="288" class="head">浏览器输入链接</text>
+  <text x="91" y="321" class="body">独立界面粘贴 URL</text>
+  <text x="91" y="346" class="code">public/index.html + app.js</text>
+
+  <rect x="547" y="218" width="340" height="150" rx="20" fill="#fff" stroke="#dbe5f0" filter="url(#shadow)"/>
+  <text x="573" y="250" class="step">02 · API</text>
+  <text x="573" y="288" class="head">本地解析服务</text>
+  <text x="573" y="321" class="body">校验 URL / DNS，识别平台</text>
+  <text x="573" y="346" class="code">POST /api/resolve</text>
+  <path class="link" d="M405 293 H535"/>
+
+  <rect x="1029" y="218" width="346" height="150" rx="20" fill="url(#blue)" stroke="#bacff2" filter="url(#shadow)"/>
+  <text x="1055" y="250" class="step">03 · ROUTE</text>
+  <text x="1055" y="288" class="head">选择读取路径</text>
+  <text x="1055" y="321" class="body">站点命令优先，按缺失字段补读</text>
+  <text x="1055" y="346" class="code">openCliRoute() + resolveLink()</text>
+  <path class="link" d="M887 293 H1017"/>
+
+  <path class="link" d="M1202 368 V407 H246 V447"/>
+  <path class="link" d="M1202 368 V419 H720 V447"/>
+  <path class="link" d="M1202 368 V447"/>
+
+  <rect x="65" y="460" width="365" height="225" rx="20" fill="url(#blue)" stroke="#bdd1f2" filter="url(#shadow)"/>
+  <text x="91" y="494" class="step">A · OPENCLI SITE COMMAND</text>
+  <text x="91" y="534" class="head">站点适配器</text>
+  <text x="91" y="568" class="body">小红书 note · B站 video</text>
+  <text x="91" y="596" class="body">YouTube video · 微博 post</text>
+  <text x="91" y="624" class="body">知乎 question / answer-detail</text>
+  <text x="91" y="659" class="small">取得标题、正文、封面等结构化字段</text>
+
+  <rect x="537" y="460" width="365" height="225" rx="20" fill="url(#cyan)" stroke="#b8dcdf" filter="url(#shadow)"/>
+  <text x="563" y="494" class="step">B · OPENCLI BROWSER BRIDGE</text>
+  <text x="563" y="534" class="head">Chrome 扩展读取</text>
+  <text x="563" y="568" class="body">读取页面文字、封面、图集</text>
+  <text x="563" y="596" class="body">识别视频元素与页面类型</text>
+  <text x="563" y="659" class="small">需登录时使用已登录的 Chrome 配置</text>
+
+  <rect x="1010" y="460" width="365" height="225" rx="20" fill="url(#amber)" stroke="#ebd5ae" filter="url(#shadow)"/>
+  <text x="1036" y="494" class="step">C · PUBLIC WEB FALLBACK</text>
+  <text x="1036" y="534" class="head">公开网页补齐</text>
+  <text x="1036" y="568" class="body">HTML 标题 / 摘要 / 正文 / 图片</text>
+  <text x="1036" y="596" class="body">MP4 / WebM 直链识别</text>
+  <text x="1036" y="659" class="small">仅在信息不足时补读；受访问限制约束</text>
+
+  <path class="feed" d="M430 573 H523"/>
+  <text x="455" y="556" class="label">不足</text>
+  <path class="feed" d="M902 573 H996"/>
+  <text x="928" y="556" class="label">不足</text>
+  <path class="link" d="M247 685 V737 H720 V762"/>
+  <path class="link" d="M720 685 V762"/>
+  <path class="link" d="M1192 685 V737 H720 V762"/>
+
+  <rect x="355" y="775" width="730" height="108" rx="20" fill="#fff" stroke="#cdddec" filter="url(#shadow)"/>
+  <text x="381" y="808" class="step">04 · NORMALIZE</text>
+  <text x="381" y="844" class="head">统一内容记录</text>
+  <text x="616" y="843" class="body">标题 · 正文 · 封面 · 图片 · 视频文件 / 官方嵌入</text>
+  <text x="616" y="868" class="small">同时记录读取方式、可用状态和原始链接</text>
+
+  <path class="link" d="M720 883 V924"/>
+  <rect x="355" y="937" width="730" height="92" rx="20" fill="#e9f0fd" stroke="#bdd1f2" filter="url(#shadow)"/>
+  <text x="381" y="972" class="step">05 · PRESENT</text>
+  <text x="381" y="1007" class="head">预览卡片 → 详情弹窗</text>
+  <text x="738" y="1007" class="body">图文图集 / HTML5 视频 / 官方播放器</text>
+</svg>
