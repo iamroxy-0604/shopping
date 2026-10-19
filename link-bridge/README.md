@@ -19,6 +19,12 @@ npm start
 
 React 版使用 `POST /api/react-compose`。原有 `POST /api/compose` 和 Lit 购物端 Bundle 保留，因此改造不会改变已接入的购物智能体。`npm start` 会先构建 React Renderer Bundle，再启动链接转接服务。
 
+## LLM Planner
+
+详情编排在链接解析与 A2UI Composer 之间调用 LLM Planner。Planner 只能从拾光 Catalog 已注册的详情组件中选择，输出经校验后再进入 A2UI Renderer。网络、鉴权或输出校验失败时，自动回退到原有规则编排。
+
+复制 `.env.example` 为 `.env`，填写 `LLM_BASE_URL`、`LLM_API_KEY` 和 `LLM_MODEL`。`.env` 已被模块级 `.gitignore` 排除。
+
 当前是独立演示，不连接购物智能体，也没有 LLM 参与界面选择。官方基础 `Video` 组件只接收真实视频文件地址；B 站等官方嵌入播放器不当作视频文件，演示页会退回封面、提示和原链接。`POST /api/compose` 接收现有记录和 `mode`（`overview` 或 `detail`），由受控规则选择组件；其他智能体可以单独使用原 `/api/resolve` 内容接口。
 
 ## 读取流程

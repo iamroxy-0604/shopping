@@ -7,7 +7,11 @@ flowchart TD
     A[小红书 / B站 / 知乎 / 公开网页] --> B[链接转接器 resolve]
     B --> C[统一内容记录 Record]
 
-    C --> D[React A2UI Composer]
+    C --> P1[LLM Planner]
+    P1 --> P2{白名单与 Schema 校验}
+    P2 -->|通过| D[React A2UI Composer]
+    P2 -->|超时 / 无效| P3[规则回退]
+    P3 --> D
     D --> E{内容类型与数据完整度}
     E -->|preview| F[ExperiencePreview]
     E -->|video| G[VideoExperienceDetail]

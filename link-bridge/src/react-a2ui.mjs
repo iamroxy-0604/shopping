@@ -53,7 +53,7 @@ function commonData(record) {
   };
 }
 
-export function composeReactA2ui(record, mode = 'preview') {
+export function composeReactA2ui(record, mode = 'preview', plan = null) {
   if (!record || typeof record !== 'object' || !['preview', 'detail'].includes(mode)) {
     return { ok: false, code: 'invalid_compose_input', message: '界面编排参数不正确。' };
   }
@@ -82,6 +82,15 @@ export function composeReactA2ui(record, mode = 'preview') {
       props.video = { path: '/video' };
     } else if (data.format === 'article') component = 'ArticleExperienceDetail';
     else component = 'ImageExperienceDetail';
+
+    const plannedComponent = plan?.component;
+    if (['VideoExperienceDetail', 'ImageExperienceDetail', 'ArticleExperienceDetail', 'MediaUnavailable'].includes(plannedComponent)) {
+      component = plannedComponent;
+      if (component === 'VideoExperienceDetail') props.video = { path: '/video' };
+      if (component === 'MediaUnavailable') {
+        Object.assign(props, { message: '当前链接没有足够的可展示内容，可前往原站继续查看。' });
+      }
+    }
   }
 
   const messages = [

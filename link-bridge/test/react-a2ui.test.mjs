@@ -24,6 +24,12 @@ test('React composer selects source-aware detail components', () => {
   assert.equal(composeReactA2ui({ ...base, source: { platform: '知乎', url: 'https://www.zhihu.com/question/1' }, contentType: 'article' }, 'detail').component, 'ArticleExperienceDetail');
 });
 
+test('React composer accepts a validated LLM component plan', () => {
+  const result = composeReactA2ui(base, 'detail', { component: 'ArticleExperienceDetail' });
+  assert.equal(result.component, 'ArticleExperienceDetail');
+  assert.equal(result.messages[1].updateComponents.components[0].component, 'ArticleExperienceDetail');
+});
+
 test('React composer validates input and keeps actions declarative', () => {
   assert.equal(composeReactA2ui({}, 'preview').ok, false);
   const result = composeReactA2ui(base, 'detail');

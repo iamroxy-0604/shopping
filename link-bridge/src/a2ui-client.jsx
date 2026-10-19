@@ -5,7 +5,7 @@ import { A2uiSurface } from '@a2ui/react/v0_9';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Box, Button, Chip, CircularProgress, FormControl, MenuItem, Select, Stack, TextField, Typography } from '@mui/material';
 import * as Dialog from '@radix-ui/react-dialog';
-import { ArrowRight, CheckCircle, Flask, LinkSimple, MagicWand, X } from '@phosphor-icons/react';
+import { ArrowRight, Brain, CheckCircle, Flask, LinkSimple, MagicWand, X } from '@phosphor-icons/react';
 import { shiguangCatalog } from './react-catalog/catalog.jsx';
 
 const DEMOS = [
@@ -85,7 +85,7 @@ function App() {
 
   const openDetail = useCallback(async (record) => {
     setSelected(record); setDetail(null); setDialogOpen(true);
-    try { setDetail(await api('/api/react-compose', { record, mode: 'detail' })); }
+    try { setDetail(await api('/api/react-compose', { record, mode: 'detail', usePlanner: true })); }
     catch (error) { setStatus(`详情生成失败：${error.message}`); }
   }, []);
 
@@ -122,7 +122,7 @@ function App() {
           <section className="intro">
             <Chip icon={<Flask size={15} />} label="独立模块 · 未接入购物智能体" />
             <Typography component="h1">真实内容，<br /><em>由 A2UI 选择正确的表达。</em></Typography>
-            <Typography className="intro-copy">React Renderer 负责执行 A2UI 消息，拾光 Catalog 提供经过设计的预览、视频、图集和长文组件。</Typography>
+            <Typography className="intro-copy">LLM Planner 理解真实内容并从拾光 Catalog 选择组件，React Renderer 再执行受约束的 A2UI 消息。</Typography>
           </section>
 
           <section className="resolver-panel">
@@ -141,7 +141,7 @@ function App() {
           </section>
 
           <section className="architecture-strip">
-            <span>链接转接器</span><ArrowRight /><span>A2UI 消息</span><ArrowRight /><span>拾光 Catalog</span><ArrowRight /><strong>React 组件</strong>
+            <span>链接转接器</span><ArrowRight /><span>LLM Planner</span><ArrowRight /><span>A2UI 消息</span><ArrowRight /><span>拾光 Catalog</span><ArrowRight /><strong>React 组件</strong>
           </section>
         </main>
 
@@ -153,7 +153,14 @@ function App() {
               <Dialog.Title className="sr-only">{selected?.title || '内容详情'}</Dialog.Title>
               <Dialog.Close asChild><button className="dialog-close" aria-label="关闭"><X size={24} /></button></Dialog.Close>
               <div className="dialog-scroll">
-                {detail && selected ? <Surface presentation={detail} onAction={actionFor(selected)} /> : <div className="detail-loading"><CircularProgress /><span>正在组装详情界面…</span></div>}
+                {detail && selected ? <>
+                  <div className={`planner-trace ${detail.planner?.used ? 'is-llm' : 'is-fallback'}`}>
+                    <Brain size={18} weight="duotone" />
+                    <div><strong>{detail.planner?.used ? 'LLM Planner 已参与' : '规则编排'}</strong><span>{detail.planner?.reason}</span></div>
+                    <code>{detail.component}</code>
+                  </div>
+                  <Surface presentation={detail} onAction={actionFor(selected)} />
+                </> : <div className="detail-loading"><CircularProgress /><span>LLM Planner 正在选择详情组件…</span></div>}
               </div>
             </Dialog.Content>
           </Dialog.Portal>

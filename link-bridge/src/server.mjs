@@ -5,8 +5,13 @@ import { fileURLToPath } from 'node:url';
 import { resolveLink } from './resolver.mjs';
 import { composeA2ui } from './a2ui.mjs';
 import { composeReactA2ui } from './react-a2ui.mjs';
+import { planDetailComponent, plannerConfigured } from './llm-planner.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public');
+const moduleRoot = path.resolve(root, '..');
+try { process.loadEnvFile(path.join(moduleRoot, '.env')); } catch (error) {
+  if (error?.code !== 'ENOENT') throw error;
+}
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8' };
 
 function json(res, status, value) {
@@ -23,9 +28,9 @@ async function body(req) {
   return JSON.parse(value);
 }
 
-export function createServer({ resolve = resolveLink } = {}) {
+export function createServer({ resolve = resolveLink, plan = planDetailComponent } = {}) {
   return http.createServer(async (req, res) => {
-    if (req.method === 'GET' && req.url === '/health') return json(res, 200, { ok: true, service: 'link-bridge' });
+    if (req.method === 'GET' && req.url === '/health') return json(res, 200, { ok: true, service: 'link-bridge', planner: { configured: plannerConfigured() } });
     if (req.method === 'POST' && req.url === '/api/resolve') {
       try {
         const request = await body(req);
@@ -47,7 +52,20 @@ export function createServer({ resolve = resolveLink } = {}) {
     if (req.method === 'POST' && req.url === '/api/react-compose') {
       try {
         const request = await body(req);
-        const result = composeReactA2ui(request?.record, request?.mode);
+        const baseResult = composeReactA2ui(request?.record, request?.mode);
+        if (!baseResult.ok) return json(res, 400, baseResult);
+        let planner = { used: false, source: 'rules', reason: request?.mode === 'preview' ? '预览使用稳定的通用卡片组件。' : 'LLM Planner 未启用。' };
+        let selectedPlan = null;
+        if (request?.mode === 'detail' && request?.usePlanner !== false) {
+          try {
+            selectedPlan = await plan(request?.record);
+            planner = { used: true, source: 'llm', ...selectedPlan };
+          } catch (error) {
+            planner = { used: false, source: 'rules', fallback: true, reason: '规则回退：LLM Planner 当前不可用。', error: error?.message || 'planner_failed' };
+          }
+        }
+        const result = selectedPlan ? composeReactA2ui(request?.record, request?.mode, selectedPlan) : baseResult;
+        if (result.ok) result.planner = planner;
         return json(res, result.ok ? 200 : 400, result);
       } catch {
         return json(res, 400, { ok: false, code: 'bad_request', message: 'React A2UI 编排请求格式不正确。' });
