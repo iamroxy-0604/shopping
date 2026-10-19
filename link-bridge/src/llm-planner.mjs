@@ -1,9 +1,4 @@
-const DETAIL_COMPONENTS = new Set([
-  'VideoExperienceDetail',
-  'ImageExperienceDetail',
-  'ArticleExperienceDetail',
-  'MediaUnavailable',
-]);
+import { SECTION_VARIANTS, validatePlanAgainstRecord } from './detail-plan.mjs';
 
 function clean(value, limit = 500) {
   return typeof value === 'string' ? value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, limit) : '';
@@ -37,24 +32,21 @@ function recordForPrompt(record) {
     hasPlayableVideo: Boolean(record?.video),
     duration: clean(record?.duration, 20),
     coverUrl: clean(record?.cover, 500),
+    analysis: record?.analysis || {},
+    products: Array.isArray(record?.products) ? record.products.slice(0, 5) : [],
+    evidence: Array.isArray(record?.evidence) ? record.evidence.slice(0, 12) : [],
   };
 }
 
 function promptFor(record) {
   return [
     'You are an A2UI planner for a shopping research interface.',
-    'Choose exactly one registered detail component. Do not invent component names.',
-    'Available components:',
-    '- VideoExperienceDetail: video review, test, tutorial or moving-image content.',
-    '- ImageExperienceDetail: image gallery, social post, product experience or visual note.',
-    '- ArticleExperienceDetail: long-form article, analysis, Q&A or text-led content.',
-    '- MediaUnavailable: only when there is no useful cover, image, video, description or body.',
-    'Judge from the actual content semantics and available media, not platform name alone.',
-    'Create a clean display title and a grounded Chinese display body using only facts present in the record.',
-    'For a generic web page, remove navigation labels, install commands, repeated UI text and unrelated examples.',
-    'Set showCover to false when the URL appears to be a generic logo, social preview or unrelated marketing image.',
+    'Choose 2 to 8 registered detail sections in reading order. SourceActions is required exactly once.',
+    `Allowed component variants: ${JSON.stringify(SECTION_VARIANTS)}`,
+    'Only use sections with corresponding record data. Never invent prices, metrics, evidence, links, media, HTML, CSS or JavaScript.',
+    'For a generic web page, remove navigation labels and unrelated examples from the display summary.',
     'Return only compact JSON with this shape:',
-    '{"component":"ComponentName","reason":"one concise Chinese sentence","confidence":0.0,"displayTitle":"clean title","displayBody":"2-4 concise grounded Chinese sentences","showCover":true}',
+    '{"planVersion":"1","reason":"Chinese sentence","confidence":0.9,"theme":{"name":"warm","density":"comfortable"},"content":{"displayTitle":"title","displaySummary":"grounded summary","showCover":true},"sections":[{"id":"source","component":"SourceHeader","variant":"default"},{"id":"actions","component":"SourceActions","variant":"default"}]}',
     `Content record: ${JSON.stringify(recordForPrompt(record))}`,
   ].join('\n');
 }
@@ -65,21 +57,6 @@ function parseJson(text) {
   const end = source.lastIndexOf('}');
   if (start < 0 || end <= start) throw new Error('planner_invalid_json');
   return JSON.parse(source.slice(start, end + 1));
-}
-
-function validatePlan(value) {
-  if (!value || !DETAIL_COMPONENTS.has(value.component)) throw new Error('planner_invalid_component');
-  const reason = clean(value.reason, 180);
-  if (!reason) throw new Error('planner_missing_reason');
-  const confidence = Number(value.confidence);
-  return {
-    component: value.component,
-    reason,
-    confidence: Number.isFinite(confidence) ? Math.min(Math.max(confidence, 0), 1) : null,
-    displayTitle: clean(value.displayTitle, 180),
-    displayBody: clean(value.displayBody, 700),
-    showCover: value.showCover !== false,
-  };
 }
 
 export async function planDetailComponent(record, { fetchImpl = fetch, env = process.env } = {}) {
@@ -96,7 +73,7 @@ export async function planDetailComponent(record, { fetchImpl = fetch, env = pro
         model: config.model,
         temperature: 0.1,
         // The configured model may emit hidden reasoning tokens before its JSON answer.
-        max_tokens: 1000,
+        max_tokens: 1600,
         messages: [
           { role: 'system', content: 'Return valid JSON only. You may only select a component from the supplied catalog.' },
           { role: 'user', content: promptFor(record) },
@@ -108,7 +85,7 @@ export async function planDetailComponent(record, { fetchImpl = fetch, env = pro
     const payload = await response.json();
     const content = payload?.choices?.[0]?.message?.content;
     if (typeof content !== 'string') throw new Error('planner_empty_response');
-    return { ...validatePlan(parseJson(content)), model: config.model };
+    return { ...validatePlanAgainstRecord(parseJson(content), record), model: config.model };
   } finally {
     clearTimeout(timer);
   }

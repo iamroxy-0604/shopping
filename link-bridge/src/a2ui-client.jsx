@@ -2,11 +2,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MessageProcessor } from '@a2ui/web_core/v0_9';
 import { A2uiSurface } from '@a2ui/react/v0_9';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
 import { Box, Button, Chip, CircularProgress, FormControl, MenuItem, Select, Stack, TextField, Typography } from '@mui/material';
 import * as Dialog from '@radix-ui/react-dialog';
 import { ArrowRight, Brain, CheckCircle, Flask, LinkSimple, MagicWand, X } from '@phosphor-icons/react';
 import { shiguangCatalog } from './react-catalog/catalog.jsx';
+import { createShiguangTheme, themeLabels, themeNames, themeStyle } from './theme/registry.js';
 
 const DEMOS = [
   {
@@ -34,17 +35,6 @@ const DEMOS = [
     cover: 'https://i1.hdslb.com/bfs/archive/40f6e90ff7d221a69a920a12729e776e8153a149.jpg', duration: '12:48', engagement: 1993402, status: 'partial',
   },
 ];
-
-const themes = {
-  warm: createTheme({
-    palette: { mode: 'light', primary: { main: '#d55b3a', contrastText: '#fff' }, background: { default: '#f6f2ef', paper: '#fffdfb' }, text: { primary: '#272321', secondary: '#766e69' } },
-    shape: { borderRadius: 16 }, typography: { fontFamily: 'Inter, "PingFang SC", "Microsoft YaHei", sans-serif', h3: { fontWeight: 780, letterSpacing: '-.035em' }, h4: { fontWeight: 780, fontSize: '1.65rem', lineHeight: 1.32, letterSpacing: '-.025em' }, button: { fontWeight: 750, textTransform: 'none' } },
-  }),
-  y2k: createTheme({
-    palette: { mode: 'light', primary: { main: '#ff38b8', contrastText: '#1b1025' }, secondary: { main: '#62e9ff' }, background: { default: '#e9e5ff', paper: '#fffaff' }, text: { primary: '#21152d', secondary: '#675b75' } },
-    shape: { borderRadius: 22 }, typography: { fontFamily: 'Inter, "PingFang SC", sans-serif', h3: { fontWeight: 900, letterSpacing: '-.045em' }, h4: { fontWeight: 900, fontSize: '1.65rem', lineHeight: 1.28 }, button: { fontWeight: 850, textTransform: 'none' } },
-  }),
-};
 
 async function api(path, payload) {
   const response = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
@@ -106,14 +96,14 @@ function App() {
   };
 
   return (
-    <ThemeProvider theme={themes[themeName]}>
-      <Box className={`lab theme-${themeName}`}>
+    <ThemeProvider theme={createShiguangTheme(themeName)}>
+      <Box className={`lab theme-${themeName}`} style={themeStyle(themeName)}>
         <header className="topbar">
           <a href="/" className="brand"><span><MagicWand size={19} weight="duotone" /></span>拾光 · A2UI LAB</a>
           <Stack direction="row" alignItems="center" spacing={1.5}>
             <span className="renderer-badge"><CheckCircle size={16} weight="fill" /> React Renderer</span>
             <FormControl size="small"><Select value={themeName} onChange={(e) => setThemeName(e.target.value)} aria-label="视觉主题">
-              <MenuItem value="warm">暖橙编辑风</MenuItem><MenuItem value="y2k">千禧数码风</MenuItem>
+              {themeNames.map((name) => <MenuItem value={name} key={name}>{themeLabels[name]}</MenuItem>)}
             </Select></FormControl>
           </Stack>
         </header>
@@ -134,7 +124,7 @@ function App() {
           </section>
 
           <section className="showcase">
-            <div className="section-heading"><div><span>01 / A2UI SURFACES</span><h2>多来源预览组件</h2><p>点击卡片，A2UI 会根据内容类型切换详情组件。</p></div><b>{previews.length} surfaces</b></div>
+            <div className="section-heading"><div><span>01 / A2UI SURFACES</span><h2>多来源预览组件</h2><p>点击卡片，A2UI 会按内容与购物证据编排详情区块。</p></div><b>{previews.length} surfaces</b></div>
             <div className="preview-grid">
               {previews.map((presentation, index) => <Surface key={presentation.surfaceId} presentation={presentation} onAction={actionFor(records[index])} />)}
             </div>
@@ -148,7 +138,7 @@ function App() {
         <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen}>
           <Dialog.Portal>
             <Dialog.Overlay className="dialog-overlay" />
-            <Dialog.Content className={`dialog-content theme-${themeName}`} aria-describedby={undefined}>
+            <Dialog.Content className={`dialog-content theme-${themeName}`} style={themeStyle(themeName)} aria-describedby={undefined}>
               <div className="dialog-handle" />
               <Dialog.Title className="sr-only">{selected?.title || '内容详情'}</Dialog.Title>
               <Dialog.Close asChild><button className="dialog-close" aria-label="关闭"><X size={24} /></button></Dialog.Close>
@@ -157,10 +147,10 @@ function App() {
                   <div className={`planner-trace ${detail.planner?.used ? 'is-llm' : 'is-fallback'}`}>
                     <Brain size={18} weight="duotone" />
                     <div><strong>{detail.planner?.used ? 'LLM Planner 已参与' : '规则编排'}</strong><span>{detail.planner?.reason}</span></div>
-                    <code>{detail.component}</code>
+                    <code>{detail.sectionCount ? `${detail.sectionCount} 个区块` : detail.component}</code>
                   </div>
                   <Surface presentation={detail} onAction={actionFor(selected)} />
-                </> : <div className="detail-loading"><CircularProgress /><span>LLM Planner 正在选择详情组件…</span></div>}
+                </> : <div className="detail-loading"><CircularProgress /><span>LLM Planner 正在编排详情区块…</span></div>}
               </div>
             </Dialog.Content>
           </Dialog.Portal>

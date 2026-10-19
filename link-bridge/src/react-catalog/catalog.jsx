@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { shoppingComponents } from './shopping.jsx';
 import { z } from 'zod';
 import { Catalog, CommonSchemas } from '@a2ui/web_core/v0_9';
 import { createComponentImplementation } from '@a2ui/react/v0_9';
@@ -189,6 +190,6 @@ export const MediaUnavailable = createComponentImplementation(unavailableApi, ({
 export const shiguangCatalog = new Catalog(
   SHIGUANG_CATALOG_ID,
   'v0.9',
-  [ExperiencePreview, VideoExperienceDetail, ImageExperienceDetail, ArticleExperienceDetail, MediaUnavailable],
+  [ExperiencePreview, VideoExperienceDetail, ImageExperienceDetail, ArticleExperienceDetail, MediaUnavailable, ...shoppingComponents],
 );
 

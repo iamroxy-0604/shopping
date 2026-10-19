@@ -29,19 +29,19 @@ test('LLM planner sends the registered catalog choices and accepts a valid plan'
     return {
       ok: true,
       async json() {
-        return { choices: [{ message: { content: '{"component":"VideoExperienceDetail","reason":"这是横向测试视频，应优先展示视频封面和摘要。","confidence":0.96,"displayTitle":"16款充电宝实测","displayBody":"内容比较了快充、发热和重量。","showCover":true}' } }] };
+        return { choices: [{ message: { content: '{"planVersion":"1","reason":"先看视频和摘要","confidence":0.96,"content":{"displayTitle":"16款充电宝实测","displaySummary":"内容比较了快充、发热和重量。","showCover":true},"sections":[{"id":"source","component":"SourceHeader","variant":"default"},{"id":"hero","component":"HeroMedia","variant":"poster"},{"id":"summary","component":"ContentSummary","variant":"default"},{"id":"actions","component":"SourceActions","variant":"default"}]}' } }] };
       },
     };
   };
   const result = await planDetailComponent(record, { fetchImpl, env });
-  assert.equal(result.component, 'VideoExperienceDetail');
+  assert.equal(result.sections[1].component, 'HeroMedia');
   assert.equal(result.model, 'test-model');
-  assert.equal(result.displayTitle, '16款充电宝实测');
-  assert.equal(result.showCover, true);
+  assert.equal(result.content.displayTitle, '16款充电宝实测');
+  assert.equal(result.content.showCover, true);
   assert.equal(request.url, 'https://gateway.example/v1/chat/completions');
   assert.equal(request.options.headers.authorization, 'Bearer test-key');
   const payload = JSON.parse(request.options.body);
-  assert.match(payload.messages[1].content, /ArticleExperienceDetail/);
+  assert.match(payload.messages[1].content, /ProductComparison/);
   assert.equal(payload.messages[1].content.includes('test-key'), false);
 });
 
@@ -49,7 +49,7 @@ test('LLM planner rejects invented components', async () => {
   const fetchImpl = async () => ({
     ok: true,
     async json() {
-      return { choices: [{ message: { content: '{"component":"FancyUnknownCard","reason":"invented","confidence":1}' } }] };
+      return { choices: [{ message: { content: '{"planVersion":"1","sections":[{"id":"unknown","component":"FancyUnknownCard","variant":"default"},{"id":"actions","component":"SourceActions","variant":"default"}]}' } }] };
     },
   });
   await assert.rejects(() => planDetailComponent(record, { fetchImpl, env }), /planner_invalid_component/);

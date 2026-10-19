@@ -1332,7 +1332,7 @@ var require_react_dom_development = __commonJS({
         return dispatcher;
       }
       "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ && "function" === typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart && __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(Error());
-      var React102 = require_react(), Internals = {
+      var React103 = require_react(), Internals = {
         d: {
           f: noop5,
           r: function() {
@@ -1350,7 +1350,7 @@ var require_react_dom_development = __commonJS({
         },
         p: 0,
         findDOMNode: null
-      }, REACT_PORTAL_TYPE = Symbol.for("react.portal"), ReactSharedInternals = React102.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+      }, REACT_PORTAL_TYPE = Symbol.for("react.portal"), ReactSharedInternals = React103.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
       "function" === typeof Map && null != Map.prototype && "function" === typeof Map.prototype.forEach && "function" === typeof Set && null != Set.prototype && "function" === typeof Set.prototype.clear && "function" === typeof Set.prototype.forEach || console.error(
         "React depends on Map and Set built-in types. Make sure that you load a polyfill in older browsers. https://reactjs.org/link/react-polyfills"
       );
@@ -2885,7 +2885,7 @@ var require_react_dom_client_development = __commonJS({
         "number" === type && getActiveElement(node2.ownerDocument) === node2 || node2.defaultValue === "" + value || (node2.defaultValue = "" + value);
       }
       function validateOptionProps(element, props) {
-        null == props.value && ("object" === typeof props.children && null !== props.children ? React102.Children.forEach(props.children, function(child) {
+        null == props.value && ("object" === typeof props.children && null !== props.children ? React103.Children.forEach(props.children, function(child) {
           null == child || "string" === typeof child || "number" === typeof child || "bigint" === typeof child || didWarnInvalidChild || (didWarnInvalidChild = true, console.error(
             "Cannot infer the option value of complex children. Pass a `value` prop or use a plain string as children to <option>."
           ));
@@ -3452,15 +3452,15 @@ var require_react_dom_client_development = __commonJS({
         );
         return false;
       }
-      function setTextContent(node2, text) {
-        if (text) {
+      function setTextContent(node2, text2) {
+        if (text2) {
           var firstChild = node2.firstChild;
           if (firstChild && firstChild === node2.lastChild && 3 === firstChild.nodeType) {
-            firstChild.nodeValue = text;
+            firstChild.nodeValue = text2;
             return;
           }
         }
-        node2.textContent = text;
+        node2.textContent = text2;
       }
       function camelize(string) {
         return string.replace(hyphenPattern, function(_3, character2) {
@@ -3813,8 +3813,8 @@ var require_react_dom_client_development = __commonJS({
           type
         );
       }
-      function sanitizeURL(url) {
-        return isJavaScriptProtocol.test("" + url) ? "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')" : url;
+      function sanitizeURL(url2) {
+        return isJavaScriptProtocol.test("" + url2) ? "javascript:throw new Error('React has blocked a javascript: URL as a security precaution.')" : url2;
       }
       function noop$1() {
       }
@@ -17247,8 +17247,8 @@ var require_react_dom_client_development = __commonJS({
         props = void 0 !== props && null !== props && props.hasOwnProperty("display") ? props.display : null;
         instance.style.display = null == props || "boolean" === typeof props ? "" : ("" + props).trim();
       }
-      function unhideTextInstance(textInstance, text) {
-        textInstance.nodeValue = text;
+      function unhideTextInstance(textInstance, text2) {
+        textInstance.nodeValue = text2;
       }
       function clearContainerSparingly(container) {
         var nextNode = container.firstChild;
@@ -17313,8 +17313,8 @@ var require_react_dom_client_development = __commonJS({
         }
         return null;
       }
-      function canHydrateTextInstance(instance, text, inRootOrSingleton) {
-        if ("" === text) return null;
+      function canHydrateTextInstance(instance, text2, inRootOrSingleton) {
+        if ("" === text2) return null;
         for (; 3 !== instance.nodeType; ) {
           if ((1 !== instance.nodeType || "INPUT" !== instance.nodeName || "hidden" !== instance.type) && !inRootOrSingleton)
             return null;
@@ -17377,8 +17377,8 @@ var require_react_dom_client_development = __commonJS({
         }
         return 8 === instance.nodeType ? instance.data === ACTIVITY_START_DATA ? { type: "Activity", props: {} } : { type: "Suspense", props: {} } : instance.nodeValue;
       }
-      function diffHydratedTextForDevWarnings(textInstance, text, parentProps) {
-        return null === parentProps || true !== parentProps[SUPPRESS_HYDRATION_WARNING] ? (textInstance.nodeValue === text ? textInstance = null : (text = normalizeMarkupForTextOrAttribute(text), textInstance = normalizeMarkupForTextOrAttribute(textInstance.nodeValue) === text ? null : textInstance.nodeValue), textInstance) : null;
+      function diffHydratedTextForDevWarnings(textInstance, text2, parentProps) {
+        return null === parentProps || true !== parentProps[SUPPRESS_HYDRATION_WARNING] ? (textInstance.nodeValue === text2 ? textInstance = null : (text2 = normalizeMarkupForTextOrAttribute(text2), textInstance = normalizeMarkupForTextOrAttribute(textInstance.nodeValue) === text2 ? null : textInstance.nodeValue), textInstance) : null;
       }
       function getNextHydratableInstanceAfterHydrationBoundary(hydrationInstance) {
         hydrationInstance = hydrationInstance.nextSibling;
@@ -18517,14 +18517,14 @@ var require_react_dom_client_development = __commonJS({
         ));
       }
       "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ && "function" === typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart && __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(Error());
-      var Scheduler = require_scheduler(), React102 = require_react(), ReactDOM5 = require_react_dom(), assign3 = Object.assign, REACT_LEGACY_ELEMENT_TYPE = Symbol.for("react.element"), REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element"), REACT_PORTAL_TYPE = Symbol.for("react.portal"), REACT_FRAGMENT_TYPE = Symbol.for("react.fragment"), REACT_STRICT_MODE_TYPE = Symbol.for("react.strict_mode"), REACT_PROFILER_TYPE = Symbol.for("react.profiler"), REACT_CONSUMER_TYPE = Symbol.for("react.consumer"), REACT_CONTEXT_TYPE = Symbol.for("react.context"), REACT_FORWARD_REF_TYPE = Symbol.for("react.forward_ref"), REACT_SUSPENSE_TYPE = Symbol.for("react.suspense"), REACT_SUSPENSE_LIST_TYPE = Symbol.for("react.suspense_list"), REACT_MEMO_TYPE = Symbol.for("react.memo"), REACT_LAZY_TYPE = Symbol.for("react.lazy");
+      var Scheduler = require_scheduler(), React103 = require_react(), ReactDOM5 = require_react_dom(), assign3 = Object.assign, REACT_LEGACY_ELEMENT_TYPE = Symbol.for("react.element"), REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element"), REACT_PORTAL_TYPE = Symbol.for("react.portal"), REACT_FRAGMENT_TYPE = Symbol.for("react.fragment"), REACT_STRICT_MODE_TYPE = Symbol.for("react.strict_mode"), REACT_PROFILER_TYPE = Symbol.for("react.profiler"), REACT_CONSUMER_TYPE = Symbol.for("react.consumer"), REACT_CONTEXT_TYPE = Symbol.for("react.context"), REACT_FORWARD_REF_TYPE = Symbol.for("react.forward_ref"), REACT_SUSPENSE_TYPE = Symbol.for("react.suspense"), REACT_SUSPENSE_LIST_TYPE = Symbol.for("react.suspense_list"), REACT_MEMO_TYPE = Symbol.for("react.memo"), REACT_LAZY_TYPE = Symbol.for("react.lazy");
       Symbol.for("react.scope");
       var REACT_ACTIVITY_TYPE = Symbol.for("react.activity");
       Symbol.for("react.legacy_hidden");
       Symbol.for("react.tracing_marker");
       var REACT_MEMO_CACHE_SENTINEL = Symbol.for("react.memo_cache_sentinel");
       Symbol.for("react.view_transition");
-      var MAYBE_ITERATOR_SYMBOL = Symbol.iterator, REACT_CLIENT_REFERENCE = Symbol.for("react.client.reference"), isArrayImpl = Array.isArray, ReactSharedInternals = React102.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE, ReactDOMSharedInternals = ReactDOM5.__DOM_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE, NotPending = Object.freeze({
+      var MAYBE_ITERATOR_SYMBOL = Symbol.iterator, REACT_CLIENT_REFERENCE = Symbol.for("react.client.reference"), isArrayImpl = Array.isArray, ReactSharedInternals = React103.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE, ReactDOMSharedInternals = ReactDOM5.__DOM_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE, NotPending = Object.freeze({
         pending: false,
         data: null,
         method: null,
@@ -21312,7 +21312,7 @@ var require_react_dom_client_development = __commonJS({
         }
       };
       (function() {
-        var isomorphicReactPackageVersion = React102.version;
+        var isomorphicReactPackageVersion = React103.version;
         if ("19.2.0" !== isomorphicReactPackageVersion)
           throw Error(
             'Incompatible React versions: The "react" and "react-dom" packages must have the exact same version. Instead got:\n  - react:      ' + (isomorphicReactPackageVersion + "\n  - react-dom:  19.2.0\nLearn more: https://react.dev/warnings/version-mismatch")
@@ -21666,18 +21666,18 @@ var require_react_jsx_runtime_development = __commonJS({
       function isValidElement12(object) {
         return "object" === typeof object && null !== object && object.$$typeof === REACT_ELEMENT_TYPE;
       }
-      var React102 = require_react(), REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element"), REACT_PORTAL_TYPE = Symbol.for("react.portal"), REACT_FRAGMENT_TYPE = Symbol.for("react.fragment"), REACT_STRICT_MODE_TYPE = Symbol.for("react.strict_mode"), REACT_PROFILER_TYPE = Symbol.for("react.profiler"), REACT_CONSUMER_TYPE = Symbol.for("react.consumer"), REACT_CONTEXT_TYPE = Symbol.for("react.context"), REACT_FORWARD_REF_TYPE = Symbol.for("react.forward_ref"), REACT_SUSPENSE_TYPE = Symbol.for("react.suspense"), REACT_SUSPENSE_LIST_TYPE = Symbol.for("react.suspense_list"), REACT_MEMO_TYPE = Symbol.for("react.memo"), REACT_LAZY_TYPE = Symbol.for("react.lazy"), REACT_ACTIVITY_TYPE = Symbol.for("react.activity"), REACT_CLIENT_REFERENCE = Symbol.for("react.client.reference"), ReactSharedInternals = React102.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE, hasOwnProperty = Object.prototype.hasOwnProperty, isArrayImpl = Array.isArray, createTask = console.createTask ? console.createTask : function() {
+      var React103 = require_react(), REACT_ELEMENT_TYPE = Symbol.for("react.transitional.element"), REACT_PORTAL_TYPE = Symbol.for("react.portal"), REACT_FRAGMENT_TYPE = Symbol.for("react.fragment"), REACT_STRICT_MODE_TYPE = Symbol.for("react.strict_mode"), REACT_PROFILER_TYPE = Symbol.for("react.profiler"), REACT_CONSUMER_TYPE = Symbol.for("react.consumer"), REACT_CONTEXT_TYPE = Symbol.for("react.context"), REACT_FORWARD_REF_TYPE = Symbol.for("react.forward_ref"), REACT_SUSPENSE_TYPE = Symbol.for("react.suspense"), REACT_SUSPENSE_LIST_TYPE = Symbol.for("react.suspense_list"), REACT_MEMO_TYPE = Symbol.for("react.memo"), REACT_LAZY_TYPE = Symbol.for("react.lazy"), REACT_ACTIVITY_TYPE = Symbol.for("react.activity"), REACT_CLIENT_REFERENCE = Symbol.for("react.client.reference"), ReactSharedInternals = React103.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE, hasOwnProperty = Object.prototype.hasOwnProperty, isArrayImpl = Array.isArray, createTask = console.createTask ? console.createTask : function() {
         return null;
       };
-      React102 = {
+      React103 = {
         react_stack_bottom_frame: function(callStackForError) {
           return callStackForError();
         }
       };
       var specialPropKeyWarningShown;
       var didWarnAboutElementRef = {};
-      var unknownOwnerDebugStack = React102.react_stack_bottom_frame.bind(
-        React102,
+      var unknownOwnerDebugStack = React103.react_stack_bottom_frame.bind(
+        React103,
         UnknownOwner
       )();
       var unknownOwnerDebugTask = createTask(getTaskName(UnknownOwner));
@@ -22239,8 +22239,8 @@ var require_checkPropTypes = __commonJS({
       ReactPropTypesSecret = require_ReactPropTypesSecret();
       loggedTypeFailures = {};
       has = require_has();
-      printWarning = function(text) {
-        var message = "Warning: " + text;
+      printWarning = function(text2) {
+        var message = "Warning: " + text2;
         if (typeof console !== "undefined") {
           console.error(message);
         }
@@ -22307,8 +22307,8 @@ var require_factoryWithTypeCheckers = __commonJS({
     var printWarning = function() {
     };
     if (true) {
-      printWarning = function(text) {
-        var message = "Warning: " + text;
+      printWarning = function(text2) {
+        var message = "Warning: " + text2;
         if (typeof console !== "undefined") {
           console.error(message);
         }
@@ -22859,7 +22859,7 @@ var require_react_is3 = __commonJS({
 });
 
 // src/a2ui-client.jsx
-var import_react16 = __toESM(require_react(), 1);
+var import_react17 = __toESM(require_react(), 1);
 var import_client = __toESM(require_client(), 1);
 
 // node_modules/zod/v3/external.js
@@ -26511,23 +26511,23 @@ var ZodEffects = class extends ZodType {
     }
     if (effect2.type === "transform") {
       if (ctx.common.async === false) {
-        const base = this._def.schema._parseSync({
+        const base2 = this._def.schema._parseSync({
           data: ctx.data,
           path: ctx.path,
           parent: ctx
         });
-        if (!isValid(base))
+        if (!isValid(base2))
           return INVALID;
-        const result = effect2.transform(base.value, checkCtx);
+        const result = effect2.transform(base2.value, checkCtx);
         if (result instanceof Promise) {
           throw new Error(`Asynchronous transform encountered during synchronous parse operation. Use .parseAsync instead.`);
         }
         return { status: status.value, value: result };
       } else {
-        return this._def.schema._parseAsync({ data: ctx.data, path: ctx.path, parent: ctx }).then((base) => {
-          if (!isValid(base))
+        return this._def.schema._parseAsync({ data: ctx.data, path: ctx.path, parent: ctx }).then((base2) => {
+          if (!isValid(base2))
             return INVALID;
-          return Promise.resolve(effect2.transform(base.value, checkCtx)).then((result) => ({
+          return Promise.resolve(effect2.transform(base2.value, checkCtx)).then((result) => ({
             status: status.value,
             value: result
           }));
@@ -27042,10 +27042,10 @@ function normalizeVersionString(version2) {
   if (!version2 || typeof version2 !== "string") {
     return "";
   }
-  const text = version2.trim().replace(/^[vV]/, "");
-  const dashIdx = text.indexOf("-");
-  const plusIdx = text.indexOf("+");
-  let splitIdx = text.length;
+  const text2 = version2.trim().replace(/^[vV]/, "");
+  const dashIdx = text2.indexOf("-");
+  const plusIdx = text2.indexOf("+");
+  let splitIdx = text2.length;
   if (dashIdx !== -1 && plusIdx !== -1) {
     splitIdx = Math.min(dashIdx, plusIdx);
   } else if (dashIdx !== -1) {
@@ -27053,8 +27053,8 @@ function normalizeVersionString(version2) {
   } else if (plusIdx !== -1) {
     splitIdx = plusIdx;
   }
-  const core = text.slice(0, splitIdx).replace(/_/g, ".");
-  return `${core}${text.slice(splitIdx)}`;
+  const core = text2.slice(0, splitIdx).replace(/_/g, ".");
+  return `${core}${text2.slice(splitIdx)}`;
 }
 function parseSemVer(versionStr) {
   if (!versionStr || typeof versionStr !== "string") {
@@ -28673,19 +28673,19 @@ function parseNullableDef(def, refs) {
     };
   }
   if (refs.target === "openApi3") {
-    const base2 = parseDef(def.innerType._def, {
+    const base3 = parseDef(def.innerType._def, {
       ...refs,
       currentPath: [...refs.currentPath]
     });
-    if (base2 && "$ref" in base2)
-      return { allOf: [base2], nullable: true };
-    return base2 && { ...base2, nullable: true };
+    if (base3 && "$ref" in base3)
+      return { allOf: [base3], nullable: true };
+    return base3 && { ...base3, nullable: true };
   }
-  const base = parseDef(def.innerType._def, {
+  const base2 = parseDef(def.innerType._def, {
     ...refs,
     currentPath: [...refs.currentPath, "anyOf", "0"]
   });
-  return base && { anyOf: [base, { type: "null" }] };
+  return base2 && { anyOf: [base2, { type: "null" }] };
 }
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/number.js
@@ -29051,7 +29051,7 @@ var addMeta = (def, refs, jsonSchema) => {
 // node_modules/zod-to-json-schema/dist/esm/zodToJsonSchema.js
 var zodToJsonSchema = (schema, options) => {
   const refs = getRefs(options);
-  let definitions = typeof options === "object" && options.definitions ? Object.entries(options.definitions).reduce((acc, [name2, schema2]) => ({
+  let definitions2 = typeof options === "object" && options.definitions ? Object.entries(options.definitions).reduce((acc, [name2, schema2]) => ({
     ...acc,
     [name2]: parseDef(schema2._def, {
       ...refs,
@@ -29068,11 +29068,11 @@ var zodToJsonSchema = (schema, options) => {
     main.title = title;
   }
   if (refs.flags.hasReferencedOpenAiAnyType) {
-    if (!definitions) {
-      definitions = {};
+    if (!definitions2) {
+      definitions2 = {};
     }
-    if (!definitions[refs.openAiAnyTypeName]) {
-      definitions[refs.openAiAnyTypeName] = {
+    if (!definitions2[refs.openAiAnyTypeName]) {
+      definitions2[refs.openAiAnyTypeName] = {
         // Skipping "object" as no properties can be defined and additionalProperties must be "false"
         type: ["string", "number", "integer", "boolean", "array", "null"],
         items: {
@@ -29085,9 +29085,9 @@ var zodToJsonSchema = (schema, options) => {
       };
     }
   }
-  const combined = name === void 0 ? definitions ? {
+  const combined = name === void 0 ? definitions2 ? {
     ...main,
-    [refs.definitionPath]: definitions
+    [refs.definitionPath]: definitions2
   } : main : {
     $ref: [
       ...refs.$refStrategy === "relative" ? [] : refs.basePath,
@@ -29095,7 +29095,7 @@ var zodToJsonSchema = (schema, options) => {
       name
     ].join("/"),
     [refs.definitionPath]: {
-      ...definitions,
+      ...definitions2,
       [name]: main
     }
   };
@@ -31369,8 +31369,8 @@ var DataModel = class {
       return path;
     }
     if (contextPath) {
-      const base = contextPath.endsWith("/") ? contextPath : `${contextPath}/`;
-      return `${base}${path}`;
+      const base2 = contextPath.endsWith("/") ? contextPath : `${contextPath}/`;
+      return `${base2}${path}`;
     }
     return `/${path}`;
   }
@@ -32235,16 +32235,16 @@ var DataContext = class _DataContext {
     if (path.startsWith("/")) {
       return path;
     }
-    let base = this.path;
-    if (base.endsWith("/") && base.length > 1) {
-      base = base.slice(0, -1);
+    let base2 = this.path;
+    if (base2.endsWith("/") && base2.length > 1) {
+      base2 = base2.slice(0, -1);
     }
     if (path === "" || path === ".") {
-      return base || "/";
+      return base2 || "/";
     }
-    if (base === "/")
-      base = "";
-    return `${base}/${path}`;
+    if (base2 === "/")
+      base2 = "";
+    return `${base2}/${path}`;
   }
 };
 
@@ -32271,14 +32271,14 @@ var IndexImplementation = createFunctionImplementation(IndexApi, (args, context)
 });
 
 // node_modules/@a2ui/web_core/src/catalog/types.js
-function createFunctionImplementation(api2, execute) {
+function createFunctionImplementation(api3, execute) {
   return {
-    name: api2.name,
-    returnType: api2.returnType,
-    schema: api2.schema,
-    allowedCallers: api2.allowedCallers,
-    requiresUserActivation: api2.requiresUserActivation,
-    description: api2.description,
+    name: api3.name,
+    returnType: api3.returnType,
+    schema: api3.schema,
+    allowedCallers: api3.allowedCallers,
+    requiresUserActivation: api3.requiresUserActivation,
+    description: api3.description,
     execute
   };
 }
@@ -36523,20 +36523,20 @@ var NodeResolver = class {
       return record2.node;
     }
     const compCatalog = (model.catalog?.components.size ? model.catalog : void 0) ?? this.catalog;
-    const api2 = compCatalog.components.get(model.type);
-    if (!api2) {
+    const api3 = compCatalog.components.get(model.type);
+    if (!api3) {
       this.dispatchOnce("UNKNOWN_COMPONENT_TYPE", componentId, dataPath, `Component '${componentId}' has type '${model.type}', which is not in catalog '${compCatalog.id}'.`);
       return this.registerNode(new MutableComponentNode(instanceIdFor(componentId, dataPath, occurrence), componentId, model.type, dataPath, {}, void 0, void 0, "unknown-type"), { edgeKey, parent, occurrence, refFields: EMPTY_REF_FIELDS2, componentModel: model }).node;
     }
     this.clearDispatched(componentId, dataPath);
     const context = new ComponentContext(this.surface, componentId, dataPath, parent?.context?.dataContext);
-    const binder = new GenericBinder(context, api2.schema);
-    const record = this.registerNode(new MutableComponentNode(instanceIdFor(componentId, dataPath, occurrence), componentId, model.type, dataPath, {}, api2, context), {
+    const binder = new GenericBinder(context, api3.schema);
+    const record = this.registerNode(new MutableComponentNode(instanceIdFor(componentId, dataPath, occurrence), componentId, model.type, dataPath, {}, api3, context), {
       edgeKey,
       parent,
       occurrence,
-      refFields: extractRefFields(api2.schema),
-      behavior: scrapeSchemaBehavior(api2.schema),
+      refFields: extractRefFields(api3.schema),
+      behavior: scrapeSchemaBehavior(api3.schema),
       componentModel: model,
       binder
     });
@@ -36590,9 +36590,9 @@ var NodeResolver = class {
     if (existing && !existing.disposed) {
       const model = this.surface.componentsModel.get(componentId);
       const compCatalog = (model?.catalog?.components.size ? model.catalog : void 0) ?? this.catalog;
-      const api2 = model ? compCatalog.components.get(model.type) : void 0;
+      const api3 = model ? compCatalog.components.get(model.type) : void 0;
       const existingRecord = this.records.get(existing);
-      const upToDate = existing.componentId === componentId && existing.dataPath === dataPath && existingRecord?.occurrence === occurrence && (existing.isPlaceholder ? model === void 0 && existing.state === "pending" || model !== void 0 && api2 === void 0 && existing.state === "unknown-type" && existingRecord?.componentModel === model : model !== void 0 && existing.type === model.type && existingRecord?.componentModel === model);
+      const upToDate = existing.componentId === componentId && existing.dataPath === dataPath && existingRecord?.occurrence === occurrence && (existing.isPlaceholder ? model === void 0 && existing.state === "pending" || model !== void 0 && api3 === void 0 && existing.state === "unknown-type" && existingRecord?.componentModel === model : model !== void 0 && existing.type === model.type && existingRecord?.componentModel === model);
       if (upToDate) {
         if (existing.state === "pending") {
           this.registerPendingParent(componentId, parent);
@@ -36783,8 +36783,8 @@ function escapeIdPart(part) {
 }
 function instanceIdFor(componentId, dataPath, occurrence) {
   const trimmed = dataPath.replace(/\/+$/, "") || ROOT_DATA_PATH;
-  const base = dataPath === ROOT_DATA_PATH ? escapeIdPart(componentId) : `${escapeIdPart(componentId)}-[${escapeIdPart(trimmed)}]`;
-  return occurrence > 1 ? `${base}#${occurrence}` : base;
+  const base2 = dataPath === ROOT_DATA_PATH ? escapeIdPart(componentId) : `${escapeIdPart(componentId)}-[${escapeIdPart(trimmed)}]`;
+  return occurrence > 1 ? `${base2}#${occurrence}` : base2;
 }
 function wrapDynamicValues(value, behavior, raw, dataContext) {
   switch (behavior.type) {
@@ -37509,8 +37509,8 @@ var i6 = class {
 };
 
 // node_modules/@a2ui/web_core/src/universal/is_web_component_implementation.js
-function isWebComponentImplementation(api2) {
-  return typeof api2 === "object" && api2 !== null && "tagName" in api2 && typeof api2.tagName === "string" && "element" in api2 && typeof api2.element === "function";
+function isWebComponentImplementation(api3) {
+  return typeof api3 === "object" && api3 !== null && "tagName" in api3 && typeof api3.tagName === "string" && "element" in api3 && typeof api3.element === "function";
 }
 
 // node_modules/@a2ui/web_core/src/universal/register_universal_element.js
@@ -38111,7 +38111,7 @@ var A2uiSurface = ({ surface }) => {
     /* @__PURE__ */ (0, import_jsx_runtime.jsx)(HostedChildren, { surface, owner: null })
   ] });
 };
-function createComponentImplementation(api2, RenderComponent) {
+function createComponentImplementation(api3, RenderComponent) {
   const MemoizedRender = (0, import_react.memo)(RenderComponent, (prev2, next2) => {
     if (prev2.props !== next2.props) return false;
     if (prev2.buildChild !== next2.buildChild) return false;
@@ -38122,10 +38122,10 @@ function createComponentImplementation(api2, RenderComponent) {
   const ReactWrapper = ({ context, buildChild }) => {
     const bindingRef = (0, import_react.useRef)(null);
     if (!bindingRef.current) {
-      bindingRef.current = new GenericBinder(context, api2.schema);
+      bindingRef.current = new GenericBinder(context, api3.schema);
     } else if (bindingRef.current.context !== context) {
       bindingRef.current.dispose();
-      bindingRef.current = new GenericBinder(context, api2.schema);
+      bindingRef.current = new GenericBinder(context, api3.schema);
     }
     const binding = bindingRef.current;
     const subscribe = (0, import_react.useCallback)(
@@ -38146,10 +38146,10 @@ function createComponentImplementation(api2, RenderComponent) {
     const { viewProps, context, viewBuildChild } = useNodeView(node2, buildChild);
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(MemoizedRender, { props: viewProps, buildChild: viewBuildChild, context });
   };
-  NodeView.displayName = `${api2.name}.view`;
+  NodeView.displayName = `${api3.name}.view`;
   return {
-    name: api2.name,
-    schema: api2.schema,
+    name: api3.name,
+    schema: api3.schema,
     render: ReactWrapper,
     view: NodeView
   };
@@ -40078,30 +40078,30 @@ function computeBreakpointsBase(breakpointValues, themeBreakpoints) {
   if (typeof breakpointValues !== "object") {
     return {};
   }
-  const base = {};
+  const base2 = {};
   const breakpointsKeys = Object.keys(themeBreakpoints);
   if (Array.isArray(breakpointValues)) {
     breakpointsKeys.forEach((breakpoint, i7) => {
       if (i7 < breakpointValues.length) {
-        base[breakpoint] = true;
+        base2[breakpoint] = true;
       }
     });
   } else {
     breakpointsKeys.forEach((breakpoint) => {
       if (breakpointValues[breakpoint] != null) {
-        base[breakpoint] = true;
+        base2[breakpoint] = true;
       }
     });
   }
-  return base;
+  return base2;
 }
 function resolveBreakpointValues({
   values: breakpointValues,
   breakpoints: themeBreakpoints,
   base: customBase
 }) {
-  const base = customBase || computeBreakpointsBase(breakpointValues, themeBreakpoints);
-  const keys = Object.keys(base);
+  const base2 = customBase || computeBreakpointsBase(breakpointValues, themeBreakpoints);
+  const keys = Object.keys(base2);
   if (keys.length === 0) {
     return breakpointValues;
   }
@@ -43282,7 +43282,7 @@ var style3 = ({
   };
   if (ownerState.spacing) {
     const transformer = createUnarySpacing(theme);
-    const base = Object.keys(theme.breakpoints.values).reduce((acc, breakpoint) => {
+    const base2 = Object.keys(theme.breakpoints.values).reduce((acc, breakpoint) => {
       if (typeof ownerState.spacing === "object" && ownerState.spacing[breakpoint] != null || typeof ownerState.direction === "object" && ownerState.direction[breakpoint] != null) {
         acc[breakpoint] = true;
       }
@@ -43290,11 +43290,11 @@ var style3 = ({
     }, {});
     const directionValues = resolveBreakpointValues({
       values: ownerState.direction,
-      base
+      base: base2
     });
     const spacingValues = resolveBreakpointValues({
       values: ownerState.spacing,
-      base
+      base: base2
     });
     if (typeof directionValues === "object") {
       Object.keys(directionValues).forEach((breakpoint, index, breakpoints) => {
@@ -54832,18 +54832,18 @@ function textCriteriaMatches(nextFocus, textCriteria) {
   if (textCriteria === void 0) {
     return true;
   }
-  let text = nextFocus.innerText;
-  if (text === void 0) {
-    text = nextFocus.textContent;
+  let text2 = nextFocus.innerText;
+  if (text2 === void 0) {
+    text2 = nextFocus.textContent;
   }
-  text = text.trim().toLowerCase();
-  if (text.length === 0) {
+  text2 = text2.trim().toLowerCase();
+  if (text2.length === 0) {
     return false;
   }
   if (textCriteria.repeating) {
-    return text[0] === textCriteria.keys[0];
+    return text2[0] === textCriteria.keys[0];
   }
-  return text.startsWith(textCriteria.keys.join(""));
+  return text2.startsWith(textCriteria.keys.join(""));
 }
 function moveFocus(list, currentFocus, disableListWrap, disabledItemsFocusable, traversalFunction, textCriteria) {
   let wrappedOnce = false;
@@ -61102,10 +61102,41 @@ e28.displayName = "XIcon";
 var n10 = e28;
 
 // src/react-catalog/catalog.jsx
-var import_react14 = __toESM(require_react(), 1);
+var import_react15 = __toESM(require_react(), 1);
+
+// src/react-catalog/shopping.jsx
+var import_react13 = __toESM(require_react(), 1);
+var text = CommonSchemas.DynamicString;
+var optional = text.optional();
+var url = external_exports.string().url().refine((value) => /^https?:/.test(value));
+var evidenceRef = external_exports.string().max(80).optional();
+var takeaway = external_exports.object({ text: external_exports.string().min(1).max(180), sentiment: external_exports.enum(["positive", "negative", "neutral"]), evidenceId: evidenceRef });
+var metric = external_exports.object({ label: external_exports.string().min(1).max(60), value: external_exports.string().min(1).max(60), evidenceId: external_exports.string().min(1).max(80) });
+var product = external_exports.object({ name: external_exports.string().min(1).max(100), model: external_exports.string().max(80).optional(), image: url.or(external_exports.literal("")).optional(), price: external_exports.string().max(40).optional(), matchStatus: external_exports.string().max(40).optional(), url: url.or(external_exports.literal("")).optional() });
+var evidence = external_exports.object({ id: external_exports.string().min(1).max(80), text: external_exports.string().min(1).max(300), locator: external_exports.string().max(80).optional(), sourceType: external_exports.string().max(40).optional() });
+var advice = external_exports.object({ verdict: external_exports.string().min(1).max(180), reasons: external_exports.array(external_exports.string().max(120)).max(4), notFor: external_exports.array(external_exports.string().max(120)).max(3) });
+var api = (name, schema, render, allowedChildren) => createComponentImplementation({ name, schema: external_exports.object(schema), ...allowedChildren ? { allowedChildren } : {} }, render);
+var heading = (label) => /* @__PURE__ */ import_react13.default.createElement(Typography_default, { className: "shopping-heading", component: "h3" }, label);
+var empty = /* @__PURE__ */ import_react13.default.createElement(Typography_default, { className: "shopping-empty" }, "\u6682\u65E0\u53EF\u6838\u5B9E\u7684\u4FE1\u606F");
+var section = (name, content) => /* @__PURE__ */ import_react13.default.createElement("section", { className: `shopping-section shopping-${name}` }, content);
+var CHILDREN = ["SourceHeader", "HeroMedia", "ContentSummary", "KeyTakeaways", "ProsCons", "TestMetrics", "ProductMention", "ProductComparison", "BuyingAdvice", "EvidenceList", "DecisionChecklist", "SourceActions"];
+var DetailStack = api("DetailStack", { children: CommonSchemas.ChildList, density: external_exports.enum(["comfortable", "compact"]).optional() }, ({ props, buildChild }) => /* @__PURE__ */ import_react13.default.createElement("div", { className: `detail-stack density-${props.density || "comfortable"}` }, (Array.isArray(props.children) ? props.children : []).slice(0, 8).map((child, index) => /* @__PURE__ */ import_react13.default.createElement(import_react13.default.Fragment, { key: index }, buildChild(typeof child === "string" ? child : child?.id || child?.componentId)))), CHILDREN);
+var SourceHeader = api("SourceHeader", { variant: external_exports.literal("default"), platform: text, author: optional, title: optional, engagement: optional }, ({ props }) => section("source", /* @__PURE__ */ import_react13.default.createElement(import_react13.default.Fragment, null, /* @__PURE__ */ import_react13.default.createElement(Stack_default, { direction: "row", alignItems: "center", spacing: 1 }, /* @__PURE__ */ import_react13.default.createElement(Chip_default, { size: "small", label: props.platform }), /* @__PURE__ */ import_react13.default.createElement(Typography_default, { variant: "body2" }, props.author || "\u7F51\u9875\u5185\u5BB9"), /* @__PURE__ */ import_react13.default.createElement(Box_default, { sx: { flex: 1 } }), /* @__PURE__ */ import_react13.default.createElement(Typography_default, { variant: "caption" }, props.engagement)), props.title && /* @__PURE__ */ import_react13.default.createElement(Typography_default, { component: "h2", className: "shopping-title" }, props.title))));
+var HeroMedia = api("HeroMedia", { variant: external_exports.enum(["video", "gallery", "image", "poster"]), title: text, cover: optional, video: optional, images: external_exports.array(url).max(8).optional(), duration: optional }, ({ props }) => section("hero", /* @__PURE__ */ import_react13.default.createElement(import_react13.default.Fragment, null, props.video && props.variant === "video" ? /* @__PURE__ */ import_react13.default.createElement("video", { src: props.video, poster: props.cover, controls: true, playsInline: true }) : props.variant === "gallery" && props.images?.length ? /* @__PURE__ */ import_react13.default.createElement("div", { className: "shopping-gallery" }, props.images.map((src, i7) => /* @__PURE__ */ import_react13.default.createElement("img", { src, alt: `${props.title} ${i7 + 1}`, key: src }))) : props.cover ? /* @__PURE__ */ import_react13.default.createElement("img", { src: props.cover, alt: "" }) : empty, props.variant === "poster" && /* @__PURE__ */ import_react13.default.createElement("p", { className: "shopping-muted" }, "\u5F53\u524D\u4EC5\u63D0\u4F9B\u89C6\u9891\u5C01\u9762\uFF0C\u64AD\u653E\u8BF7\u524D\u5F80\u539F\u7AD9\u3002"), props.duration && /* @__PURE__ */ import_react13.default.createElement("span", { className: "shopping-duration" }, props.duration))));
+var ContentSummary = api("ContentSummary", { variant: external_exports.literal("default"), title: text, body: optional }, ({ props }) => section("summary", /* @__PURE__ */ import_react13.default.createElement(import_react13.default.Fragment, null, heading("\u5185\u5BB9\u6458\u8981"), props.body ? /* @__PURE__ */ import_react13.default.createElement("p", null, props.body) : empty)));
+var KeyTakeaways = api("KeyTakeaways", { variant: external_exports.literal("default"), items: external_exports.array(takeaway).max(4) }, ({ props }) => section("takeaways", /* @__PURE__ */ import_react13.default.createElement(import_react13.default.Fragment, null, heading("\u6838\u5FC3\u7ED3\u8BBA"), props.items.length ? /* @__PURE__ */ import_react13.default.createElement("ul", null, props.items.map((item, i7) => /* @__PURE__ */ import_react13.default.createElement("li", { key: i7, className: `sentiment-${item.sentiment}` }, item.text, item.evidenceId && /* @__PURE__ */ import_react13.default.createElement("small", null, " \xB7 ", item.evidenceId)))) : empty)));
+var ProsCons = api("ProsCons", { variant: external_exports.enum(["balanced", "compact", "evidence-first"]), pros: external_exports.array(external_exports.string().max(150)).max(4), cons: external_exports.array(external_exports.string().max(150)).max(4) }, ({ props }) => section("pros-cons", /* @__PURE__ */ import_react13.default.createElement(import_react13.default.Fragment, null, heading("\u4F18\u70B9\u4E0E\u4E0D\u8DB3"), /* @__PURE__ */ import_react13.default.createElement("div", { className: "shopping-columns" }, props.pros.length > 0 && /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("b", null, "\u4F18\u70B9"), /* @__PURE__ */ import_react13.default.createElement("ul", null, props.pros.map((value, i7) => /* @__PURE__ */ import_react13.default.createElement("li", { key: i7 }, value)))), props.cons.length > 0 && /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("b", null, "\u4E0D\u8DB3"), /* @__PURE__ */ import_react13.default.createElement("ul", null, props.cons.map((value, i7) => /* @__PURE__ */ import_react13.default.createElement("li", { key: i7 }, value)))), !props.pros.length && !props.cons.length && empty))));
+var TestMetrics = api("TestMetrics", { variant: external_exports.literal("grid"), items: external_exports.array(metric).max(6) }, ({ props }) => section("metrics", /* @__PURE__ */ import_react13.default.createElement(import_react13.default.Fragment, null, heading("\u5B9E\u6D4B\u6307\u6807"), /* @__PURE__ */ import_react13.default.createElement("div", { className: "shopping-metrics" }, props.items.length ? props.items.map((item, i7) => /* @__PURE__ */ import_react13.default.createElement("div", { key: i7 }, /* @__PURE__ */ import_react13.default.createElement("small", null, item.label), /* @__PURE__ */ import_react13.default.createElement("strong", null, item.value), /* @__PURE__ */ import_react13.default.createElement("small", null, "\u8BC1\u636E\uFF1A", item.evidenceId))) : empty))));
+var ProductMention = api("ProductMention", { variant: external_exports.literal("default"), value: product }, ({ props }) => section("product", /* @__PURE__ */ import_react13.default.createElement(import_react13.default.Fragment, null, heading("\u63D0\u53CA\u5546\u54C1"), /* @__PURE__ */ import_react13.default.createElement("div", { className: "shopping-product" }, props.value.image && /* @__PURE__ */ import_react13.default.createElement("img", { src: props.value.image, alt: "" }), /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("b", null, props.value.name), /* @__PURE__ */ import_react13.default.createElement("p", null, props.value.model), /* @__PURE__ */ import_react13.default.createElement("small", null, props.value.matchStatus), props.value.price && /* @__PURE__ */ import_react13.default.createElement("p", null, props.value.price))))));
+var ProductComparison = api("ProductComparison", { variant: external_exports.enum(["table", "cards", "compact"]), items: external_exports.array(product).min(2).max(5) }, ({ props }) => section("comparison", /* @__PURE__ */ import_react13.default.createElement(import_react13.default.Fragment, null, heading("\u5546\u54C1\u5BF9\u6BD4"), /* @__PURE__ */ import_react13.default.createElement("div", { className: "shopping-products" }, props.items.map((item, i7) => /* @__PURE__ */ import_react13.default.createElement("div", { className: "shopping-product", key: i7 }, item.image && /* @__PURE__ */ import_react13.default.createElement("img", { src: item.image, alt: "" }), /* @__PURE__ */ import_react13.default.createElement("div", null, /* @__PURE__ */ import_react13.default.createElement("b", null, item.name), /* @__PURE__ */ import_react13.default.createElement("p", null, item.model), /* @__PURE__ */ import_react13.default.createElement("small", null, item.matchStatus), item.price && /* @__PURE__ */ import_react13.default.createElement("p", null, item.price))))))));
+var BuyingAdvice = api("BuyingAdvice", { variant: external_exports.literal("default"), value: advice }, ({ props }) => section("advice", /* @__PURE__ */ import_react13.default.createElement(import_react13.default.Fragment, null, heading("\u8D2D\u4E70\u5EFA\u8BAE"), /* @__PURE__ */ import_react13.default.createElement("strong", null, props.value.verdict), props.value.reasons.length > 0 && /* @__PURE__ */ import_react13.default.createElement("ul", null, props.value.reasons.map((item, i7) => /* @__PURE__ */ import_react13.default.createElement("li", { key: i7 }, item))), props.value.notFor.length > 0 && /* @__PURE__ */ import_react13.default.createElement("p", { className: "shopping-muted" }, "\u4E0D\u9002\u5408\uFF1A", props.value.notFor.join("\u3001")))));
+var EvidenceList = api("EvidenceList", { variant: external_exports.literal("default"), items: external_exports.array(evidence).max(12) }, ({ props }) => section("evidence", /* @__PURE__ */ import_react13.default.createElement(import_react13.default.Fragment, null, heading("\u539F\u6587\u8BC1\u636E"), /* @__PURE__ */ import_react13.default.createElement("ol", null, props.items.map((item) => /* @__PURE__ */ import_react13.default.createElement("li", { key: item.id }, /* @__PURE__ */ import_react13.default.createElement("span", null, item.text), item.locator && /* @__PURE__ */ import_react13.default.createElement("small", null, " \xB7 ", item.locator)))))));
+var DecisionChecklist = api("DecisionChecklist", { variant: external_exports.literal("default"), items: external_exports.array(external_exports.string().max(120)).max(5) }, ({ props }) => section("checklist", /* @__PURE__ */ import_react13.default.createElement(import_react13.default.Fragment, null, heading("\u9009\u8D2D\u524D\u6838\u5BF9"), /* @__PURE__ */ import_react13.default.createElement("ul", null, props.items.map((item, i7) => /* @__PURE__ */ import_react13.default.createElement("li", { key: i7 }, item))))));
+var SourceActions = api("SourceActions", { variant: external_exports.literal("default"), sourceUrl: text, onOpenSource: CommonSchemas.Action }, ({ props }) => section("actions", /* @__PURE__ */ import_react13.default.createElement(Button_default, { fullWidth: true, variant: "contained", onClick: props.onOpenSource }, "\u67E5\u770B\u539F\u5185\u5BB9")));
+var shoppingComponents = [DetailStack, SourceHeader, HeroMedia, ContentSummary, KeyTakeaways, ProsCons, TestMetrics, ProductMention, ProductComparison, BuyingAdvice, EvidenceList, DecisionChecklist, SourceActions];
 
 // node_modules/embla-carousel-react/esm/embla-carousel-react.esm.js
-var import_react13 = __toESM(require_react(), 1);
+var import_react14 = __toESM(require_react(), 1);
 
 // node_modules/embla-carousel-reactive-utils/esm/embla-carousel-reactive-utils.esm.js
 function isObject(subject) {
@@ -62502,15 +62533,15 @@ function Engine(root, container, slides, ownerDocument2, ownerWindow2, options, 
 }
 function EventHandler() {
   let listeners = {};
-  let api2;
+  let api3;
   function init(emblaApi) {
-    api2 = emblaApi;
+    api3 = emblaApi;
   }
   function getListeners(evt) {
     return listeners[evt] || [];
   }
   function emit(evt) {
-    getListeners(evt).forEach((e29) => e29(api2, evt));
+    getListeners(evt).forEach((e29) => e29(api3, evt));
     return self;
   }
   function on(evt, cb) {
@@ -62775,24 +62806,24 @@ EmblaCarousel.globalOptions = void 0;
 
 // node_modules/embla-carousel-react/esm/embla-carousel-react.esm.js
 function useEmblaCarousel(options = {}, plugins = []) {
-  const storedOptions = (0, import_react13.useRef)(options);
-  const storedPlugins = (0, import_react13.useRef)(plugins);
-  const [emblaApi, setEmblaApi] = (0, import_react13.useState)();
-  const [viewport, setViewport] = (0, import_react13.useState)();
-  const reInit = (0, import_react13.useCallback)(() => {
+  const storedOptions = (0, import_react14.useRef)(options);
+  const storedPlugins = (0, import_react14.useRef)(plugins);
+  const [emblaApi, setEmblaApi] = (0, import_react14.useState)();
+  const [viewport, setViewport] = (0, import_react14.useState)();
+  const reInit = (0, import_react14.useCallback)(() => {
     if (emblaApi) emblaApi.reInit(storedOptions.current, storedPlugins.current);
   }, [emblaApi]);
-  (0, import_react13.useEffect)(() => {
+  (0, import_react14.useEffect)(() => {
     if (areOptionsEqual(storedOptions.current, options)) return;
     storedOptions.current = options;
     reInit();
   }, [options, reInit]);
-  (0, import_react13.useEffect)(() => {
+  (0, import_react14.useEffect)(() => {
     if (arePluginsEqual(storedPlugins.current, plugins)) return;
     storedPlugins.current = plugins;
     reInit();
   }, [plugins, reInit]);
-  (0, import_react13.useEffect)(() => {
+  (0, import_react14.useEffect)(() => {
     if (canUseDOM2() && viewport) {
       EmblaCarousel.globalOptions = useEmblaCarousel.globalOptions;
       const newEmblaApi = EmblaCarousel(viewport, storedOptions.current, storedPlugins.current);
@@ -62852,27 +62883,27 @@ var unavailableApi = {
 function PlatformChip({ platform }) {
   const key = String(platform || "").toLowerCase();
   const color2 = key.includes("\u77E5\u4E4E") ? "#2878d0" : key.includes("b") ? "#ee659d" : "#ff5267";
-  return /* @__PURE__ */ import_react14.default.createElement(Chip_default, { label: platform, size: "small", sx: { height: 25, bgcolor: color2, color: "#fff", fontWeight: 750, "& .MuiChip-label": { px: 1.2 } } });
+  return /* @__PURE__ */ import_react15.default.createElement(Chip_default, { label: platform, size: "small", sx: { height: 25, bgcolor: color2, color: "#fff", fontWeight: 750, "& .MuiChip-label": { px: 1.2 } } });
 }
 function Cover({ src, title, video, duration: duration2 }) {
-  return /* @__PURE__ */ import_react14.default.createElement(Box_default, { className: "experience-cover", sx: { position: "relative", overflow: "hidden", bgcolor: "background.default", aspectRatio: "4 / 3" } }, src ? /* @__PURE__ */ import_react14.default.createElement(Box_default, { component: "img", src, alt: "", sx: { width: "100%", height: "100%", display: "block", objectFit: "cover" } }) : /* @__PURE__ */ import_react14.default.createElement(Stack_default, { alignItems: "center", justifyContent: "center", sx: { height: "100%", color: "text.secondary" } }, /* @__PURE__ */ import_react14.default.createElement(I2, { size: 30, weight: "duotone" }), /* @__PURE__ */ import_react14.default.createElement(Typography_default, { variant: "caption", sx: { mt: 1 } }, "\u5C01\u9762\u6682\u672A\u53D6\u5F97")), video && /* @__PURE__ */ import_react14.default.createElement(Box_default, { className: "play-badge" }, /* @__PURE__ */ import_react14.default.createElement(n9, { size: 18, weight: "fill" })), duration2 && /* @__PURE__ */ import_react14.default.createElement(Box_default, { className: "duration-badge" }, duration2));
+  return /* @__PURE__ */ import_react15.default.createElement(Box_default, { className: "experience-cover", sx: { position: "relative", overflow: "hidden", bgcolor: "background.default", aspectRatio: "4 / 3" } }, src ? /* @__PURE__ */ import_react15.default.createElement(Box_default, { component: "img", src, alt: "", sx: { width: "100%", height: "100%", display: "block", objectFit: "cover" } }) : /* @__PURE__ */ import_react15.default.createElement(Stack_default, { alignItems: "center", justifyContent: "center", sx: { height: "100%", color: "text.secondary" } }, /* @__PURE__ */ import_react15.default.createElement(I2, { size: 30, weight: "duotone" }), /* @__PURE__ */ import_react15.default.createElement(Typography_default, { variant: "caption", sx: { mt: 1 } }, "\u5C01\u9762\u6682\u672A\u53D6\u5F97")), video && /* @__PURE__ */ import_react15.default.createElement(Box_default, { className: "play-badge" }, /* @__PURE__ */ import_react15.default.createElement(n9, { size: 18, weight: "fill" })), duration2 && /* @__PURE__ */ import_react15.default.createElement(Box_default, { className: "duration-badge" }, duration2));
 }
 var ExperiencePreview = createComponentImplementation(previewApi, ({ props }) => {
   const article = props.format === "article";
-  return /* @__PURE__ */ import_react14.default.createElement(Card_default, { className: `experience-preview ${article ? "is-article" : ""}`, elevation: 0 }, /* @__PURE__ */ import_react14.default.createElement(Box_default, { component: "button", type: "button", onClick: props.onOpen, className: "preview-button" }, !article && /* @__PURE__ */ import_react14.default.createElement(Cover, { src: props.cover, title: props.title, video: props.format === "video", duration: props.duration }), /* @__PURE__ */ import_react14.default.createElement(Stack_default, { className: "preview-copy", spacing: 1 }, article && /* @__PURE__ */ import_react14.default.createElement(Typography_default, { className: "article-kicker", variant: "caption" }, props.platform, " \xB7 \u6DF1\u5EA6\u56FE\u6587"), /* @__PURE__ */ import_react14.default.createElement(Typography_default, { className: "preview-title" }, props.title), article && props.excerpt && /* @__PURE__ */ import_react14.default.createElement(Typography_default, { className: "preview-excerpt" }, props.excerpt), /* @__PURE__ */ import_react14.default.createElement(Stack_default, { direction: "row", alignItems: "center", spacing: 0.7, className: "preview-meta" }, /* @__PURE__ */ import_react14.default.createElement(PlatformChip, { platform: props.platform }), /* @__PURE__ */ import_react14.default.createElement(Typography_default, { variant: "caption", noWrap: true }, props.author)), props.engagement && /* @__PURE__ */ import_react14.default.createElement(Typography_default, { className: "engagement", variant: "caption" }, /* @__PURE__ */ import_react14.default.createElement(n8, { size: 16 }), " ", props.engagement))));
+  return /* @__PURE__ */ import_react15.default.createElement(Card_default, { className: `experience-preview ${article ? "is-article" : ""}`, elevation: 0 }, /* @__PURE__ */ import_react15.default.createElement(Box_default, { component: "button", type: "button", onClick: props.onOpen, className: "preview-button" }, !article && /* @__PURE__ */ import_react15.default.createElement(Cover, { src: props.cover, title: props.title, video: props.format === "video", duration: props.duration }), /* @__PURE__ */ import_react15.default.createElement(Stack_default, { className: "preview-copy", spacing: 1 }, article && /* @__PURE__ */ import_react15.default.createElement(Typography_default, { className: "article-kicker", variant: "caption" }, props.platform, " \xB7 \u6DF1\u5EA6\u56FE\u6587"), /* @__PURE__ */ import_react15.default.createElement(Typography_default, { className: "preview-title" }, props.title), article && props.excerpt && /* @__PURE__ */ import_react15.default.createElement(Typography_default, { className: "preview-excerpt" }, props.excerpt), /* @__PURE__ */ import_react15.default.createElement(Stack_default, { direction: "row", alignItems: "center", spacing: 0.7, className: "preview-meta" }, /* @__PURE__ */ import_react15.default.createElement(PlatformChip, { platform: props.platform }), /* @__PURE__ */ import_react15.default.createElement(Typography_default, { variant: "caption", noWrap: true }, props.author)), props.engagement && /* @__PURE__ */ import_react15.default.createElement(Typography_default, { className: "engagement", variant: "caption" }, /* @__PURE__ */ import_react15.default.createElement(n8, { size: 16 }), " ", props.engagement))));
 });
 function DetailHeader({ platform, author, engagement }) {
-  return /* @__PURE__ */ import_react14.default.createElement(Stack_default, { direction: "row", alignItems: "center", spacing: 1.1, sx: { mb: 2 } }, /* @__PURE__ */ import_react14.default.createElement(PlatformChip, { platform }), /* @__PURE__ */ import_react14.default.createElement(Typography_default, { variant: "body2", sx: { fontWeight: 650 } }, author), /* @__PURE__ */ import_react14.default.createElement(Box_default, { sx: { flex: 1 } }), engagement && /* @__PURE__ */ import_react14.default.createElement(Typography_default, { variant: "caption", color: "text.secondary" }, /* @__PURE__ */ import_react14.default.createElement(n8, { size: 15 }), " ", engagement));
+  return /* @__PURE__ */ import_react15.default.createElement(Stack_default, { direction: "row", alignItems: "center", spacing: 1.1, sx: { mb: 2 } }, /* @__PURE__ */ import_react15.default.createElement(PlatformChip, { platform }), /* @__PURE__ */ import_react15.default.createElement(Typography_default, { variant: "body2", sx: { fontWeight: 650 } }, author), /* @__PURE__ */ import_react15.default.createElement(Box_default, { sx: { flex: 1 } }), engagement && /* @__PURE__ */ import_react15.default.createElement(Typography_default, { variant: "caption", color: "text.secondary" }, /* @__PURE__ */ import_react15.default.createElement(n8, { size: 15 }), " ", engagement));
 }
 function SourceButton({ onClick }) {
-  return /* @__PURE__ */ import_react14.default.createElement(Button_default, { fullWidth: true, variant: "contained", size: "large", onClick, endIcon: /* @__PURE__ */ import_react14.default.createElement(n6, { size: 18 }) }, "\u67E5\u770B\u539F\u5185\u5BB9");
+  return /* @__PURE__ */ import_react15.default.createElement(Button_default, { fullWidth: true, variant: "contained", size: "large", onClick, endIcon: /* @__PURE__ */ import_react15.default.createElement(n6, { size: 18 }) }, "\u67E5\u770B\u539F\u5185\u5BB9");
 }
-var VideoExperienceDetail = createComponentImplementation(videoDetailApi, ({ props }) => /* @__PURE__ */ import_react14.default.createElement(Stack_default, { className: "experience-detail", spacing: 2 }, /* @__PURE__ */ import_react14.default.createElement(DetailHeader, { ...props }), props.video ? /* @__PURE__ */ import_react14.default.createElement(Box_default, { component: "video", src: props.video, poster: props.cover, controls: true, playsInline: true, sx: { width: "100%", borderRadius: 4, bgcolor: "#151515", maxHeight: 420 } }) : /* @__PURE__ */ import_react14.default.createElement(Cover, { src: props.cover, title: props.title, video: true, duration: props.duration }), /* @__PURE__ */ import_react14.default.createElement(Typography_default, { variant: "h4" }, props.title), props.body && /* @__PURE__ */ import_react14.default.createElement(Typography_default, { color: "text.secondary", sx: { lineHeight: 1.75 } }, props.body), !props.video && /* @__PURE__ */ import_react14.default.createElement(Box_default, { className: "media-note" }, /* @__PURE__ */ import_react14.default.createElement(m4, { size: 20 }), "\u5DF2\u8BC6\u522B\u4E3A\u89C6\u9891\u5185\u5BB9\uFF0C\u5F53\u524D\u94FE\u63A5\u53EA\u63D0\u4F9B\u5C01\u9762\u4E0E\u6458\u8981\uFF0C\u64AD\u653E\u8BF7\u524D\u5F80\u539F\u7AD9\u3002"), /* @__PURE__ */ import_react14.default.createElement(SourceButton, { onClick: props.onOpenSource })));
+var VideoExperienceDetail = createComponentImplementation(videoDetailApi, ({ props }) => /* @__PURE__ */ import_react15.default.createElement(Stack_default, { className: "experience-detail", spacing: 2 }, /* @__PURE__ */ import_react15.default.createElement(DetailHeader, { ...props }), props.video ? /* @__PURE__ */ import_react15.default.createElement(Box_default, { component: "video", src: props.video, poster: props.cover, controls: true, playsInline: true, sx: { width: "100%", borderRadius: 4, bgcolor: "#151515", maxHeight: 420 } }) : /* @__PURE__ */ import_react15.default.createElement(Cover, { src: props.cover, title: props.title, video: true, duration: props.duration }), /* @__PURE__ */ import_react15.default.createElement(Typography_default, { variant: "h4" }, props.title), props.body && /* @__PURE__ */ import_react15.default.createElement(Typography_default, { color: "text.secondary", sx: { lineHeight: 1.75 } }, props.body), !props.video && /* @__PURE__ */ import_react15.default.createElement(Box_default, { className: "media-note" }, /* @__PURE__ */ import_react15.default.createElement(m4, { size: 20 }), "\u5DF2\u8BC6\u522B\u4E3A\u89C6\u9891\u5185\u5BB9\uFF0C\u5F53\u524D\u94FE\u63A5\u53EA\u63D0\u4F9B\u5C01\u9762\u4E0E\u6458\u8981\uFF0C\u64AD\u653E\u8BF7\u524D\u5F80\u539F\u7AD9\u3002"), /* @__PURE__ */ import_react15.default.createElement(SourceButton, { onClick: props.onOpenSource })));
 function ImageCarousel({ images = [], cover, title }) {
   const slides = [...new Set([cover, ...images].filter(Boolean))];
   const [emblaRef, embla] = useEmblaCarousel({ loop: slides.length > 1 });
-  const [selected, setSelected] = (0, import_react14.useState)(0);
-  (0, import_react14.useEffect)(() => {
+  const [selected, setSelected] = (0, import_react15.useState)(0);
+  (0, import_react15.useEffect)(() => {
     if (!embla) return void 0;
     const sync = () => setSelected(embla.selectedScrollSnap());
     sync();
@@ -62883,16 +62914,47 @@ function ImageCarousel({ images = [], cover, title }) {
       embla.off("reInit", sync);
     };
   }, [embla]);
-  return /* @__PURE__ */ import_react14.default.createElement(Box_default, { className: "image-carousel" }, /* @__PURE__ */ import_react14.default.createElement(Box_default, { className: "embla-viewport", ref: emblaRef }, /* @__PURE__ */ import_react14.default.createElement(Box_default, { className: "embla-container" }, slides.map((src, index) => /* @__PURE__ */ import_react14.default.createElement(Box_default, { className: "embla-slide", key: src }, /* @__PURE__ */ import_react14.default.createElement(Box_default, { component: "img", src, alt: `${title} ${index + 1}` }))))), slides.length > 1 && /* @__PURE__ */ import_react14.default.createElement(import_react14.default.Fragment, null, /* @__PURE__ */ import_react14.default.createElement(IconButton_default, { className: "carousel-arrow prev", onClick: () => embla?.scrollPrev(), "aria-label": "\u4E0A\u4E00\u5F20" }, /* @__PURE__ */ import_react14.default.createElement(s7, null)), /* @__PURE__ */ import_react14.default.createElement(IconButton_default, { className: "carousel-arrow next", onClick: () => embla?.scrollNext(), "aria-label": "\u4E0B\u4E00\u5F20" }, /* @__PURE__ */ import_react14.default.createElement(s8, null)), /* @__PURE__ */ import_react14.default.createElement(Box_default, { className: "image-count" }, selected + 1, " / ", slides.length)));
+  return /* @__PURE__ */ import_react15.default.createElement(Box_default, { className: "image-carousel" }, /* @__PURE__ */ import_react15.default.createElement(Box_default, { className: "embla-viewport", ref: emblaRef }, /* @__PURE__ */ import_react15.default.createElement(Box_default, { className: "embla-container" }, slides.map((src, index) => /* @__PURE__ */ import_react15.default.createElement(Box_default, { className: "embla-slide", key: src }, /* @__PURE__ */ import_react15.default.createElement(Box_default, { component: "img", src, alt: `${title} ${index + 1}` }))))), slides.length > 1 && /* @__PURE__ */ import_react15.default.createElement(import_react15.default.Fragment, null, /* @__PURE__ */ import_react15.default.createElement(IconButton_default, { className: "carousel-arrow prev", onClick: () => embla?.scrollPrev(), "aria-label": "\u4E0A\u4E00\u5F20" }, /* @__PURE__ */ import_react15.default.createElement(s7, null)), /* @__PURE__ */ import_react15.default.createElement(IconButton_default, { className: "carousel-arrow next", onClick: () => embla?.scrollNext(), "aria-label": "\u4E0B\u4E00\u5F20" }, /* @__PURE__ */ import_react15.default.createElement(s8, null)), /* @__PURE__ */ import_react15.default.createElement(Box_default, { className: "image-count" }, selected + 1, " / ", slides.length)));
 }
-var ImageExperienceDetail = createComponentImplementation(imageDetailApi, ({ props }) => /* @__PURE__ */ import_react14.default.createElement(Stack_default, { className: "experience-detail", spacing: 2 }, /* @__PURE__ */ import_react14.default.createElement(DetailHeader, { ...props }), /* @__PURE__ */ import_react14.default.createElement(Typography_default, { variant: "h4" }, props.title), props.body && /* @__PURE__ */ import_react14.default.createElement(Typography_default, { color: "text.secondary", sx: { lineHeight: 1.75 } }, props.body), /* @__PURE__ */ import_react14.default.createElement(ImageCarousel, { images: props.images, cover: props.cover, title: props.title }), /* @__PURE__ */ import_react14.default.createElement(SourceButton, { onClick: props.onOpenSource })));
-var ArticleExperienceDetail = createComponentImplementation(articleDetailApi, ({ props }) => /* @__PURE__ */ import_react14.default.createElement(Stack_default, { className: "experience-detail article-detail", spacing: 2 }, /* @__PURE__ */ import_react14.default.createElement(DetailHeader, { ...props }), /* @__PURE__ */ import_react14.default.createElement(Typography_default, { variant: "h3" }, props.title), props.body && /* @__PURE__ */ import_react14.default.createElement(Typography_default, { className: "article-body" }, props.body), props.cover && /* @__PURE__ */ import_react14.default.createElement(Box_default, { component: "img", src: props.cover, alt: "", className: "article-image" }), /* @__PURE__ */ import_react14.default.createElement(SourceButton, { onClick: props.onOpenSource })));
-var MediaUnavailable = createComponentImplementation(unavailableApi, ({ props }) => /* @__PURE__ */ import_react14.default.createElement(Stack_default, { className: "unavailable-state", alignItems: "center", spacing: 2 }, /* @__PURE__ */ import_react14.default.createElement(Box_default, { className: "unavailable-icon" }, /* @__PURE__ */ import_react14.default.createElement(m4, { size: 36, weight: "duotone" })), /* @__PURE__ */ import_react14.default.createElement(PlatformChip, { platform: props.platform }), /* @__PURE__ */ import_react14.default.createElement(Typography_default, { variant: "h5", align: "center" }, props.title), /* @__PURE__ */ import_react14.default.createElement(Typography_default, { color: "text.secondary", align: "center" }, props.message), /* @__PURE__ */ import_react14.default.createElement(SourceButton, { onClick: props.onOpenSource })));
+var ImageExperienceDetail = createComponentImplementation(imageDetailApi, ({ props }) => /* @__PURE__ */ import_react15.default.createElement(Stack_default, { className: "experience-detail", spacing: 2 }, /* @__PURE__ */ import_react15.default.createElement(DetailHeader, { ...props }), /* @__PURE__ */ import_react15.default.createElement(Typography_default, { variant: "h4" }, props.title), props.body && /* @__PURE__ */ import_react15.default.createElement(Typography_default, { color: "text.secondary", sx: { lineHeight: 1.75 } }, props.body), /* @__PURE__ */ import_react15.default.createElement(ImageCarousel, { images: props.images, cover: props.cover, title: props.title }), /* @__PURE__ */ import_react15.default.createElement(SourceButton, { onClick: props.onOpenSource })));
+var ArticleExperienceDetail = createComponentImplementation(articleDetailApi, ({ props }) => /* @__PURE__ */ import_react15.default.createElement(Stack_default, { className: "experience-detail article-detail", spacing: 2 }, /* @__PURE__ */ import_react15.default.createElement(DetailHeader, { ...props }), /* @__PURE__ */ import_react15.default.createElement(Typography_default, { variant: "h3" }, props.title), props.body && /* @__PURE__ */ import_react15.default.createElement(Typography_default, { className: "article-body" }, props.body), props.cover && /* @__PURE__ */ import_react15.default.createElement(Box_default, { component: "img", src: props.cover, alt: "", className: "article-image" }), /* @__PURE__ */ import_react15.default.createElement(SourceButton, { onClick: props.onOpenSource })));
+var MediaUnavailable = createComponentImplementation(unavailableApi, ({ props }) => /* @__PURE__ */ import_react15.default.createElement(Stack_default, { className: "unavailable-state", alignItems: "center", spacing: 2 }, /* @__PURE__ */ import_react15.default.createElement(Box_default, { className: "unavailable-icon" }, /* @__PURE__ */ import_react15.default.createElement(m4, { size: 36, weight: "duotone" })), /* @__PURE__ */ import_react15.default.createElement(PlatformChip, { platform: props.platform }), /* @__PURE__ */ import_react15.default.createElement(Typography_default, { variant: "h5", align: "center" }, props.title), /* @__PURE__ */ import_react15.default.createElement(Typography_default, { color: "text.secondary", align: "center" }, props.message), /* @__PURE__ */ import_react15.default.createElement(SourceButton, { onClick: props.onOpenSource })));
 var shiguangCatalog = new Catalog(
   SHIGUANG_CATALOG_ID,
   "v0.9",
-  [ExperiencePreview, VideoExperienceDetail, ImageExperienceDetail, ArticleExperienceDetail, MediaUnavailable]
+  [ExperiencePreview, VideoExperienceDetail, ImageExperienceDetail, ArticleExperienceDetail, MediaUnavailable, ...shoppingComponents]
 );
+
+// src/theme/registry.js
+var base = {
+  colors: { page: "#f6f2ef", surface: "#fffdfb", surfaceMuted: "#fff0e9", text: "#272321", textMuted: "#766e69", primary: "#d55b3a", onPrimary: "#fff", positive: "#327455", warning: "#a66b19", negative: "#a94343", evidence: "#426e9a", border: "#e8ded8" },
+  typography: { displayFamily: 'Inter, "PingFang SC", sans-serif', bodyFamily: 'Inter, "PingFang SC", sans-serif', displayWeight: 780, bodyWeight: 400, scale: { xs: 12, sm: 14, md: 16, lg: 20, xl: 28 } },
+  shape: { cardRadius: 16, sheetRadius: 28, buttonRadius: 14, chipRadius: 999 },
+  spacing: { section: 24, card: 16, inline: 8 },
+  elevation: { card: "0 12px 34px #482d2112", sheet: "0 -24px 70px #1d14112b", floating: "0 8px 24px #482d2120" },
+  motion: { fast: 160, normal: 260, easing: "cubic-bezier(.22,.9,.25,1)" },
+  assets: {}
+};
+var definitions = {
+  warm: { label: "\u6696\u6A59\u7F16\u8F91\u98CE" },
+  y2k: { label: "\u5343\u79A7\u6570\u7801\u98CE", colors: { page: "#e9e5ff", surface: "#fffaff", surfaceMuted: "#ffe3f7", text: "#21152d", textMuted: "#675b75", primary: "#cf178f", onPrimary: "#fff", positive: "#16736d", warning: "#8a5b00", negative: "#a42356", evidence: "#345e9a", border: "#c7bbeb" }, shape: { cardRadius: 22, sheetRadius: 28 }, elevation: { card: "5px 5px 0 #21152d" } },
+  western: { label: "\u725B\u4ED4\u98CE", colors: { page: "#ece8df", surface: "#fffaf0", surfaceMuted: "#e3d4bc", text: "#182f42", textMuted: "#536271", primary: "#24516e", onPrimary: "#fff", positive: "#2f654d", warning: "#896022", negative: "#a13d32", evidence: "#3d6883", border: "#a99377" }, typography: { displayFamily: 'Georgia, "Noto Serif SC", serif' }, shape: { cardRadius: 7, sheetRadius: 18 }, elevation: { card: "4px 4px 0 #a99377" }, assets: { divider: "/assets/themes/western/stitch.svg" } },
+  journal: { label: "\u624B\u8D26\u98CE", colors: { page: "#eeeae0", surface: "#fffdf6", surfaceMuted: "#f4e5d8", text: "#292b2b", textMuted: "#616363", primary: "#526c66", onPrimary: "#fff", positive: "#456c56", warning: "#8d6a24", negative: "#a14e4e", evidence: "#4e7191", border: "#d4c8b3" }, typography: { displayFamily: '"Segoe Print", "KaiTi", cursive' }, shape: { cardRadius: 3, sheetRadius: 12 }, elevation: { card: "3px 5px 0 #d4c8b3" }, assets: { divider: "/assets/themes/journal/stamp.svg" } }
+};
+function getThemeTokens(name) {
+  const item = definitions[name] || definitions.warm;
+  return Object.fromEntries(Object.entries(base).map(([key, value]) => [key, typeof value === "object" ? { ...value, ...item[key] || {} } : item[key] || value]));
+}
+var themeNames = Object.keys(definitions);
+var themeLabels = Object.fromEntries(Object.entries(definitions).map(([key, value]) => [key, value.label]));
+function createShiguangTheme(name) {
+  const tokens = getThemeTokens(name);
+  return createTheme2({ palette: { mode: "light", primary: { main: tokens.colors.primary, contrastText: tokens.colors.onPrimary }, background: { default: tokens.colors.page, paper: tokens.colors.surface }, text: { primary: tokens.colors.text, secondary: tokens.colors.textMuted } }, shape: { borderRadius: tokens.shape.cardRadius }, typography: { fontFamily: tokens.typography.bodyFamily, h3: { fontFamily: tokens.typography.displayFamily, fontWeight: tokens.typography.displayWeight }, h4: { fontFamily: tokens.typography.displayFamily, fontWeight: tokens.typography.displayWeight }, button: { textTransform: "none", fontWeight: 750 } } });
+}
+function themeStyle(name) {
+  const t9 = getThemeTokens(name);
+  return { "--accent": t9.colors.primary, "--accent-soft": t9.colors.surfaceMuted, "--page": t9.colors.page, "--surface": t9.colors.surface, "--line": t9.colors.border, "--ink": t9.colors.text, "--muted": t9.colors.textMuted, "--positive": t9.colors.positive, "--negative": t9.colors.negative, "--evidence": t9.colors.evidence, "--shadow": t9.elevation.card, "--section-gap": `${t9.spacing.section}px`, "--card-radius": `${t9.shape.cardRadius}px`, "--display-family": t9.typography.displayFamily };
+}
 
 // src/a2ui-client.jsx
 var DEMOS = [
@@ -62937,73 +62999,61 @@ var DEMOS = [
     status: "partial"
   }
 ];
-var themes = {
-  warm: createTheme2({
-    palette: { mode: "light", primary: { main: "#d55b3a", contrastText: "#fff" }, background: { default: "#f6f2ef", paper: "#fffdfb" }, text: { primary: "#272321", secondary: "#766e69" } },
-    shape: { borderRadius: 16 },
-    typography: { fontFamily: 'Inter, "PingFang SC", "Microsoft YaHei", sans-serif', h3: { fontWeight: 780, letterSpacing: "-.035em" }, h4: { fontWeight: 780, fontSize: "1.65rem", lineHeight: 1.32, letterSpacing: "-.025em" }, button: { fontWeight: 750, textTransform: "none" } }
-  }),
-  y2k: createTheme2({
-    palette: { mode: "light", primary: { main: "#ff38b8", contrastText: "#1b1025" }, secondary: { main: "#62e9ff" }, background: { default: "#e9e5ff", paper: "#fffaff" }, text: { primary: "#21152d", secondary: "#675b75" } },
-    shape: { borderRadius: 22 },
-    typography: { fontFamily: 'Inter, "PingFang SC", sans-serif', h3: { fontWeight: 900, letterSpacing: "-.045em" }, h4: { fontWeight: 900, fontSize: "1.65rem", lineHeight: 1.28 }, button: { fontWeight: 850, textTransform: "none" } }
-  })
-};
-async function api(path, payload) {
+async function api2(path, payload) {
   const response = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
   const result = await response.json();
   if (!result.ok) throw new Error(result.message || result.code || "\u8BF7\u6C42\u5931\u8D25");
   return result;
 }
 function Surface({ presentation, onAction }) {
-  const model = (0, import_react16.useMemo)(() => {
+  const model = (0, import_react17.useMemo)(() => {
     if (!presentation) return null;
     const processor = new MessageProcessor([shiguangCatalog], onAction);
     processor.processMessages(presentation.messages);
     return { processor, surface: processor.getSurface(presentation.surfaceId) };
   }, [presentation, onAction]);
-  (0, import_react16.useEffect)(() => () => model?.processor?.dispose(), [model]);
-  return model?.surface ? /* @__PURE__ */ import_react16.default.createElement(A2uiSurface, { surface: model.surface }) : null;
+  (0, import_react17.useEffect)(() => () => model?.processor?.dispose(), [model]);
+  return model?.surface ? /* @__PURE__ */ import_react17.default.createElement(A2uiSurface, { surface: model.surface }) : null;
 }
 function App() {
-  const [themeName, setThemeName] = (0, import_react16.useState)("warm");
-  const [records, setRecords] = (0, import_react16.useState)(DEMOS);
-  const [previews, setPreviews] = (0, import_react16.useState)([]);
-  const [selected, setSelected] = (0, import_react16.useState)(null);
-  const [detail, setDetail] = (0, import_react16.useState)(null);
-  const [dialogOpen, setDialogOpen] = (0, import_react16.useState)(false);
-  const [url, setUrl] = (0, import_react16.useState)("");
-  const [busy, setBusy] = (0, import_react16.useState)(false);
-  const [status, setStatus] = (0, import_react16.useState)("\u6B63\u5728\u542F\u52A8 React A2UI Renderer\u2026");
-  const loadPreviews = (0, import_react16.useCallback)(async (nextRecords) => {
-    const next2 = await Promise.all(nextRecords.map((record) => api("/api/react-compose", { record, mode: "preview" })));
+  const [themeName, setThemeName] = (0, import_react17.useState)("warm");
+  const [records, setRecords] = (0, import_react17.useState)(DEMOS);
+  const [previews, setPreviews] = (0, import_react17.useState)([]);
+  const [selected, setSelected] = (0, import_react17.useState)(null);
+  const [detail, setDetail] = (0, import_react17.useState)(null);
+  const [dialogOpen, setDialogOpen] = (0, import_react17.useState)(false);
+  const [url2, setUrl] = (0, import_react17.useState)("");
+  const [busy, setBusy] = (0, import_react17.useState)(false);
+  const [status, setStatus] = (0, import_react17.useState)("\u6B63\u5728\u542F\u52A8 React A2UI Renderer\u2026");
+  const loadPreviews = (0, import_react17.useCallback)(async (nextRecords) => {
+    const next2 = await Promise.all(nextRecords.map((record) => api2("/api/react-compose", { record, mode: "preview" })));
     setPreviews(next2);
     setStatus(`\u5DF2\u7528\u62FE\u5149 Catalog \u6E32\u67D3 ${next2.length} \u4E2A A2UI Surface`);
   }, []);
-  (0, import_react16.useEffect)(() => {
+  (0, import_react17.useEffect)(() => {
     loadPreviews(records).catch((error) => setStatus(error.message));
   }, [records, loadPreviews]);
-  const openDetail = (0, import_react16.useCallback)(async (record) => {
+  const openDetail = (0, import_react17.useCallback)(async (record) => {
     setSelected(record);
     setDetail(null);
     setDialogOpen(true);
     try {
-      setDetail(await api("/api/react-compose", { record, mode: "detail", usePlanner: true }));
+      setDetail(await api2("/api/react-compose", { record, mode: "detail", usePlanner: true }));
     } catch (error) {
       setStatus(`\u8BE6\u60C5\u751F\u6210\u5931\u8D25\uFF1A${error.message}`);
     }
   }, []);
-  const actionFor = (0, import_react16.useCallback)((record) => (action) => {
+  const actionFor = (0, import_react17.useCallback)((record) => (action) => {
     if (action.name === "open_detail") openDetail(record);
     if (action.name === "open_source") window.open(action.context?.sourceUrl || record.source.url, "_blank", "noopener,noreferrer");
   }, [openDetail]);
   const submit = async (event) => {
     event.preventDefault();
-    if (!url.trim()) return;
+    if (!url2.trim()) return;
     setBusy(true);
     setStatus("\u6B63\u5728\u901A\u8FC7\u94FE\u63A5\u8F6C\u63A5\u5668\u8BFB\u53D6\u771F\u5B9E\u5185\u5BB9\u2026");
     try {
-      const result = await api("/api/resolve", { url: url.trim() });
+      const result = await api2("/api/resolve", { url: url2.trim() });
       setRecords([result.record, ...records.filter((item) => item.id !== result.record.id)].slice(0, 4));
       setStatus("\u771F\u5B9E\u94FE\u63A5\u5DF2\u8BFB\u53D6\uFF0C\u6B63\u5728\u751F\u6210 A2UI \u7EC4\u4EF6\u3002");
     } catch (error) {
@@ -63012,9 +63062,9 @@ function App() {
       setBusy(false);
     }
   };
-  return /* @__PURE__ */ import_react16.default.createElement(ThemeProvider4, { theme: themes[themeName] }, /* @__PURE__ */ import_react16.default.createElement(Box_default, { className: `lab theme-${themeName}` }, /* @__PURE__ */ import_react16.default.createElement("header", { className: "topbar" }, /* @__PURE__ */ import_react16.default.createElement("a", { href: "/", className: "brand" }, /* @__PURE__ */ import_react16.default.createElement("span", null, /* @__PURE__ */ import_react16.default.createElement(m3, { size: 19, weight: "duotone" })), "\u62FE\u5149 \xB7 A2UI LAB"), /* @__PURE__ */ import_react16.default.createElement(Stack_default, { direction: "row", alignItems: "center", spacing: 1.5 }, /* @__PURE__ */ import_react16.default.createElement("span", { className: "renderer-badge" }, /* @__PURE__ */ import_react16.default.createElement(s9, { size: 16, weight: "fill" }), " React Renderer"), /* @__PURE__ */ import_react16.default.createElement(FormControl_default, { size: "small" }, /* @__PURE__ */ import_react16.default.createElement(Select_default, { value: themeName, onChange: (e29) => setThemeName(e29.target.value), "aria-label": "\u89C6\u89C9\u4E3B\u9898" }, /* @__PURE__ */ import_react16.default.createElement(MenuItem_default, { value: "warm" }, "\u6696\u6A59\u7F16\u8F91\u98CE"), /* @__PURE__ */ import_react16.default.createElement(MenuItem_default, { value: "y2k" }, "\u5343\u79A7\u6570\u7801\u98CE"))))), /* @__PURE__ */ import_react16.default.createElement("main", null, /* @__PURE__ */ import_react16.default.createElement("section", { className: "intro" }, /* @__PURE__ */ import_react16.default.createElement(Chip_default, { icon: /* @__PURE__ */ import_react16.default.createElement(n7, { size: 15 }), label: "\u72EC\u7ACB\u6A21\u5757 \xB7 \u672A\u63A5\u5165\u8D2D\u7269\u667A\u80FD\u4F53" }), /* @__PURE__ */ import_react16.default.createElement(Typography_default, { component: "h1" }, "\u771F\u5B9E\u5185\u5BB9\uFF0C", /* @__PURE__ */ import_react16.default.createElement("br", null), /* @__PURE__ */ import_react16.default.createElement("em", null, "\u7531 A2UI \u9009\u62E9\u6B63\u786E\u7684\u8868\u8FBE\u3002")), /* @__PURE__ */ import_react16.default.createElement(Typography_default, { className: "intro-copy" }, "LLM Planner \u7406\u89E3\u771F\u5B9E\u5185\u5BB9\u5E76\u4ECE\u62FE\u5149 Catalog \u9009\u62E9\u7EC4\u4EF6\uFF0CReact Renderer \u518D\u6267\u884C\u53D7\u7EA6\u675F\u7684 A2UI \u6D88\u606F\u3002")), /* @__PURE__ */ import_react16.default.createElement("section", { className: "resolver-panel" }, /* @__PURE__ */ import_react16.default.createElement("form", { onSubmit: submit }, /* @__PURE__ */ import_react16.default.createElement(TextField_default, { fullWidth: true, value: url, onChange: (e29) => setUrl(e29.target.value), placeholder: "\u7C98\u8D34\u5C0F\u7EA2\u4E66\u3001B\u7AD9\u3001\u77E5\u4E4E\u6216\u516C\u5F00\u7F51\u9875\u94FE\u63A5", InputProps: { startAdornment: /* @__PURE__ */ import_react16.default.createElement(p5, { size: 20 }) } }), /* @__PURE__ */ import_react16.default.createElement(Button_default, { type: "submit", variant: "contained", disabled: busy, endIcon: busy ? /* @__PURE__ */ import_react16.default.createElement(CircularProgress_default, { size: 16, color: "inherit" }) : /* @__PURE__ */ import_react16.default.createElement(s6, null) }, "\u8BFB\u53D6\u5E76\u7F16\u6392")), /* @__PURE__ */ import_react16.default.createElement("p", { className: "status", role: "status" }, status)), /* @__PURE__ */ import_react16.default.createElement("section", { className: "showcase" }, /* @__PURE__ */ import_react16.default.createElement("div", { className: "section-heading" }, /* @__PURE__ */ import_react16.default.createElement("div", null, /* @__PURE__ */ import_react16.default.createElement("span", null, "01 / A2UI SURFACES"), /* @__PURE__ */ import_react16.default.createElement("h2", null, "\u591A\u6765\u6E90\u9884\u89C8\u7EC4\u4EF6"), /* @__PURE__ */ import_react16.default.createElement("p", null, "\u70B9\u51FB\u5361\u7247\uFF0CA2UI \u4F1A\u6839\u636E\u5185\u5BB9\u7C7B\u578B\u5207\u6362\u8BE6\u60C5\u7EC4\u4EF6\u3002")), /* @__PURE__ */ import_react16.default.createElement("b", null, previews.length, " surfaces")), /* @__PURE__ */ import_react16.default.createElement("div", { className: "preview-grid" }, previews.map((presentation, index) => /* @__PURE__ */ import_react16.default.createElement(Surface, { key: presentation.surfaceId, presentation, onAction: actionFor(records[index]) })))), /* @__PURE__ */ import_react16.default.createElement("section", { className: "architecture-strip" }, /* @__PURE__ */ import_react16.default.createElement("span", null, "\u94FE\u63A5\u8F6C\u63A5\u5668"), /* @__PURE__ */ import_react16.default.createElement(s6, null), /* @__PURE__ */ import_react16.default.createElement("span", null, "LLM Planner"), /* @__PURE__ */ import_react16.default.createElement(s6, null), /* @__PURE__ */ import_react16.default.createElement("span", null, "A2UI \u6D88\u606F"), /* @__PURE__ */ import_react16.default.createElement(s6, null), /* @__PURE__ */ import_react16.default.createElement("span", null, "\u62FE\u5149 Catalog"), /* @__PURE__ */ import_react16.default.createElement(s6, null), /* @__PURE__ */ import_react16.default.createElement("strong", null, "React \u7EC4\u4EF6"))), /* @__PURE__ */ import_react16.default.createElement(Root, { open: dialogOpen, onOpenChange: setDialogOpen }, /* @__PURE__ */ import_react16.default.createElement(Portal4, null, /* @__PURE__ */ import_react16.default.createElement(Overlay, { className: "dialog-overlay" }), /* @__PURE__ */ import_react16.default.createElement(Content, { className: `dialog-content theme-${themeName}`, "aria-describedby": void 0 }, /* @__PURE__ */ import_react16.default.createElement("div", { className: "dialog-handle" }), /* @__PURE__ */ import_react16.default.createElement(Title, { className: "sr-only" }, selected?.title || "\u5185\u5BB9\u8BE6\u60C5"), /* @__PURE__ */ import_react16.default.createElement(Close, { asChild: true }, /* @__PURE__ */ import_react16.default.createElement("button", { className: "dialog-close", "aria-label": "\u5173\u95ED" }, /* @__PURE__ */ import_react16.default.createElement(n10, { size: 24 }))), /* @__PURE__ */ import_react16.default.createElement("div", { className: "dialog-scroll" }, detail && selected ? /* @__PURE__ */ import_react16.default.createElement(import_react16.default.Fragment, null, /* @__PURE__ */ import_react16.default.createElement("div", { className: `planner-trace ${detail.planner?.used ? "is-llm" : "is-fallback"}` }, /* @__PURE__ */ import_react16.default.createElement(c6, { size: 18, weight: "duotone" }), /* @__PURE__ */ import_react16.default.createElement("div", null, /* @__PURE__ */ import_react16.default.createElement("strong", null, detail.planner?.used ? "LLM Planner \u5DF2\u53C2\u4E0E" : "\u89C4\u5219\u7F16\u6392"), /* @__PURE__ */ import_react16.default.createElement("span", null, detail.planner?.reason)), /* @__PURE__ */ import_react16.default.createElement("code", null, detail.component)), /* @__PURE__ */ import_react16.default.createElement(Surface, { presentation: detail, onAction: actionFor(selected) })) : /* @__PURE__ */ import_react16.default.createElement("div", { className: "detail-loading" }, /* @__PURE__ */ import_react16.default.createElement(CircularProgress_default, null), /* @__PURE__ */ import_react16.default.createElement("span", null, "LLM Planner \u6B63\u5728\u9009\u62E9\u8BE6\u60C5\u7EC4\u4EF6\u2026"))))))));
+  return /* @__PURE__ */ import_react17.default.createElement(ThemeProvider4, { theme: createShiguangTheme(themeName) }, /* @__PURE__ */ import_react17.default.createElement(Box_default, { className: `lab theme-${themeName}`, style: themeStyle(themeName) }, /* @__PURE__ */ import_react17.default.createElement("header", { className: "topbar" }, /* @__PURE__ */ import_react17.default.createElement("a", { href: "/", className: "brand" }, /* @__PURE__ */ import_react17.default.createElement("span", null, /* @__PURE__ */ import_react17.default.createElement(m3, { size: 19, weight: "duotone" })), "\u62FE\u5149 \xB7 A2UI LAB"), /* @__PURE__ */ import_react17.default.createElement(Stack_default, { direction: "row", alignItems: "center", spacing: 1.5 }, /* @__PURE__ */ import_react17.default.createElement("span", { className: "renderer-badge" }, /* @__PURE__ */ import_react17.default.createElement(s9, { size: 16, weight: "fill" }), " React Renderer"), /* @__PURE__ */ import_react17.default.createElement(FormControl_default, { size: "small" }, /* @__PURE__ */ import_react17.default.createElement(Select_default, { value: themeName, onChange: (e29) => setThemeName(e29.target.value), "aria-label": "\u89C6\u89C9\u4E3B\u9898" }, themeNames.map((name) => /* @__PURE__ */ import_react17.default.createElement(MenuItem_default, { value: name, key: name }, themeLabels[name])))))), /* @__PURE__ */ import_react17.default.createElement("main", null, /* @__PURE__ */ import_react17.default.createElement("section", { className: "intro" }, /* @__PURE__ */ import_react17.default.createElement(Chip_default, { icon: /* @__PURE__ */ import_react17.default.createElement(n7, { size: 15 }), label: "\u72EC\u7ACB\u6A21\u5757 \xB7 \u672A\u63A5\u5165\u8D2D\u7269\u667A\u80FD\u4F53" }), /* @__PURE__ */ import_react17.default.createElement(Typography_default, { component: "h1" }, "\u771F\u5B9E\u5185\u5BB9\uFF0C", /* @__PURE__ */ import_react17.default.createElement("br", null), /* @__PURE__ */ import_react17.default.createElement("em", null, "\u7531 A2UI \u9009\u62E9\u6B63\u786E\u7684\u8868\u8FBE\u3002")), /* @__PURE__ */ import_react17.default.createElement(Typography_default, { className: "intro-copy" }, "LLM Planner \u7406\u89E3\u771F\u5B9E\u5185\u5BB9\u5E76\u4ECE\u62FE\u5149 Catalog \u9009\u62E9\u7EC4\u4EF6\uFF0CReact Renderer \u518D\u6267\u884C\u53D7\u7EA6\u675F\u7684 A2UI \u6D88\u606F\u3002")), /* @__PURE__ */ import_react17.default.createElement("section", { className: "resolver-panel" }, /* @__PURE__ */ import_react17.default.createElement("form", { onSubmit: submit }, /* @__PURE__ */ import_react17.default.createElement(TextField_default, { fullWidth: true, value: url2, onChange: (e29) => setUrl(e29.target.value), placeholder: "\u7C98\u8D34\u5C0F\u7EA2\u4E66\u3001B\u7AD9\u3001\u77E5\u4E4E\u6216\u516C\u5F00\u7F51\u9875\u94FE\u63A5", InputProps: { startAdornment: /* @__PURE__ */ import_react17.default.createElement(p5, { size: 20 }) } }), /* @__PURE__ */ import_react17.default.createElement(Button_default, { type: "submit", variant: "contained", disabled: busy, endIcon: busy ? /* @__PURE__ */ import_react17.default.createElement(CircularProgress_default, { size: 16, color: "inherit" }) : /* @__PURE__ */ import_react17.default.createElement(s6, null) }, "\u8BFB\u53D6\u5E76\u7F16\u6392")), /* @__PURE__ */ import_react17.default.createElement("p", { className: "status", role: "status" }, status)), /* @__PURE__ */ import_react17.default.createElement("section", { className: "showcase" }, /* @__PURE__ */ import_react17.default.createElement("div", { className: "section-heading" }, /* @__PURE__ */ import_react17.default.createElement("div", null, /* @__PURE__ */ import_react17.default.createElement("span", null, "01 / A2UI SURFACES"), /* @__PURE__ */ import_react17.default.createElement("h2", null, "\u591A\u6765\u6E90\u9884\u89C8\u7EC4\u4EF6"), /* @__PURE__ */ import_react17.default.createElement("p", null, "\u70B9\u51FB\u5361\u7247\uFF0CA2UI \u4F1A\u6309\u5185\u5BB9\u4E0E\u8D2D\u7269\u8BC1\u636E\u7F16\u6392\u8BE6\u60C5\u533A\u5757\u3002")), /* @__PURE__ */ import_react17.default.createElement("b", null, previews.length, " surfaces")), /* @__PURE__ */ import_react17.default.createElement("div", { className: "preview-grid" }, previews.map((presentation, index) => /* @__PURE__ */ import_react17.default.createElement(Surface, { key: presentation.surfaceId, presentation, onAction: actionFor(records[index]) })))), /* @__PURE__ */ import_react17.default.createElement("section", { className: "architecture-strip" }, /* @__PURE__ */ import_react17.default.createElement("span", null, "\u94FE\u63A5\u8F6C\u63A5\u5668"), /* @__PURE__ */ import_react17.default.createElement(s6, null), /* @__PURE__ */ import_react17.default.createElement("span", null, "LLM Planner"), /* @__PURE__ */ import_react17.default.createElement(s6, null), /* @__PURE__ */ import_react17.default.createElement("span", null, "A2UI \u6D88\u606F"), /* @__PURE__ */ import_react17.default.createElement(s6, null), /* @__PURE__ */ import_react17.default.createElement("span", null, "\u62FE\u5149 Catalog"), /* @__PURE__ */ import_react17.default.createElement(s6, null), /* @__PURE__ */ import_react17.default.createElement("strong", null, "React \u7EC4\u4EF6"))), /* @__PURE__ */ import_react17.default.createElement(Root, { open: dialogOpen, onOpenChange: setDialogOpen }, /* @__PURE__ */ import_react17.default.createElement(Portal4, null, /* @__PURE__ */ import_react17.default.createElement(Overlay, { className: "dialog-overlay" }), /* @__PURE__ */ import_react17.default.createElement(Content, { className: `dialog-content theme-${themeName}`, style: themeStyle(themeName), "aria-describedby": void 0 }, /* @__PURE__ */ import_react17.default.createElement("div", { className: "dialog-handle" }), /* @__PURE__ */ import_react17.default.createElement(Title, { className: "sr-only" }, selected?.title || "\u5185\u5BB9\u8BE6\u60C5"), /* @__PURE__ */ import_react17.default.createElement(Close, { asChild: true }, /* @__PURE__ */ import_react17.default.createElement("button", { className: "dialog-close", "aria-label": "\u5173\u95ED" }, /* @__PURE__ */ import_react17.default.createElement(n10, { size: 24 }))), /* @__PURE__ */ import_react17.default.createElement("div", { className: "dialog-scroll" }, detail && selected ? /* @__PURE__ */ import_react17.default.createElement(import_react17.default.Fragment, null, /* @__PURE__ */ import_react17.default.createElement("div", { className: `planner-trace ${detail.planner?.used ? "is-llm" : "is-fallback"}` }, /* @__PURE__ */ import_react17.default.createElement(c6, { size: 18, weight: "duotone" }), /* @__PURE__ */ import_react17.default.createElement("div", null, /* @__PURE__ */ import_react17.default.createElement("strong", null, detail.planner?.used ? "LLM Planner \u5DF2\u53C2\u4E0E" : "\u89C4\u5219\u7F16\u6392"), /* @__PURE__ */ import_react17.default.createElement("span", null, detail.planner?.reason)), /* @__PURE__ */ import_react17.default.createElement("code", null, detail.sectionCount ? `${detail.sectionCount} \u4E2A\u533A\u5757` : detail.component)), /* @__PURE__ */ import_react17.default.createElement(Surface, { presentation: detail, onAction: actionFor(selected) })) : /* @__PURE__ */ import_react17.default.createElement("div", { className: "detail-loading" }, /* @__PURE__ */ import_react17.default.createElement(CircularProgress_default, null), /* @__PURE__ */ import_react17.default.createElement("span", null, "LLM Planner \u6B63\u5728\u7F16\u6392\u8BE6\u60C5\u533A\u5757\u2026"))))))));
 }
-(0, import_client.createRoot)(document.getElementById("root")).render(/* @__PURE__ */ import_react16.default.createElement(App, null));
+(0, import_client.createRoot)(document.getElementById("root")).render(/* @__PURE__ */ import_react17.default.createElement(App, null));
 /*! Bundled license information:
 
 react/cjs/react.development.js:
