@@ -31,6 +31,28 @@ test('search, read, normalize and deduplicate content without inventing media', 
   assert.equal(result.records[0].presentation.protocol, 'v0.9.1');
 });
 
+test('discovered content uses the LLM detail plan for A2UI reading order and falls back on failure', async () => {
+  const runner = async (args) => args[1] === 'search'
+    ? { ok: true, data: [{ url, title: '台灯体验', cover: 'https://example.com/cover.jpg' }] }
+    : { ok: true, data: [{ field: 'content', value: '用了一个月，灯光比较柔和。' }] };
+  const env = { LLM_BASE_URL: 'https://model.example/v1', LLM_API_KEY: 'test', LLM_MODEL: 'test' };
+  const plan = { sections: [{ component: 'ContentSummary' }, { component: 'HeroMedia' }] };
+  let planned = 0;
+  const options = { runner, coverFetcher: async () => false, env, planner: async () => { planned++; return plan; } };
+  const result = await discoverRelatedContent({ category: '台灯', limit: 1 }, options);
+  assert.equal(planned, 1);
+  assert.deepEqual(result.diagnostics.planner, { configured: true, used: 1, fallback: 0 });
+  assert.equal(result.records[0].presentation.designSource, 'ai');
+  const components = result.records[0].presentation.messages.find((message) => message.updateComponents).updateComponents.components;
+  const children = components.find((component) => component.id === 'card-content').children;
+  assert.ok(children.indexOf('title') < children.indexOf('primary-image'));
+  assert.equal(result.records[0].previewPresentation.designSource, 'rule');
+
+  const fallback = await discoverRelatedContent({ category: '台灯', limit: 1 }, { ...options, planner: async () => { throw new Error('planner unavailable'); } });
+  assert.equal(fallback.records[0].presentation.designSource, 'rule');
+  assert.deepEqual(fallback.diagnostics.planner, { configured: true, used: 0, fallback: 1 });
+});
+
 test('failed read stays title-only and missing CLI remains unavailable', async () => {
   const result = await discoverRelatedContent({ category: '台灯' }, { runner: async (args) => args[1] === 'search'
     ? { ok: true, data: [{ url, title: '台灯只读到标题' }] }

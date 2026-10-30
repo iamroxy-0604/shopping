@@ -45,7 +45,11 @@ export function composeA2ui(record, mode = 'overview', design = {}) {
   const bound = (name) => ({ path: `/${name}` });
   const cardChildren = [];
   const requestedLayout = ['article', 'image', 'video'].includes(design?.layout) ? design.layout : '';
-  const textFirst = requestedLayout === 'article' || platform.includes('知乎');
+  const plannedSections = Array.isArray(design?.plan?.sections) ? design.plan.sections : [];
+  const summaryIndex = plannedSections.findIndex((section) => section.component === 'ContentSummary');
+  const mediaIndex = plannedSections.findIndex((section) => section.component === 'HeroMedia');
+  const plannedTextFirst = summaryIndex >= 0 && mediaIndex >= 0 ? summaryIndex < mediaIndex : null;
+  const textFirst = plannedTextFirst ?? (requestedLayout === 'article' || platform.includes('知乎'));
 
   if (mode === 'preview') {
     const articlePreview = platform.includes('知乎') || contentType === 'article';

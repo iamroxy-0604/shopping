@@ -116,7 +116,7 @@ function polishDetailPresentation(presentation, record) {
         if (component.id === 'root' && Array.isArray(component.children)) component.children = component.children.filter((id) => id !== 'source');
         if (component.id === 'card-content' && Array.isArray(component.children)) {
           component.children = component.children.filter((id) => id !== 'open-source');
-          if (platformLabel(record) === '知乎') {
+          if (platformLabel(record) === '知乎' && copy.designSource !== 'ai') {
             const preferred = ['title', 'body', 'primary-image', 'gallery-label', 'gallery', 'media-notice', 'unavailable-notice'];
             component.children.sort((a, b) => preferred.indexOf(a) - preferred.indexOf(b));
           }

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { composeA2ui } from '../../../link-bridge/src/a2ui.mjs';
+import { planDetailComponent, plannerConfigured } from '../../../link-bridge/src/llm-planner.mjs';
 import { resolveLink } from '../../../link-bridge/src/resolver.mjs';
 
 const MAX_OUTPUT = 1024 * 1024;
@@ -291,10 +292,11 @@ export async function discoverOpenWeb(query, runner, resolveImpl = resolveLink, 
   return records;
 }
 
-export async function discoverRelatedContent(task, { runner = runOpenCli, coverFetcher = cacheRemoteCover, resolveImpl = resolveLink } = {}) {
+export async function discoverRelatedContent(task, { runner = runOpenCli, coverFetcher = cacheRemoteCover, resolveImpl = resolveLink, planner = planDetailComponent, env = process.env } = {}) {
   const query = buildContentQuery(task);
   const multiSource = runner === runOpenCli;
-  const diagnostics = { sourcesTried: multiSource ? ['xiaohongshu', 'bilibili', 'zhihu'] : ['xiaohongshu'], candidatesFound: 0, recordsRead: 0, query };
+  const diagnostics = { sourcesTried: multiSource ? ['xiaohongshu', 'bilibili', 'zhihu'] : ['xiaohongshu'], candidatesFound: 0, recordsRead: 0, query,
+    planner: { configured: plannerConfigured(env), used: 0, fallback: 0 } };
   if (!query) return { records: [], status: 'unavailable', diagnostics: { ...diagnostics, reason: 'missing_category' } };
   const limit = Math.max(1, Math.min(5, Number(task?.limit) || 3));
   const poolSize = 20;
@@ -340,18 +342,24 @@ export async function discoverRelatedContent(task, { runner = runOpenCli, coverF
     }
   }
   const valid = combined.slice(0, limit);
-  for (const record of valid) {
+  await Promise.all(valid.map(async (record) => {
     const images = record.media.filter((item) => item.type === 'image' && item.status === 'available').map((item) => item.url);
     const cover = record.media.find((item) => item.id === record.coverMediaId)?.url || '';
     const video = record.media.find((item) => item.type === 'video' && item.status === 'available')?.url || '';
     const a2uiRecord = { id: record.id, source: { url: record.source.url, platform: record.source.platform || (record.platform === 'xiaohongshu' ? '小红书' : record.platform) }, title: record.title, author: record.author, body: record.body,
       contentType: record.contentType === 'video' || record.contentType === 'video_note' || video ? 'video' : images.length ? 'image' : 'article', cover, images, video,
       status: record.retrieval.textAvailable ? 'complete' : 'partial' };
-    const composed = composeA2ui(a2uiRecord, 'detail');
+    let plan;
+    if (diagnostics.planner.configured && (a2uiRecord.body || cover || video)) {
+      try { plan = await planner(a2uiRecord, { env }); diagnostics.planner.used++; }
+      catch { diagnostics.planner.fallback++; }
+    }
+    const design = plan ? { plan, source: 'ai' } : {};
+    const composed = composeA2ui(a2uiRecord, 'detail', design);
     if (composed.ok) record.presentation = composed;
     const preview = composeA2ui(a2uiRecord, 'preview');
     if (preview.ok) record.previewPresentation = preview;
-  }
+  }));
   diagnostics.recordsRead = valid.filter((record) => record.retrieval.textAvailable).length;
   if (!valid.length) diagnostics.reason = found.ok ? 'no_relevant_posts' : found.code;
   return { records: valid, status: valid.length && diagnostics.recordsRead === valid.length ? 'ok' : valid.length ? 'partial' : 'unavailable', diagnostics };
