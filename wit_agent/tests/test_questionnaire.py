@@ -237,6 +237,7 @@ def test_narration_failure_has_no_template_and_retry_reuses_products(tmp_path):
             failed = await agent.chat("s", "我想买一条日系裤子，预算300元以内")
             assert failed["type"] == "error" and failed["error"]["code"] == "NARRATIVE_UNAVAILABLE"
             assert failed["items"] == [] and failed["summary"] == ""
+            assert len(failed["candidateItems"]) == 2
             assert "各有自己的看点" not in failed["message"]
             stored = agent.memory.load("s")
             assert stored["preferences"]["category"] == "裤子"
@@ -305,5 +306,35 @@ def test_narration_does_not_repeat_timed_out_gateway_request():
         else:
             raise AssertionError("timed out model request must fail")
         assert narrator.calls == 1
+
+    run(scenario())
+
+
+def test_narration_keeps_valid_model_fields_when_repairing_a_rejected_summary():
+    class PartialNarrator:
+        def __init__(self):
+            self.calls = 0
+
+        async def complete(self, request, invocation):
+            self.calls += 1
+            if self.calls == 1:
+                result = {"intro": "我先按你的预算整理这款商品，看看它有哪些可核对的信息。",
+                          "summary": "这款商品具有SPF99防护效果，可以直接作为选购结论。",
+                          "followUp": "你还想确认商品的哪项具体信息？",
+                          "items": [{"id": "s1", "reason": "商品标题写明是户外防晒霜，价格已列出；具体效果仍需查看原商品页。"}]}
+                return ModelResult(AssistantMessage(json.dumps(result, ensure_ascii=False)))
+            if self.calls == 2:
+                return ModelResult(AssistantMessage("not json"))
+            return ModelResult(AssistantMessage(json.dumps({
+                "summary": "目前能确认的是商品标题和标价，具体防护表现没有独立依据，需要到原页面核实。"
+            }, ensure_ascii=False)))
+
+    async def scenario():
+        item = normalize_product({"id": "s1", "title": "户外防晒霜", "price": 79})
+        narrator = PartialNarrator()
+        result = await recommendation_plan(narrator, None, "找防晒霜", {"category": "防晒霜"}, [], [item])
+        assert narrator.calls == 3
+        assert "SPF99" not in result["summary"]
+        assert result["intro"] and result["followUp"] and result["items"]["s1"]
 
     run(scenario())

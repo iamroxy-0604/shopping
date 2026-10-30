@@ -52,6 +52,7 @@ export function composeA2ui(record, mode = 'overview', design = {}) {
     if (cover && !articlePreview) cardChildren.push(add('preview-cover', 'Image', { url: bound('cover'), description: bound('imageDescription'), fit: 'cover', variant: 'largeFeature' }));
     if (articlePreview) cardChildren.push(add('preview-kicker', 'Text', { text: `${platform} · 深度图文`, variant: 'caption' }));
     cardChildren.push(add('preview-title', 'Text', { text: bound('title'), variant: 'h5' }));
+    if (articlePreview) cardChildren.push(add('preview-excerpt', 'Text', { text: bound('previewExcerpt'), variant: 'caption' }));
     cardChildren.push(add('preview-meta', 'Text', { text: bound('previewMeta'), variant: 'caption' }));
     add('preview-content', 'Column', { children: cardChildren });
     add('preview-card', 'Card', { child: 'preview-content' });

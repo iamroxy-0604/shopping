@@ -1,6 +1,8 @@
 backend/.env
 backend/node_modules/
 backend/coverage/
+backend/data/content-media/
+backend/public/shopping-a2ui.bundle.js
 node_modules/
 .DS_Store
 *.log

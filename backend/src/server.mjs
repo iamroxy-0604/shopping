@@ -8,6 +8,7 @@ import { chat, chatStructured } from './agent.mjs';
 import { logEvent } from './logger.mjs';
 import { chatViaWit, isWitEnabled } from './wit-bridge.mjs';
 import { isStructuredChatRequest } from './chat-routing.mjs';
+import { discoverRelatedContent, mediaRoot } from './content/index.mjs';
 
 loadDotEnv();
 const port = Number(process.env.PORT || 3000);
@@ -65,7 +66,7 @@ function serveStatic(res, url) {
   const filePath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public', relative);
   if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return false;
   const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png' };
-  res.writeHead(200, { 'content-type': types[path.extname(filePath)] || 'application/octet-stream' });
+  res.writeHead(200, { 'content-type': types[path.extname(filePath)] || 'application/octet-stream', 'cache-control': 'no-store' });
   res.end(fs.readFileSync(filePath));
   return true;
 }
@@ -82,7 +83,31 @@ function readBody(req) {
 const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') return sendJson(res, 204, {});
   if (req.method === 'GET' && req.url === '/health') return sendJson(res, 200, { ok: true, service: 'taobao-search', agentRuntime: isWitEnabled() ? 'wit3' : 'legacy' });
+  if (req.method === 'GET' && req.url?.startsWith('/api/content/media/')) {
+    const match = req.url.match(/^\/api\/content\/media\/([a-zA-Z0-9]+)\/([a-zA-Z0-9]+_[1-9][0-9]*\.(?:jpg|png|webp|mp4))$/);
+    if (!match || !match[2].startsWith(`${match[1]}_`)) return sendJson(res, 404, { ok: false });
+    const file = path.join(mediaRoot, match[1], match[2]);
+    if (!fs.existsSync(file) || !fs.statSync(file).isFile()) return sendJson(res, 404, { ok: false });
+    const mediaType = match[2].endsWith('.mp4') ? 'video/mp4' : match[2].endsWith('.webp') ? 'image/webp' : match[2].endsWith('.png') ? 'image/png' : 'image/jpeg';
+    res.writeHead(200, { 'content-type': mediaType, 'cache-control': 'private, max-age=3600' });
+    fs.createReadStream(file).pipe(res);
+    return;
+  }
   if (req.method === 'GET' && serveStatic(res, req.url)) return;
+  if (req.method === 'POST' && req.url === '/internal/content/discover') {
+    if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress))
+      return sendJson(res, 403, { ok: false, error: { code: 'LOCAL_ONLY' } });
+    if (req.headers.origin && !/^http:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?$/.test(req.headers.origin))
+      return sendJson(res, 403, { ok: false, error: { code: 'LOCAL_ONLY' } });
+    try {
+      const task = JSON.parse(await readBody(req) || '{}');
+      if (!task || typeof task !== 'object' || Array.isArray(task) || typeof task.category !== 'string' || task.category.length > 80)
+        return sendJson(res, 400, { ok: false, error: { code: 'INVALID_TASK' } });
+      return sendJson(res, 200, { ok: true, ...(await discoverRelatedContent(task)) });
+    } catch {
+      return sendJson(res, 400, { ok: false, error: { code: 'INVALID_TASK' } });
+    }
+  }
   if (req.method === 'POST' && req.url === '/api/chat') {
     try {
       const body = JSON.parse(await readBody(req) || '{}');
@@ -90,7 +115,7 @@ const server = http.createServer(async (req, res) => {
       const result = structured
         ? await chatStructured({ sessionId: body.sessionId, userId: body.userId, message: body.message, answer: body.answer })
         : isWitEnabled()
-        ? await chatViaWit({ sessionId: body.sessionId, userId: body.userId, message: body.message, answer: body.answer })
+        ? await chatViaWit({ sessionId: body.sessionId, userId: body.userId, message: body.message, answer: body.answer, recordId: body.recordId })
         : await chat({ sessionId: body.sessionId, message: body.message });
       return sendJson(res, result.ok ? 200 : 502, result);
     } catch {
@@ -116,7 +141,7 @@ const server = http.createServer(async (req, res) => {
           onPhase: async (phase) => writeSse(res, 'phase', phase)
         })
         : isWitEnabled()
-          ? await emitWitProgress(res, chatViaWit({ sessionId: body.sessionId, userId: body.userId, message: body.message, answer: body.answer }))
+          ? await emitWitProgress(res, chatViaWit({ sessionId: body.sessionId, userId: body.userId, message: body.message, answer: body.answer, recordId: body.recordId }))
           : await chat({ sessionId: body.sessionId, message: body.message });
       writeSse(res, result.ok ? 'result' : 'error', result);
       writeSse(res, 'done', { ok: result.ok });

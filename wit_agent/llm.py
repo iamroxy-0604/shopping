@@ -295,8 +295,13 @@ def _safe_copy(value, evidence: str, *, minimum: int = 12, maximum: int = 220,
     for number in re.findall(r"\d+(?:\.\d+)?", value):
         if number not in allowed_numbers:
             return ""
-    if re.search(r"保证|一定适合|绝对|实测|全网最低|销量第一|已经验证|亲测|认证|零风险", value):
+    if re.search(r"保证|一定适合|绝对|全网最低|销量第一|零风险", value):
         return ""
+    for seller_claim in ("实测", "亲测", "认证", "已经验证"):
+        if seller_claim in value and not (
+            seller_claim in evidence and re.search(r"标题|标注|卖家|商品页|页面", value)
+        ):
+            return ""
     if re.search(r"(?:适合|适用于|专为).{0,8}(?:油皮|干皮|敏感肌|黄皮|肤质)|"
                  r"(?:美白|淡斑|抗皱|护眼|防晒|防水|耐汗).{0,6}(?:见效|保证|显著|有效)", value):
         return ""
@@ -323,6 +328,9 @@ async def recommendation_plan(model, invocation, goal: str, preferences: dict,
         "商品标题只是卖家描述，不是独立验证；未提供的规格、成分、肤质适配、材质、"
         "容量、防护效果、销量、评价、库存、折扣和实际到手价都不能猜。"
         "不要臆测图片内容。没有差异证据就坦率说尚无法比较，不要硬编。"
+        "引用认证、实测等卖家表述时，必须写成‘商品标题标注’或‘卖家标注’，不能当作已核验事实。"
+        "控制篇幅：intro 40-100字，summary 60-160字，followUp 15-60字，"
+        "每个商品的 reason 40-100字且只写一句。"
         "输出 JSON {intro:'',summary:'',followUp:'',items:[{id:'',reason:''}]}，"
         "items 必须逐一对应输入的商品 ID，不能新增商品。不要 Markdown。"
     )
@@ -335,36 +343,59 @@ async def recommendation_plan(model, invocation, goal: str, preferences: dict,
     context = json.dumps({"goal": goal, "preferences": preferences,
                           "answers": answers, "products": evidence}, ensure_ascii=False)
     last_failure = "invalid_output"
-    for attempt in range(2):
+    last_exception = None
+    last_diagnostics = {}
+    accepted = {"intro": "", "summary": "", "followUp": ""}
+    per_item = {}
+    expected = {item["id"] for item in items}
+    for attempt in range(3):
+        missing = [key for key, value in accepted.items() if not value]
+        if len(per_item) != len(items):
+            missing.append("items")
         try:
             raw = await _ask_json(model, invocation, instruction + (
-                " 上一次输出不完整或不可信；这次必须填写全部字段、逐款给出不同理由。" if attempt else ""
+                f" 上一次输出未通过校验；请特别修正 {', '.join(missing)}，仍输出完整 JSON。"
+                if attempt else ""
             ), payload, timeout=95)
         except json.JSONDecodeError:
-            last_failure = "invalid_output"
+            if not any(accepted.values()) and not per_item:
+                last_failure = "invalid_output"
             continue
         except Exception as exc:
             last_failure = "model_timeout" if isinstance(exc, asyncio.TimeoutError) else "model_request_failed"
+            last_exception = exc
             break
         intro = _safe_copy(raw.get("intro"), context, maximum=180, item_count=len(items))
         summary = _safe_copy(raw.get("summary"), context, maximum=260, item_count=len(items))
         follow_up = _safe_copy(raw.get("followUp"), context, minimum=5, maximum=100,
                                item_count=len(items))
+        if intro and not accepted["intro"]:
+            accepted["intro"] = intro
+        if summary and not accepted["summary"]:
+            accepted["summary"] = summary
+        if follow_up and not accepted["followUp"]:
+            accepted["followUp"] = follow_up
         rows = raw.get("items")
-        expected = {item["id"] for item in items}
-        if not intro or not summary or not follow_up or not isinstance(rows, list) or len(rows) != len(items):
-            last_failure = "missing_narrative_fields"
-            continue
-        per_item = {}
-        for row in rows:
-            if not isinstance(row, dict) or row.get("id") not in expected or row["id"] in per_item:
-                break
-            reason = _safe_copy(row.get("reason"), context, maximum=260, item_count=len(items))
-            if not reason:
-                break
-            per_item[row["id"]] = reason
-        if len(per_item) != len(items) or len(set(per_item.values())) != len(items):
-            last_failure = "invalid_product_reasons"
-            continue
-        return {"intro": intro, "summary": summary, "followUp": follow_up, "items": per_item}
-    raise NarrativeGenerationError(last_failure)
+        if isinstance(rows, list):
+            for row in rows:
+                if not isinstance(row, dict) or row.get("id") not in expected or row["id"] in per_item:
+                    continue
+                reason = _safe_copy(row.get("reason"), context, maximum=260, item_count=len(items))
+                if reason and reason not in per_item.values():
+                    per_item[row["id"]] = reason
+        if all(accepted.values()) and len(per_item) == len(items):
+            return {**accepted, "items": per_item}
+        last_failure = "invalid_product_reasons" if all(accepted.values()) else "missing_narrative_fields"
+        last_diagnostics = {
+            "introValid": bool(accepted["intro"]), "summaryValid": bool(accepted["summary"]),
+            "followUpValid": bool(accepted["followUp"]),
+            "itemCount": len(per_item), "expectedItemCount": len(items),
+            "introLength": len(raw.get("intro")) if isinstance(raw.get("intro"), str) else None,
+            "summaryLength": len(raw.get("summary")) if isinstance(raw.get("summary"), str) else None,
+            "followUpLength": len(raw.get("followUp")) if isinstance(raw.get("followUp"), str) else None,
+        }
+    if last_exception is not None:
+        raise NarrativeGenerationError(last_failure) from last_exception
+    error = NarrativeGenerationError(last_failure)
+    error.diagnostics = last_diagnostics
+    raise error

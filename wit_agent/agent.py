@@ -20,9 +20,14 @@ from wit.providers.openai import OpenAIModelComponent
 from .llm import (NarrativeGenerationError, category_question_plan, interpret, product_plan,
                   questionnaire_plan, recommendation_plan, search_plan)
 from .memory import MemoryManager
+from .content import discover_related_content, content_reply, normalize_link_record
 from .policy import extract_updates, forget_field, temporary_budget, understand, usual_budget
 
 Search = Callable[[str, dict], Awaitable[dict | list]]
+
+
+async def no_content_source(_task: dict) -> dict:
+    return {"records": [], "status": "unavailable", "diagnostics": {"reason": "not_configured"}}
 CATEGORY_EQUIVALENTS = {"桌面灯": ("桌面灯", "台灯"), "台灯": ("台灯", "桌面灯"), "腮红": ("腮红", "胭脂"), "耳机": ("耳机", "耳麦"), "餐桌": ("餐桌", "饭桌", "餐台"), "裤子": ("裤子", "裤")}
 STYLE_EQUIVALENTS = {"日系": ("日系", "日式"), "韩系": ("韩系", "韩式"), "北欧": ("北欧",), "法式": ("法式",)}
 STYLE_CONFLICTS = ("日系", "日式", "韩系", "韩式", "北欧", "欧式", "美式", "法式")
@@ -239,9 +244,10 @@ def questionnaire_question(questionnaire: dict) -> dict | None:
 
 
 class ShoppingAgent:
-    def __init__(self, memory_path: str | Path, search: Search = product_api_search, model=None, *, questionnaire_enabled=True, narrator=None):
+    def __init__(self, memory_path: str | Path, search: Search = product_api_search, model=None, *, questionnaire_enabled=True, narrator=None, content_search=None):
         self.memory = MemoryManager(memory_path)
         self.search = search
+        self.content_search = content_search or (discover_related_content if search is product_api_search else no_content_source)
         self.questionnaire_enabled = questionnaire_enabled
         self.narrator = narrator  # Test-only dependency injection; production uses the installed model.
         self._locks = defaultdict(asyncio.Lock)
@@ -252,6 +258,7 @@ class ShoppingAgent:
                 api_key=os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY"),
                 base_url=os.getenv("LLM_BASE_URL", "https://api.openai.com/v1"),
                 api="chat.completions", timeout=90.0, max_retries=0,
+                settings={"max_tokens": 1600, "temperature": 0.2},
             )
         if model is not None:
             self.agent.install(model, required=True)
@@ -269,7 +276,7 @@ class ShoppingAgent:
     async def __aexit__(self, *_):
         await self.agent.stop()
 
-    async def chat(self, session_id: str, message: str, user_id: str | None = None, *, new_conversation: bool = False, answer: dict | None = None) -> dict:
+    async def chat(self, session_id: str, message: str, user_id: str | None = None, *, new_conversation: bool = False, answer: dict | None = None, record_id: str | None = None, link_record: dict | None = None, link_records: list | None = None) -> dict:
         if not isinstance(session_id, str) or not session_id.strip() or len(session_id) > 128:
             raise ValueError("sessionId must be a nonempty string of at most 128 characters")
         if user_id is None:
@@ -282,10 +289,16 @@ class ShoppingAgent:
             raise ValueError("newConversation must be a boolean")
         if answer is not None and (not isinstance(answer, dict) or not isinstance(answer.get("questionId"), str)):
             raise ValueError("answer must include questionId")
+        if record_id is not None and (not isinstance(record_id, str) or len(record_id) > 128):
+            raise ValueError("recordId must be a string of at most 128 characters")
+        if link_record is not None and not isinstance(link_record, dict):
+            raise ValueError("linkRecord must be an object")
+        if link_records is not None and (not isinstance(link_records, list) or len(link_records) > 5 or any(not isinstance(row, dict) for row in link_records)):
+            raise ValueError("linkRecords must contain at most five objects")
         async with self._locks[user_id]:
             if new_conversation:
                 self.memory.reset_session(session_id, user_id)
-            result = await self.agent.invoke({"sessionId": session_id, "userId": user_id, "message": message.strip(), "answer": answer})
+            result = await self.agent.invoke({"sessionId": session_id, "userId": user_id, "message": message.strip(), "answer": answer, "recordId": record_id, "linkRecord": link_record, "linkRecords": link_records})
             return result.output.output
 
     def _load(self, ctx):
@@ -294,6 +307,9 @@ class ShoppingAgent:
         ctx.state["user_id"] = request["userId"]
         ctx.state["message"] = request["message"]
         ctx.state["answer"] = request.get("answer")
+        ctx.state["record_id"] = request.get("recordId")
+        supplied = request.get("linkRecords") or ([request["linkRecord"]] if request.get("linkRecord") else [])
+        ctx.state["link_records"] = [record for raw in supplied if (record := normalize_link_record(raw))]
         ctx.state["memory"] = self.memory.load(request["sessionId"], request["userId"])
 
     async def _questions_for_goal(self, ctx, category: str, preferences: dict, goal: str) -> list[dict]:
@@ -307,6 +323,24 @@ class ShoppingAgent:
 
     async def _plan(self, ctx):
         state = ctx.state
+        if state.get("link_records"):
+            state["policy"] = {"action": "link_content", "question_count": 0, "recommendation_count": 0}
+            state["preferences"] = copy.deepcopy(state["memory"]["preferences"])
+            state["durable_preferences"] = copy.deepcopy(state["preferences"])
+            state["temporary"] = copy.deepcopy(state["memory"].get("temporary", {}))
+            state["emotion"] = copy.deepcopy(state["memory"].get("emotion") or {})
+            state["content_records"] = copy.deepcopy(state["link_records"])
+            return
+        selected = next((record for record in state["memory"].get("content_records", [])
+                         if record.get("id") == state.get("record_id")), None)
+        if selected and not re.search(r"想买|我要买|想找|换成|改成|重新找", state["message"]):
+            state["selected_content"] = copy.deepcopy(selected)
+            state["policy"] = {"action": "content_detail", "question_count": 0, "recommendation_count": 0}
+            state["preferences"] = copy.deepcopy(state["memory"]["preferences"])
+            state["durable_preferences"] = copy.deepcopy(state["preferences"])
+            state["temporary"] = copy.deepcopy(state["memory"].get("temporary", {}))
+            state["emotion"] = copy.deepcopy(state["memory"].get("emotion") or {})
+            return
         if state["message"] == "重试生成推荐" and state["memory"].get("pending_result"):
             pending_result = copy.deepcopy(state["memory"]["pending_result"])
             state["preferences"] = pending_result["preferences"]
@@ -316,6 +350,7 @@ class ShoppingAgent:
             state["policy"] = {"action": "narrative_retry", "question_count": 0,
                                "recommendation_count": len(pending_result["items"])}
             state["items"] = pending_result["items"]
+            state["content_records"] = pending_result.get("content_records", [])
             state["questionnaire"] = pending_result.get("questionnaire")
             state["query"] = pending_result.get("query", "")
             return
@@ -330,6 +365,7 @@ class ShoppingAgent:
             # A different product is a new shopping task within this conversation.
             # Conditions and products for the previous product cannot guide it.
             state["memory"].update(preferences={}, temporary={}, current_items=[],
+                                   content_records=[], selected_content_id=None,
                                    last_query="", questionnaire=None, pending_result=None,
                                    shopping_answers=[])
         if pending and category_changed:
@@ -451,6 +487,26 @@ class ShoppingAgent:
                 policy["action"] = "questionnaire"
 
     async def _retrieve(self, ctx):
+        state = ctx.state
+        if state["policy"]["action"] != "search":
+            return await self._retrieve_products(ctx)
+        answers = (state.get("questionnaire") or {}).get("answers") or state["memory"].get("shopping_answers", [])
+        task = {"category": state["preferences"].get("category", ""),
+                "goal": (state.get("questionnaire") or {}).get("goal", ""),
+                "scene": state["preferences"].get("scene", ""),
+                "preferences": state["preferences"],
+                "questionnaireAnswers": [{"id": row.get("id", ""), "question": row.get("title", ""), "answer": row.get("value", "")} for row in answers],
+                "limit": 3}
+        products, content = await asyncio.gather(self._retrieve_products(ctx), self.content_search(task), return_exceptions=True)
+        if isinstance(products, Exception):
+            state["search_error"] = "商品搜索暂时不可用，请稍后重试"
+        if isinstance(content, Exception) or not isinstance(content, dict):
+            content = {"records": [], "status": "unavailable", "diagnostics": {"reason": "content_search_failed"}}
+        state["content_records"] = [row for row in content.get("records", []) if isinstance(row, dict) and row.get("kind") == "content"][:4]
+        state["content_status"] = content.get("status", "unavailable")
+        state["content_diagnostics"] = content.get("diagnostics", {})
+
+    async def _retrieve_products(self, ctx):
         state = ctx.state
         action = state["policy"]["action"]
         if action == "narrative_retry":
@@ -587,6 +643,22 @@ class ShoppingAgent:
             message, kind = ("我记得你提过：" + "、".join(tags) + "。" if tags else "目前还没有记下明确偏好。"), "question"
         elif action in ("compare_current", "current_detail"):
             message, kind = compare_message(state.get("current_items", []), state["message"]), "comparison"
+        elif action == "content_detail":
+            message, kind = content_reply(state["selected_content"], state["message"]), "content_detail"
+        elif action == "link_content":
+            records = state["link_records"]
+            readable = sum(bool(record["retrieval"]["textAvailable"]) for record in records)
+            if len(records) > 1:
+                message = f"找到了{len(records)}条链接内容，其中{readable}条读到了文字。点开卡片可逐条切换查看。"
+            elif records[0]["kind"] == "product_link":
+                message = "这是商品链接，可以打开原商品页核对价格、库存和规格；当前没有把网页文字当成已核验的商品数据。"
+            elif records[0]["status"] == "unavailable":
+                message = "已收到链接，但暂时无法读取这条内容。可以打开原链接核对，或换一条具体内容链接。"
+            elif records[0]["retrieval"]["textAvailable"]:
+                message = f"已读到《{records[0]['title']}》的文字内容。你可以打开内容卡片，或告诉我想参考其中哪一点。"
+            else:
+                message = f"已取得《{records[0]['title']}》的部分信息，正文暂不可用；可以打开原链接核对。"
+            kind = "link_content"
         elif action == "explore":
             if state["emotion"]["mood"] == "stop_selling":
                 opening = "这盏灯先收藏着，今天不考虑购买。" if "收藏" in state["message"] else "好，今天先不考虑购买。"
@@ -605,8 +677,12 @@ class ShoppingAgent:
                 message, kind = "这是新的对话，我没有把上一轮商品带过来。你可以说说想看的品类，我再帮你找。", "question"
             else:
                 message, kind = "可以。你想先看哪一类？比如台灯、收纳或耳机。", "question"
+        elif state.get("search_error") and state.get("content_records"):
+            message, kind = "商品搜索暂时不可用；找到的相关帖子可以先查看。", "results"
         elif state.get("search_error"):
             message, kind = state["search_error"], "error"
+        elif not state["items"] and state.get("content_records"):
+            message, kind = "这轮没有合适商品；先看看找到的相关帖子。", "results"
         elif not state["items"]:
             message = "这轮暂时没找到贴近的桌面好物。想先看台灯还是收纳？" if state.get("browse") else "按这轮条件暂时没有合适商品。要换个关键词，还是调整预算？"
             kind = "results"
@@ -633,13 +709,17 @@ class ShoppingAgent:
                 state["narrative_error"] = str(exc)
                 try:
                     with Path(self.memory.path).with_suffix(".events.log").open("a", encoding="utf-8") as log:
+                        cause = exc.__cause__
                         log.write(json.dumps({"time": datetime.now(timezone.utc).isoformat(),
                                               "event": "narrative_failed", "reason": str(exc),
+                                              "detail": (f"{type(cause).__name__}: {cause}"[:400] if cause else ""),
+                                               "diagnostics": getattr(exc, "diagnostics", {}),
                                               "productCount": len(state["items"])}, ensure_ascii=False) + "\n")
                 except OSError:
                     pass  # Logging must never replace the user-facing retry response.
                 state["pending_result"] = {
                     "items": copy.deepcopy(state["items"]),
+                    "content_records": copy.deepcopy(state.get("content_records", [])),
                     "preferences": copy.deepcopy(prefs),
                     "questionnaire": copy.deepcopy(state.get("questionnaire")),
                     "query": state.get("query", ""),
@@ -653,12 +733,23 @@ class ShoppingAgent:
                     item["talkingPoint"] = reason
                     item["recommendation"] = reason
                 message = narrative["intro"]
+        if kind == "results" and state.get("content_records"):
+            read_count = sum(bool(record.get("retrieval", {}).get("textAvailable")) for record in state["content_records"])
+            message += f" 另外找到{len(state['content_records'])}篇相关帖子，其中{read_count}篇已读到正文。"
         next_question = ({**question, "step": len(state["questionnaire"]["answers"]) + 1,
                           "total": len(state["questionnaire"]["questions"])}
                          if action == "questionnaire" and question else None)
         state["response"] = {
             "ok": kind != "error", "type": kind, "message": message,
             "items": copy.deepcopy(state["items"]) if kind == "results" else [],
+            "candidateItems": copy.deepcopy(state["items"]) if state.get("narrative_error") else [],
+            "contentRecords": copy.deepcopy(state.get("content_records", [])) if kind in ("results", "error", "link_content") else [],
+            "contentStatus": state.get("content_status", "unavailable") if kind in ("results", "error", "link_content") else None,
+            "contentDiagnostics": copy.deepcopy(state.get("content_diagnostics", {})) if kind in ("results", "error") else {},
+            "ui": {"blocks": ([{"type": "content_list", "recordIds": [record["id"] for record in state["link_records"]]}] if kind == "link_content" else [{"type": "assistant_intro"}, {"type": "product_list", "recordIds": [item["id"] for item in state["items"]]},
+                              {"type": "content_list", "recordIds": [record["id"] for record in state.get("content_records", [])]} if state.get("content_records") else
+                              {"type": "content_unavailable"}] if kind in ("results", "error") else
+                             [{"type": "content_detail", "recordId": state["selected_content"]["id"]}] if kind == "content_detail" else [])},
             "summary": narrative["summary"] if narrative else "",
             "followUp": narrative["followUp"] if narrative else "",
             "narrativeSource": "ai" if narrative else "none",
@@ -678,6 +769,8 @@ class ShoppingAgent:
         forget_all = state["policy"]["action"] == "forget" and forget_field(state["message"]) == "all"
         if forget_all:
             data["current_items"] = []
+            data["content_records"] = []
+            data["selected_content_id"] = None
             data["last_query"] = ""
             data["feedback"] = []
             data["pending_result"] = None
@@ -696,14 +789,26 @@ class ShoppingAgent:
             data["feedback"] = [*data.get("feedback", []), {"type": feedback_type, "itemIds": item_ids}][-20:]
         if state.get("narrative_error"):
             data["pending_result"] = copy.deepcopy(state["pending_result"])
+        if state["policy"]["action"] == "search" and state.get("content_records"):
+            data["content_records"] = copy.deepcopy(state["content_records"])
+            data["selected_content_id"] = None
         if state["policy"]["action"] in ("search", "narrative_retry") and not state.get("search_error") and not state.get("narrative_error"):
             data["current_items"] = copy.deepcopy(state["items"])
+            data["content_records"] = copy.deepcopy(state.get("content_records", []))
+            data["selected_content_id"] = None
             data["last_query"] = state.get("query", "")
             if state.get("questionnaire"):
                 data["shopping_answers"] = copy.deepcopy(state["questionnaire"]["answers"])
             data["questionnaire"] = None
             data["shopping_category"] = state["preferences"].get("category", "")
             data["pending_result"] = None
+        if state["policy"]["action"] == "content_detail":
+            data["selected_content_id"] = state["selected_content"]["id"]
+        if state["policy"]["action"] == "link_content":
+            ids = {record["id"] for record in state["link_records"]}
+            existing = [row for row in data.get("content_records", []) if row.get("id") not in ids]
+            data["content_records"] = [*copy.deepcopy(state["link_records"]), *existing][:10]
+            data["selected_content_id"] = state["link_records"][0]["id"]
         self.memory.save(
             state["session_id"], data, state["user_id"],
             forget_all=forget_all,
