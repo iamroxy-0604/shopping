@@ -12,7 +12,7 @@ export function isWitEnabled(env = process.env) {
   return Boolean(env.WIT_AGENT_URL);
 }
 
-export async function chatViaWit({ sessionId, userId, message, answer, recordId, env = process.env, fetchImpl = fetch, resolveImpl = resolveLink, planImpl = planLinkDesigns, timeoutMs = DEFAULT_TIMEOUT_MS }) {
+export async function chatViaWit({ sessionId, userId, message, answer, recordId, productsOnly = false, env = process.env, fetchImpl = fetch, resolveImpl = resolveLink, planImpl = planLinkDesigns, timeoutMs = DEFAULT_TIMEOUT_MS }) {
   const configuredUrl = String(env.WIT_AGENT_URL || '').trim();
   let endpoint;
   try {
@@ -26,15 +26,15 @@ export async function chatViaWit({ sessionId, userId, message, answer, recordId,
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const links = messageLinks(message);
-    if (!links.length && hasWebLink(message)) return { ok: false, type: 'error', items: [], error: { code: 'INVALID_LINK', message: '链接必须是公开的 HTTP 或 HTTPS 地址。' } };
+    const links = productsOnly ? [] : messageLinks(message);
+    if (!productsOnly && !links.length && hasWebLink(message)) return { ok: false, type: 'error', items: [], error: { code: 'INVALID_LINK', message: '链接必须是公开的 HTTP 或 HTTPS 地址。' } };
     const resolved = links.length ? await resolveMessageLinks(message, { resolveImpl, planner: planImpl, env }) : { records: [], errors: [] };
     if (links.length && !resolved.records.length) return { ok: false, type: 'error', items: [], error: { code: 'LINK_READ_FAILED', message: resolved.errors[0] || '链接暂时无法读取。' } };
     const linkRecords = resolved.records;
     const response = await fetchImpl(endpoint, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ sessionId, userId, message, answer, recordId, ...(linkRecords.length === 1 ? { linkRecord: linkRecords[0] } : linkRecords.length ? { linkRecords } : {}) }),
+      body: JSON.stringify({ sessionId, userId, message, answer, recordId, ...(productsOnly ? { productsOnly: true } : {}), ...(linkRecords.length === 1 ? { linkRecord: linkRecords[0] } : linkRecords.length ? { linkRecords } : {}) }),
       signal: controller.signal
     });
     const payload = await response.json();

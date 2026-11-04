@@ -1,5 +1,9 @@
 # 拾光 · 沉浸式购物导购 V1
 
+## Dingdang 电脑端改版（2026-11-04）
+
+当前分支新增了橙红色电脑端购物工作区与 Dingdang 接管适配器。启动后 `/` 为电脑端，`/desktop/?demo=1` 为带示例商品的演示入口，`/mobile/` 保留原移动端。接入、验证与部署边界见 [Dingdang 版本说明](dingdang_adapter/README.md)。
+
 这是现有购物智能体的移动端交互重构。先在 [`prototype-yuemai/`](prototype-yuemai/) 做了可独立预览的 HTML 原型，再将页面接入 [`backend/`](backend/) 的真实商品检索。参考了悦买的交互节奏，但品牌、配色、图标和首页插画均为本项目的新设计。
 
 ## 本地运行

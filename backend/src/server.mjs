@@ -9,9 +9,13 @@ import { logEvent } from './logger.mjs';
 import { chatViaWit, isWitEnabled } from './wit-bridge.mjs';
 import { isStructuredChatRequest } from './chat-routing.mjs';
 import { discoverRelatedContent, mediaRoot } from './content/index.mjs';
+import { desktopChat } from './desktop-shopping.mjs';
+import { DingdangSessions } from './dingdang-session.mjs';
+import { timingSafeEqual } from 'node:crypto';
 
 loadDotEnv();
 const port = Number(process.env.PORT || 3000);
+const dingdangSessions = new DingdangSessions();
 
 function loadDotEnv() {
   const envPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../.env');
@@ -61,11 +65,12 @@ async function emitWitProgress(res, resultPromise) {
 }
 
 function serveStatic(res, url) {
-  const relative = url === '/' ? 'index.html' : url.slice(1);
+  const pathname = new URL(url, 'http://localhost').pathname;
+  const relative = pathname === '/' ? 'desktop/index.html' : pathname === '/mobile/' ? 'index.html' : pathname === '/desktop/' ? 'desktop/index.html' : pathname.slice(1);
   if (!/^[a-zA-Z0-9._/-]+$/.test(relative) || relative.includes('..')) return false;
   const filePath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../public', relative);
   if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return false;
-  const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png' };
+  const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.svg': 'image/svg+xml' };
   res.writeHead(200, { 'content-type': types[path.extname(filePath)] || 'application/octet-stream', 'cache-control': 'no-store' });
   res.end(fs.readFileSync(filePath));
   return true;
@@ -94,6 +99,22 @@ const server = http.createServer(async (req, res) => {
     return;
   }
   if (req.method === 'GET' && serveStatic(res, req.url)) return;
+  if (req.method === 'POST' && req.url === '/api/desktop/chat') {
+    try {
+      const result = await desktopChat(JSON.parse(await readBody(req)));
+      return sendJson(res, result.ok ? 200 : 502, result);
+    } catch (error) { return sendJson(res, 400, {ok:false,error:{code:'INVALID_REQUEST',message:error.message}}); }
+  }
+  if (req.method === 'POST' && req.url === '/internal/dingdang/session') {
+    const expected = Buffer.from(`Bearer ${process.env.DINGDANG_ADAPTER_TOKEN || ''}`);
+    const received = Buffer.from(req.headers.authorization || '');
+    if (!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(req.socket.remoteAddress) || req.headers.origin || !process.env.DINGDANG_ADAPTER_TOKEN || expected.length !== received.length || !timingSafeEqual(expected,received))
+      return sendJson(res, 403, {ok:false,error:{code:'FORBIDDEN'}});
+    try {
+      const {envelope,owner} = JSON.parse(await readBody(req));
+      return sendJson(res,200,await dingdangSessions.handle(envelope,owner));
+    } catch { return sendJson(res,400,{ok:false,error:{code:'INVALID_ENVELOPE'}}); }
+  }
   if (req.method === 'POST' && req.url === '/internal/content/discover') {
     if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress))
       return sendJson(res, 403, { ok: false, error: { code: 'LOCAL_ONLY' } });

@@ -11,5 +11,7 @@ backend/logs/*.log
 __pycache__/
 .pytest_cache/
 wit_agent/.data/
+backend/data/dingdang-sessions/
+dingdang_adapter/.data/
 evaluation/eval-run-*/
 evaluation/reports/

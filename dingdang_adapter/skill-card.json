@@ -1,0 +1,7 @@
+{
+  "name": "拾光购物智能体",
+  "skill_id": "shiguang.shopping",
+  "description": "商品推荐、预算与需求澄清、商品比较和 AI 导购。支持 dingdang.interactive-session/0.1，iframe/1，dingdang.embed-bridge/1。只返回商品和导购，不返回帖子，不下单、不支付。",
+  "transport": "https",
+  "configuration_required": ["AIC", "HTTPS endpoint", "Wit admitted local identity", "registry publication", "DINGDANG_ADAPTER_TOKEN"]
+}

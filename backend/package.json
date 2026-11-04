@@ -8,7 +8,9 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@jackwener/opencli": "^1.8.8"
+    "@jackwener/opencli": "^1.8.8",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1"
   },
   "overrides": {
     "undici": "7.29.1"

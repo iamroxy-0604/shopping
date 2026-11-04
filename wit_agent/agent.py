@@ -276,7 +276,7 @@ class ShoppingAgent:
     async def __aexit__(self, *_):
         await self.agent.stop()
 
-    async def chat(self, session_id: str, message: str, user_id: str | None = None, *, new_conversation: bool = False, answer: dict | None = None, record_id: str | None = None, link_record: dict | None = None, link_records: list | None = None) -> dict:
+    async def chat(self, session_id: str, message: str, user_id: str | None = None, *, new_conversation: bool = False, answer: dict | None = None, record_id: str | None = None, link_record: dict | None = None, link_records: list | None = None, products_only: bool = False) -> dict:
         if not isinstance(session_id, str) or not session_id.strip() or len(session_id) > 128:
             raise ValueError("sessionId must be a nonempty string of at most 128 characters")
         if user_id is None:
@@ -298,7 +298,7 @@ class ShoppingAgent:
         async with self._locks[user_id]:
             if new_conversation:
                 self.memory.reset_session(session_id, user_id)
-            result = await self.agent.invoke({"sessionId": session_id, "userId": user_id, "message": message.strip(), "answer": answer, "recordId": record_id, "linkRecord": link_record, "linkRecords": link_records})
+            result = await self.agent.invoke({"sessionId": session_id, "userId": user_id, "message": message.strip(), "answer": answer, "recordId": None if products_only else record_id, "linkRecord": None if products_only else link_record, "linkRecords": None if products_only else link_records, "productsOnly": products_only})
             return result.output.output
 
     def _load(self, ctx):
@@ -307,6 +307,7 @@ class ShoppingAgent:
         ctx.state["user_id"] = request["userId"]
         ctx.state["message"] = request["message"]
         ctx.state["answer"] = request.get("answer")
+        ctx.state["products_only"] = request.get("productsOnly", False)
         ctx.state["record_id"] = request.get("recordId")
         supplied = request.get("linkRecords") or ([request["linkRecord"]] if request.get("linkRecord") else [])
         ctx.state["link_records"] = [record for raw in supplied if (record := normalize_link_record(raw))]
@@ -497,7 +498,8 @@ class ShoppingAgent:
                 "preferences": state["preferences"],
                 "questionnaireAnswers": [{"id": row.get("id", ""), "question": row.get("title", ""), "answer": row.get("value", "")} for row in answers],
                 "limit": 3}
-        products, content = await asyncio.gather(self._retrieve_products(ctx), self.content_search(task), return_exceptions=True)
+        content_search = no_content_source if state.get("products_only") else self.content_search
+        products, content = await asyncio.gather(self._retrieve_products(ctx), content_search(task), return_exceptions=True)
         if isinstance(products, Exception):
             state["search_error"] = "商品搜索暂时不可用，请稍后重试"
         if isinstance(content, Exception) or not isinstance(content, dict):

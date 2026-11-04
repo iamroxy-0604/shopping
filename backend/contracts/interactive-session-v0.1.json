@@ -1,0 +1,1165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:dingdang:interactive-session:0.1",
+  "title": "Dingdang interactive-session v0.1 proposed application envelope",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/openRequest"
+    },
+    {
+      "$ref": "#/$defs/inputRequest"
+    },
+    {
+      "$ref": "#/$defs/syncRequest"
+    },
+    {
+      "$ref": "#/$defs/closeRequest"
+    },
+    {
+      "$ref": "#/$defs/snapshot"
+    },
+    {
+      "$ref": "#/$defs/receipt"
+    },
+    {
+      "$ref": "#/$defs/closed"
+    },
+    {
+      "$ref": "#/$defs/error"
+    }
+  ],
+  "$defs": {
+    "presentation": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "catalog": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "profile",
+        "version",
+        "catalog"
+      ],
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "interaction",
+            "resource.read",
+            "business.execute"
+          ]
+        },
+        "policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "constraints": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "kind",
+        "policy",
+        "constraints"
+      ],
+      "additionalProperties": false
+    },
+    "grant": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "expiresAt",
+        "scopes"
+      ],
+      "additionalProperties": false
+    },
+    "message": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resourceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "resourceRefs"
+      ],
+      "additionalProperties": false
+    },
+    "resource": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mediaType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "locator": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "host-resource",
+                "https"
+              ]
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        "provenance": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "source",
+                "user",
+                "agent"
+              ]
+            },
+            "source": {
+              "type": "string",
+              "minLength": 1
+            },
+            "observedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "kind",
+            "source",
+            "observedAt"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "mediaType",
+        "title",
+        "locator",
+        "provenance"
+      ],
+      "additionalProperties": false
+    },
+    "surface": {
+      "type": "object",
+      "properties": {
+        "surfaceId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profileVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fallbackText": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "surfaceId",
+        "profile",
+        "profileVersion",
+        "fallbackText",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "action": {
+      "type": "object",
+      "properties": {
+        "actionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inputSchema": {
+          "type": "object"
+        },
+        "permissionRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "actionId",
+        "label",
+        "inputSchema",
+        "permissionRefs"
+      ],
+      "additionalProperties": false
+    },
+    "task": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reportedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "provider",
+        "state",
+        "reportedAt",
+        "expiresAt"
+      ],
+      "additionalProperties": false
+    },
+    "operation": {
+      "type": "object",
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "accepted",
+            "working",
+            "succeeded",
+            "failed",
+            "unknown"
+          ]
+        },
+        "errorCode": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "requestId",
+        "status",
+        "errorCode"
+      ],
+      "additionalProperties": false
+    },
+    "content": {
+      "type": "object",
+      "properties": {
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/message"
+          },
+          "minItems": 0
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/resource"
+          },
+          "minItems": 0
+        },
+        "surfaces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/surface"
+          },
+          "minItems": 0
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/action"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "messages",
+        "resources",
+        "surfaces",
+        "actions"
+      ],
+      "additionalProperties": false
+    },
+    "capabilities": {
+      "type": "object",
+      "properties": {
+        "input": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "const": true
+            },
+            "action": {
+              "const": true
+            }
+          },
+          "required": [
+            "message",
+            "action"
+          ],
+          "additionalProperties": false
+        },
+        "sync": {
+          "const": true
+        },
+        "close": {
+          "type": "object",
+          "properties": {
+            "cancel": {
+              "const": true
+            },
+            "detach": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "cancel",
+            "detach"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "input",
+        "sync",
+        "close"
+      ],
+      "additionalProperties": false
+    },
+    "handoff": {
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/resource"
+          },
+          "minItems": 0
+        },
+        "unresolved": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        },
+        "workDisposition": {
+          "type": "object",
+          "properties": {
+            "policy": {
+              "enum": [
+                "cancel",
+                "detach"
+              ]
+            },
+            "confirmed": {
+              "const": true
+            },
+            "activeTasks": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/task"
+              },
+              "minItems": 0
+            }
+          },
+          "required": [
+            "policy",
+            "confirmed",
+            "activeTasks"
+          ],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "policy": {
+                    "const": "cancel"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "activeTasks": {
+                    "maxItems": 0
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "summary",
+        "artifacts",
+        "unresolved",
+        "workDisposition"
+      ],
+      "additionalProperties": false
+    },
+    "messageInput": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "message"
+        },
+        "text": {
+          "type": "string"
+        },
+        "resourceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "type",
+        "text",
+        "resourceRefs"
+      ],
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "properties": {
+            "text": {
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "properties": {
+            "resourceRefs": {
+              "minItems": 1
+            }
+          }
+        }
+      ]
+    },
+    "actionInput": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "action"
+        },
+        "actionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "arguments": {
+          "type": "object"
+        },
+        "contextRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "type",
+        "actionId",
+        "arguments",
+        "contextRefs"
+      ],
+      "additionalProperties": false
+    },
+    "openRequest": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "dingdang.interactive-session"
+        },
+        "version": {
+          "const": "0.1"
+        },
+        "kind": {
+          "const": "request"
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op": {
+          "const": "open"
+        },
+        "expectedRevision": {
+          "type": "null"
+        },
+        "body": {
+          "type": "object",
+          "properties": {
+            "subjectRef": {
+              "type": "string",
+              "minLength": 1
+            },
+            "consentRef": {
+              "type": "string",
+              "minLength": 1
+            },
+            "grant": {
+              "$ref": "#/$defs/grant"
+            },
+            "context": {
+              "type": "object",
+              "properties": {
+                "purpose": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "messages": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/message"
+                  },
+                  "minItems": 0
+                },
+                "resourceRefs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "minItems": 0
+                }
+              },
+              "required": [
+                "purpose",
+                "messages",
+                "resourceRefs"
+              ],
+              "additionalProperties": false
+            },
+            "presentationOffers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/presentation"
+              },
+              "minItems": 1
+            },
+            "expiresAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "required": [
+            "subjectRef",
+            "consentRef",
+            "grant",
+            "context",
+            "presentationOffers",
+            "expiresAt"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "kind",
+        "sessionId",
+        "requestId",
+        "op",
+        "expectedRevision",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "inputRequest": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "dingdang.interactive-session"
+        },
+        "version": {
+          "const": "0.1"
+        },
+        "kind": {
+          "const": "request"
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op": {
+          "const": "input"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "body": {
+          "type": "object",
+          "properties": {
+            "grantRevision": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "input": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/messageInput"
+                },
+                {
+                  "$ref": "#/$defs/actionInput"
+                }
+              ]
+            }
+          },
+          "required": [
+            "grantRevision",
+            "input"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "kind",
+        "sessionId",
+        "requestId",
+        "op",
+        "expectedRevision",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "syncRequest": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "dingdang.interactive-session"
+        },
+        "version": {
+          "const": "0.1"
+        },
+        "kind": {
+          "const": "request"
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op": {
+          "const": "sync"
+        },
+        "expectedRevision": {
+          "type": "null"
+        },
+        "body": {
+          "type": "object",
+          "properties": {
+            "afterRevision": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "requestIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 0
+            }
+          },
+          "required": [
+            "afterRevision",
+            "requestIds"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "kind",
+        "sessionId",
+        "requestId",
+        "op",
+        "expectedRevision",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "closeRequest": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "dingdang.interactive-session"
+        },
+        "version": {
+          "const": "0.1"
+        },
+        "kind": {
+          "const": "request"
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requestId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op": {
+          "const": "close"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "body": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "enum": [
+                "user_finished",
+                "user_aborted",
+                "agent_finished"
+              ]
+            },
+            "workPolicy": {
+              "enum": [
+                "cancel",
+                "detach"
+              ]
+            },
+            "grantRevision": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "reason",
+            "workPolicy",
+            "grantRevision"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "kind",
+        "sessionId",
+        "requestId",
+        "op",
+        "expectedRevision",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "snapshot": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "dingdang.interactive-session"
+        },
+        "version": {
+          "const": "0.1"
+        },
+        "kind": {
+          "const": "snapshot"
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "replyTo": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "body": {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "lifecycle": {
+              "enum": [
+                "opening",
+                "open",
+                "closing",
+                "closed",
+                "expired"
+              ]
+            },
+            "grantRevision": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "expiresAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "capabilities": {
+              "$ref": "#/$defs/capabilities"
+            },
+            "presentation": {
+              "$ref": "#/$defs/presentation"
+            },
+            "content": {
+              "$ref": "#/$defs/content"
+            },
+            "tasks": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/task"
+              },
+              "minItems": 0
+            },
+            "operations": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/operation"
+              },
+              "minItems": 0
+            },
+            "handoff": {
+              "$ref": "#/$defs/handoff"
+            }
+          },
+          "required": [
+            "revision",
+            "lifecycle",
+            "grantRevision",
+            "expiresAt",
+            "capabilities",
+            "presentation",
+            "content",
+            "tasks",
+            "operations"
+          ],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "lifecycle": {
+                    "const": "closed"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "handoff"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "kind",
+        "sessionId",
+        "replyTo",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "receipt": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "dingdang.interactive-session"
+        },
+        "version": {
+          "const": "0.1"
+        },
+        "kind": {
+          "const": "receipt"
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "replyTo": {
+          "type": "string",
+          "minLength": 1
+        },
+        "body": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "enum": [
+                "accepted",
+                "working"
+              ]
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "status",
+            "revision"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "kind",
+        "sessionId",
+        "replyTo",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "closed": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "dingdang.interactive-session"
+        },
+        "version": {
+          "const": "0.1"
+        },
+        "kind": {
+          "const": "closed"
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "replyTo": {
+          "type": "string",
+          "minLength": 1
+        },
+        "body": {
+          "type": "object",
+          "properties": {
+            "revision": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "handoff": {
+              "$ref": "#/$defs/handoff"
+            }
+          },
+          "required": [
+            "revision",
+            "handoff"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "kind",
+        "sessionId",
+        "replyTo",
+        "body"
+      ],
+      "additionalProperties": false
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "protocol": {
+          "const": "dingdang.interactive-session"
+        },
+        "version": {
+          "const": "0.1"
+        },
+        "kind": {
+          "const": "error"
+        },
+        "sessionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "replyTo": {
+          "type": "string",
+          "minLength": 1
+        },
+        "body": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "enum": [
+                "UNSUPPORTED_VERSION",
+                "UNSUPPORTED_CAPABILITY",
+                "INVALID_INPUT",
+                "UNKNOWN_ACTION",
+                "INVALID_SURFACE",
+                "REVISION_CONFLICT",
+                "IDEMPOTENCY_CONFLICT",
+                "BUSY",
+                "AUTHORIZATION_REQUIRED",
+                "GRANT_EXPIRED",
+                "GRANT_REVOKED",
+                "SESSION_NOT_FOUND",
+                "SESSION_EXPIRED",
+                "SESSION_CLOSED",
+                "RESULT_UNCERTAIN",
+                "INTERNAL_ERROR"
+              ]
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            },
+            "retryable": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "kind",
+        "sessionId",
+        "replyTo",
+        "body"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
