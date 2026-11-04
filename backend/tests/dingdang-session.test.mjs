@@ -45,3 +45,18 @@ test('desktop output is products-only and strips executable URLs',async()=>{
 test('delivered iframe fits DD document limits and has no external executable assets',()=>{
   const d=workspaceDocument();assert.ok(d.html.length<=100000);assert.ok(d.css.length<=100000);assert.ok(d.script.length<=200000);assert.ok(!d.html.includes('<script src='));assert.match(d.script,/dingdang.embed-bridge/);
 });
+
+test('desktop preserves questionnaire progress, narrative retry candidates and AI follow-up',()=>{
+  const value=shoppingResult({ok:false,type:'error',message:'分析待重试',question:{id:'scene',title:'场景',options:['书桌'],step:2,total:4},task:{category:'台灯',answers:{use:'阅读'}},candidateItems:[{id:'a',title:'台灯',price:89,facts:{material:'木'}}],followUp:'更在意哪一项？',narrativeSource:'none',error:{code:'NARRATIVE_UNAVAILABLE',message:'分析待重试'}});
+  assert.equal(value.question.step,2);assert.equal(value.question.total,4);assert.equal(value.candidateItems.length,1);assert.equal(value.candidateItems[0].facts.material,'木');assert.equal(value.followUp,'更在意哪一项？');assert.equal(value.task.answers.use,'阅读');
+});
+test('new desktop sessions preserve person identity but isolate shopping sessions',async()=>{
+  const seen=[];const run=async r=>{seen.push(r);return {ok:true,type:'question',message:'需求',items:[]};};
+  for(const sessionId of ['one','two'])await desktopChat({sessionId,userId:'user-existing',message:'我喜欢原木'},{run});
+  assert.equal(seen[0].userId,'user-existing');assert.equal(seen[0].userId,seen[1].userId);assert.notEqual(seen[0].sessionId,seen[1].sessionId);
+  await desktopChat({sessionId:'session-original',userId:'user-existing',legacySession:true,message:'继续挑选'},{run});
+  assert.equal(seen[2].sessionId,'session-original');assert.equal(seen[2].userId,'user-existing');
+  seen.length=0;
+  for(const sessionId of ['one','two'])await desktopChat({sessionId,message:'台灯'},{owner:'verified-peer-and-subject',run});
+  assert.equal(seen[0].userId,seen[1].userId);assert.notEqual(seen[0].sessionId,seen[1].sessionId);
+});

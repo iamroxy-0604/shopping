@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start:desktop": "node src/start-wit.mjs",
     "start": "npm --prefix ../link-bridge run build:shopping && node src/server.mjs",
     "start:wit": "npm --prefix ../link-bridge run build:shopping && node src/start-wit.mjs",
     "test": "node --test"

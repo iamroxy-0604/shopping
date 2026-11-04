@@ -11,19 +11,29 @@
   const save = (key, value) => { if (!embedded && !demo) try { localStorage.setItem(key, JSON.stringify(value)); } catch {} };
   const asset = name => window.SHOPPING_ASSETS?.[name] || `/desktop/assets/${name}`;
   const icon = name => `<img class="icon" src="${escape(asset(name + '.svg'))}" alt="">`;
+  let browserUserId;
+  try { browserUserId=localStorage.getItem('shiguang-flow-user-v1') || 'user-'+uid(); if(!embedded&&!demo)localStorage.setItem('shiguang-flow-user-v1',browserUserId); } catch { browserUserId='user-'+uid(); }
   let sessions = read('shiguang.desktop.sessions', []);
+  if(!embedded&&!demo){
+    const old=read('shiguang-flow-conversations-v1',{});
+    for(const [id,record] of Object.entries(old)){
+      if(sessions.some(x=>x.id===id)||!Array.isArray(record.messages))continue;
+      sessions.push({id,legacySession:true,title:record.title||'之前的购物会话',messages:record.messages.map(m=>m.role==='user'?{role:'user',text:m.content}:{role:'assistant',result:m.content}),draft:'',busy:false,pending:false,error:'',phase:'open',revision:0,preferences:{}});
+    }
+  }
   let favorites = (embedded || demo) ? [] : read('shiguang.desktop.favorites', []).filter(p => !p.demoAsset);
   let state = {id:uid(), messages:[], draft:'', busy:false, pending:false, error:'', revision:0, phase:'open', preferences:{}, title:'我的购物会话'};
+  if(!embedded&&!demo){const current=read('shiguang.desktop.current',null);const record=sessions.find(s=>s.id===current);if(record)state={...state,...record,busy:false,pending:false,error:''};}
   let port, nonce, hostSession, requestTimer;
   const pending = new Map();
-  const products = () => state.messages.flatMap(m => m.result?.items || []).filter((p, i, all) => all.findIndex(q => q.id === p.id) === i);
+  const products = () => state.messages.flatMap(m => [...(m.result?.items || []),...(m.result?.candidateItems || [])]).filter((p, i, all) => all.findIndex(q => q.id === p.id) === i);
   const money = p => typeof p.price === 'number' && Number.isFinite(p.price) ? `<small>¥</small>${escape(p.price)}` : '<small>价格待核实</small>';
   const source = p => p.shopName || (typeof p.source === 'string' ? ({taobao:'淘宝',demo:'演示商品'}[p.source] || p.source) : p.source?.platform) || '来源待核实';
   function persist() {
     if (embedded || demo || !state.messages.length) return;
     const record = {...state, busy:false, error:'', pending:false};
     sessions = [record, ...sessions.filter(s => s.id !== state.id)].slice(0, 20);
-    save('shiguang.desktop.sessions', sessions);
+    save('shiguang.desktop.sessions', sessions); save('shiguang.desktop.current',state.id);
   }
   function capture() { const field = document.getElementById('message'); if (field) state.draft = field.value; }
   function card(p) {
@@ -35,7 +45,7 @@
     if (m.role === 'user') return `<div class="user-message"><p>${escape(m.text)}</p></div>`;
     const r = m.result || {};
     const latest = index === state.messages.length - 1 && state.phase === 'open' && !state.busy && !state.pending;
-    return `<div class="agent-row"><span class="avatar">✳</span><div class="agent-content"><div class="byline">拾光 · AI 导购</div><div class="answer">${escape(r.message || r.error?.message || '已更新本次购物结果。')}</div>${r.question ? `<section class="question"><h3>${escape(r.question.title)}</h3><div class="options">${(r.question.options || []).map(o => {const value = typeof o === 'string' ? o : o.value || o.label; return `<button class="chip" data-answer="${escape(value)}" data-question="${escape(r.question.id)}" ${latest?'':'disabled'}>${escape(typeof o==='string'?o:o.label)}</button>`;}).join('')}</div></section>`:''}</div></div>${r.items?.length ? `<div class="product-grid">${r.items.map(card).join('')}</div><p class="note">${demo?'演示商品与价格，仅用于体验界面。':'商品与价格来自检索结果，成交价、规格和库存以商品页为准。'}</p>`:''}${r.summary ? `<div class="agent-row"><span class="avatar">·</span><div class="answer">${escape(typeof r.summary === 'string' ? r.summary : r.summary.text || r.summary.conclusion || '')}</div></div>`:''}${latest && r.followups?.length ? `<div class="suggestions">${r.followups.map(s => `<button class="chip" data-prompt="${escape(s)}">${escape(s)} ↗</button>`).join('')}</div>`:''}`;
+    return `<div class="agent-row"><span class="avatar">✳</span><div class="agent-content"><div class="byline">拾光 · AI 导购</div><div class="answer">${escape(r.message || r.error?.message || '已更新本次购物结果。')}</div>${r.question ? `<section class="question"><p class="byline">${r.question.step&&r.question.total?'第 '+escape(r.question.step)+' / '+escape(r.question.total)+' 题 · ':''}也可以在下方输入框补充自己的答案</p><h3>${escape(r.question.title)}</h3><div class="options">${(r.question.options || []).map(o => {const value = typeof o === 'string' ? o : o.value || o.label; return `<button class="chip" data-answer="${escape(value)}" data-question="${escape(r.question.id)}" ${latest?'':'disabled'}>${escape(typeof o==='string'?o:o.label)}</button>`;}).join('')}</div></section>`:''}</div></div>${r.items?.length ? `<div class="product-grid">${r.items.map(card).join('')}</div><p class="note">${demo?'演示商品与价格，仅用于体验界面。':'商品与价格来自检索结果，成交价、规格和库存以商品页为准。'}</p>`:''}${r.summary ? `<div class="agent-row"><span class="avatar">·</span><div class="answer">${escape(typeof r.summary === 'string' ? r.summary : r.summary.text || r.summary.conclusion || '')}</div></div>`:''}${r.followUp ? `<div class="agent-row"><span class="avatar">·</span><div class="answer">${escape(r.followUp)}</div></div>`:''}${r.candidateItems?.length?`<p class="note">已找到的候选商品已保留，AI 推荐分析尚未完成。</p><div class="product-grid">${r.candidateItems.map(card).join('')}</div>`:''}${latest&&r.error?.code==='NARRATIVE_UNAVAILABLE'?'<div class="suggestions"><button class="outline" data-prompt="重试生成推荐">重试生成推荐</button></div>':''}${latest && r.followups?.length ? `<div class="suggestions">${r.followups.map(s => `<button class="chip" data-prompt="${escape(s)}">${escape(s)} ↗</button>`).join('')}</div>`:''}`;
   }
   function render() {
     const locked = state.busy || state.pending || state.phase !== 'open' || (embedded && !port);
@@ -58,7 +68,7 @@
   function detail(id) {
     const p=products().find(p=>p.id===id)||favorites.find(p=>p.id===id);if(!p)return;
     const url=safeUrl(p.promotionUrl);const img=p.demoAsset?asset(p.demoAsset):safeUrl(p.imageUrl);
-    const d=modal('看看这一件',`${img?`<img class="detail-image" src="${escape(img)}" alt="${escape(p.title)}">`:''}<p>${escape(p.title)}</p><div class="price">${money(p)}</div><p>${escape(p.recommendation || '商品规格、售后与库存请以原商品页为准。')}</p><p>${escape(source(p))}</p>${url?embedded?`<p>商品链接（可选中复制）：<br>${escape(url)}</p>`:`<a class="outline" href="${escape(url)}" target="_blank" rel="noopener noreferrer">去商品页 ↗</a>`:'<p>当前没有可用的购买链接。</p>'}<footer><button class="primary" id="ask-product">让 AI 帮我分析</button></footer>`);
+    const d=modal('看看这一件',`${img?`<img class="detail-image" src="${escape(img)}" alt="${escape(p.title)}">`:''}<p>${escape(p.title)}</p><div class="price">${money(p)}</div><p>${escape(p.recommendation || '商品规格、售后与库存请以原商品页为准。')}</p>${Object.entries(p.facts||{}).filter(([k,v])=>['material','color','dimensions','brand'].includes(k)&&v!=null).map(([k,v])=>`<p>${({material:'材质',color:'颜色',dimensions:'尺寸',brand:'品牌'})[k]}：${escape(typeof v==='object'?JSON.stringify(v):v)}</p>`).join('')}<p>${escape(source(p))}</p>${url?embedded?`<p>商品链接（可选中复制）：<br>${escape(url)}</p>`:`<a class="outline" href="${escape(url)}" target="_blank" rel="noopener noreferrer">去商品页 ↗</a>`:'<p>当前没有可用的购买链接。</p>'}<footer><button class="primary" id="ask-product">让 AI 帮我分析</button></footer>`);
     d.querySelector('#ask-product').onclick=()=>{d.close();send(`请分析“${p.title}”的推荐理由和需要确认的规格。`);};
   }
   function command(name) {
@@ -80,7 +90,7 @@
       else {
         let r;
         if(demo){await new Promise(resolve=>setTimeout(resolve,450));r={ok:true,type:'results',message:/比较/.test(text)?'演示比较：收纳盒用于整理小物，台灯用于补充桌面照明，托盘适合随手置物。三件用途不同，先按你的主要需求取舍。':'这是演示推荐：保留简约、温暖的桌面风格，挑了三件不同用途的小物。你可以查看详情、收藏，或继续比较。',items:demoProducts,followups:['比较这三件商品','把预算控制在 100 元以内'],preferences:{category:'桌面好物',style:'简约原木',maxPrice:300}};}
-        else {const response=await fetch('/api/desktop/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:state.id,message:text,answer}),signal:AbortSignal.timeout(340000)});r=await response.json();if(!response.ok||!r.ok)throw Error(r.error?.message||'导购服务暂时不可用，请稍后重试。');}
+        else {const response=await fetch('/api/desktop/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:state.id,userId:browserUserId,legacySession:!!state.legacySession,message:text,answer}),signal:AbortSignal.timeout(340000)});r=await response.json();if(typeof r.ok!=='boolean')throw Error(r.error?.message||'导购服务暂时不可用，请稍后重试。');}
         if(!state.messages.length)state.title=text.slice(0,70);
         state.messages.push({role:'user',text},{role:'assistant',result:r});state.preferences=r.preferences||r.memory?.preferences||state.preferences;persist();
       }
