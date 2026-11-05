@@ -1,0 +1,14 @@
+{
+  "id": "powerbank-001",
+  "initialRequest": "我想买一个充电宝",
+  "initialQuery": "充电宝",
+  "privateCriteria": {
+    "maxPriceYuan": 100,
+    "requiredTitlePhrases": ["10000毫安", "自带线"]
+  },
+  "feedbackSequence": [
+    { "message": "希望容量是10000毫安", "queryTerm": "10000毫安" },
+    { "message": "还需要自带线", "queryTerm": "自带线" },
+    { "message": "预算不超过100元", "maxPriceYuan": 100 }
+  ]
+}

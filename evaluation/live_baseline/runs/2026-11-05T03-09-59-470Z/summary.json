@@ -1,0 +1,671 @@
+{
+  "runId": "2026-11-05T03-09-59-470Z",
+  "scenarioId": "powerbank-001",
+  "source": "live_taobao",
+  "judgment": "automatic_title_and_price",
+  "maxBatches": 5,
+  "batchSize": 3,
+  "A": {
+    "group": "A",
+    "status": "failure",
+    "stopReason": "batch_limit",
+    "batchesShown": 5,
+    "satisfactionBatch": null,
+    "feedbackAttributes": 0,
+    "selectedId": null,
+    "batches": [
+      {
+        "batch": 1,
+        "query": "充电宝",
+        "displayedCount": 3,
+        "items": [
+          {
+            "id": "MP9Ro4rBiKtXeb9q6gjsYMBFQtA-y3gk9k0WT6VjvmJdXsm",
+            "title": "【充电宝3c认证可上飞机】倍思快充大容量2026新款20000毫安自带线小巧移动电源适用小米苹果18官方旗舰正品",
+            "price": 84.55,
+            "shopName": "baseus倍思旗舰店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": true,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": true
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "rX3YpMB6FOtVezgYaANseD7fqtZ-ANpwow3XTGN4kX56KT6",
+            "title": "【充电宝3c认证可上飞机】倍思快充大容量2026新款20000毫安移动电源适用苹果18小米华为手机官方旗舰店正品",
+            "price": 84.55,
+            "shopName": "baseus倍思旗舰店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": true,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": false
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "Vr462wOoS6tw52A36oNhkpktvtV-v6gyjyMpfBoW0kp29Hd6",
+            "title": "【3C认证可上飞机】Anker安克自带线充电宝2026新款大容量20000毫安45W快充适用苹果iPhone18Pro华为小米手机",
+            "price": 139,
+            "shopName": "Anker安克官方旗舰店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": false,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": true
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "satisfied": false
+      },
+      {
+        "batch": 2,
+        "query": "充电宝",
+        "displayedCount": 3,
+        "items": [
+          {
+            "id": "ANwd8eK3Izt4XxrbG0yUJx9Uvtn-4V7zqzB6T8zp0qbdyFk",
+            "title": "【3C认证】CUKTECH酷态科电能块30W口袋版电芯10000毫安时移动电源PD快充小巧充电宝适用于苹果iPhone18Pro",
+            "price": 89,
+            "shopName": "CUKTECH酷态科旗舰店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": true,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": true
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": false
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "OqKz2aBbuzt6neABj4aIqMNFMtJ-88yqnq43t5mVmXwdPHq",
+            "title": "3C认证充电宝大容量50000毫安超级快充新国标费尔班特耐用户外移动电源适用华为vivooppo苹果便携闪充",
+            "price": 55.88,
+            "shopName": "好货严选工厂",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": true,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": false
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "jGMo9n3wS0tJ7nD49BZCJYZTJte-wogZJZyNhMmwAjRk7f8",
+            "title": "【CUKTECH酷态科】充电宝CP25自带线电芯20000毫安时移动电源BBJ",
+            "price": 113,
+            "shopName": "CUKTECH酷态科旗舰店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": false,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": true
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "satisfied": false
+      },
+      {
+        "batch": 3,
+        "query": "充电宝",
+        "displayedCount": 3,
+        "items": [
+          {
+            "id": "6RzbyVAxS8tGRdknprZtrdGTot3-WqNngndoHXXqBp5qjID",
+            "title": "【充电宝3C认证可上飞机】绿联2026新款67W超能块自带线20000毫安快充大容量适用苹果17/18小米华为官方正品",
+            "price": 169,
+            "shopName": "绿联数码旗舰店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": false,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": true
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "YJ462x7qIptX4v8noNwsayjC2t6-POJ9q9PDIKzj2GbmDCG6",
+            "title": "【3C认证可上飞机】CUKTECH酷态科CP25自带线充电宝电芯20000毫安时移动电源PD快充轻薄本笔记本适用于苹果18",
+            "price": 99,
+            "shopName": "CUKTECH酷态科旗舰店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": true,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": true
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "bXPmR2djugtoRX2p4J5cNgmhQt6-KqP9798QHjO2DNGD4H63",
+            "title": "【3c认证可上飞机】倍思卡片磁吸充电宝2026新款无线快充适用苹果18超薄小巧便携iPhone专用Magsafe移动电源7",
+            "price": 188.1,
+            "shopName": "baseus倍思旗舰店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": false,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": false
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "satisfied": false
+      },
+      {
+        "batch": 4,
+        "query": "充电宝",
+        "displayedCount": 3,
+        "items": [
+          {
+            "id": "rX3YpMBMCOtVezgYaANseDmiqtZ-7nMzOzkBfwXAGDjjwi7",
+            "title": "3C认证2026新款超级快充电宝超大容量20000毫安超薄小巧便携自带线官方正品旗舰店适用华为oppo苹果vivo专用",
+            "price": 41.8,
+            "shopName": "天天特卖工厂",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": true,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": true
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "D3NV78KbUDt5Q4b0Z9jcOyqujtn-zDgRXRJxTBwr0zvq5TJZ",
+            "title": "倍思20000毫安随身充伸缩线挂包充电宝3c认证可上飞机快充大容量2026新款移动电源适用小米苹果18官方旗舰店",
+            "price": 211.55,
+            "shopName": "baseus倍思旗舰店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": false,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": false
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "gP7m93JPU3t2OeRmjgDU2z6tatr-wogZJZyNhMXokZmkVTz",
+            "title": "充电宝20000毫安新国标3C认证快充大容量自带线超薄小巧便携迷你移动电源适用华为苹果oppo可上飞机超大容量",
+            "price": 21.79,
+            "shopName": "好货严选工厂",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": true,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": true
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "satisfied": false
+      },
+      {
+        "batch": 5,
+        "query": "充电宝",
+        "displayedCount": 3,
+        "items": [
+          {
+            "id": "Q0962R5JfQtB02dqzvxhQo7iatQ-Rgd949yoiXXOegJN8tv",
+            "title": "充电宝20000毫安新国标3C认证超级快充大容量超薄便携10000mAh手机移动电源适用华为vivoppo苹果PD20W高铁",
+            "price": 24.94,
+            "shopName": "官方国货甄选",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": true,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": false
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "GKx6kMaBT8tYkjBdzDeiPrdFQtJ-9zqRbRmZiOK4rjYkZHrG",
+            "title": "【3C认证可上飞机】小米充电宝10000快充超薄迷你大容量便携移动电源2026新款适用华为小米苹果专用安心充电",
+            "price": 99,
+            "shopName": "小米官方旗舰店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": true,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": false
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "0vzpb76kt7t8b9QRekgCqdpi2t6-POJ9q9PDIKwZn0gVKfg",
+            "title": "【3C认证可上飞机】小米自带线充电宝20000 22.5W双向快充小巧2026新款新国标便携移动电源适用华为小米苹果",
+            "price": 148,
+            "shopName": "小米官方旗舰店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": false,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": true
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "satisfied": false
+      }
+    ]
+  },
+  "B": {
+    "group": "B",
+    "status": "success",
+    "stopReason": "satisfied",
+    "batchesShown": 3,
+    "satisfactionBatch": 3,
+    "feedbackAttributes": 2,
+    "selectedId": "xKwRd0KTktqaDNw04nHW5efAt9-5nrzRzV6fWDeR4kokfZ",
+    "batches": [
+      {
+        "batch": 1,
+        "query": "充电宝",
+        "displayedCount": 3,
+        "items": [
+          {
+            "id": "MP9Ro4rBiKtXeb9q6gjsYMBFQtA-y3gk9k0WT6VjvmJdXsm",
+            "title": "【充电宝3c认证可上飞机】倍思快充大容量2026新款20000毫安自带线小巧移动电源适用小米苹果18官方旗舰正品",
+            "price": 84.55,
+            "shopName": "baseus倍思旗舰店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": true,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": true
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "rX3YpMB6FOtVezgYaANseD7fqtZ-ANpwow3XTGN4kX56KT6",
+            "title": "【充电宝3c认证可上飞机】倍思快充大容量2026新款20000毫安移动电源适用苹果18小米华为手机官方旗舰店正品",
+            "price": 84.55,
+            "shopName": "baseus倍思旗舰店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": true,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": false
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "Vr462wOoS6tw52A36oNhkpktvtV-v6gyjyMpfBoW0kp29Hd6",
+            "title": "【3C认证可上飞机】Anker安克自带线充电宝2026新款大容量20000毫安45W快充适用苹果iPhone18Pro华为小米手机",
+            "price": 139,
+            "shopName": "Anker安克官方旗舰店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": false,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": true
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "satisfied": false
+      },
+      {
+        "batch": 2,
+        "query": "充电宝 10000毫安",
+        "displayedCount": 3,
+        "items": [
+          {
+            "id": "26eM3y78CotgVwQqdxYiKjasDtD-KqP9798QHnyVRjBmWCnd",
+            "title": "征拓3C认证充电宝 10000毫安大容量双向20W快充 可上飞机移动电源",
+            "price": 59,
+            "shopName": "瑞泽老姜生活店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": true,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": true
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": false
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "ANvXje8Otzt4XxrbGB3iJeGuvtn-v6gyjyMpfBgvmrNnmsp",
+            "title": "沃品小相机双线快充充电宝 10000毫安 支持22.5W&amp;PD20W超级快",
+            "price": 152,
+            "shopName": "给你的荣耀",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": false,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": true
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": false
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "D3vnj87kiDt5Q4b0ZWySOmyijtn-Rgd949yoiXXOegJN8tv",
+            "title": "充电宝20000毫安新国标3C认证超级快充大容量超薄便携10000mAh手机移动电源适用华为vivoppo苹果PD20W高铁",
+            "price": 24.94,
+            "shopName": "官方国货甄选",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": true,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": false
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": false
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "satisfied": false
+      },
+      {
+        "batch": 3,
+        "query": "充电宝 10000毫安 自带线",
+        "displayedCount": 3,
+        "items": [
+          {
+            "id": "MBrkJqvTKtXeb90YZgcYM2iQtA-rXg3j357tbzaWZ4OgCky",
+            "title": "【2026新国标3C认证】绿联P5自带线充电宝可上飞机新款10000毫安大容量快充适用苹果18小米手机官方旗舰正品",
+            "price": 119,
+            "shopName": "绿联数码旗舰店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": false,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": true
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": true
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "kJ2xOWaUYtaYBzAekZCgX8CPtJ-7nMzOzkBfwprQbGdKHV",
+            "title": "【3C认证】CUKTECH酷态科CP12磁吸电能块充电宝自带线电芯10000毫安时移动电源magsafe适用于iPhone苹果18",
+            "price": 109,
+            "shopName": "CUKTECH酷态科旗舰店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": false,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": false,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": true
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": true
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "id": "xKwRd0KTktqaDNw04nHW5efAt9-5nrzRzV6fWDeR4kokfZ",
+            "title": "【3C认证】CUKTECH酷态科CP13电能块自带线33W快充电芯10000毫安时充电宝小巧移动电源适用于iPhone苹果18",
+            "price": 89,
+            "shopName": "CUKTECH酷态科旗舰店",
+            "source": "taobao",
+            "judgment": {
+              "accepted": true,
+              "checks": {
+                "hasPrice": true,
+                "withinBudget": true,
+                "titlePhrases": [
+                  {
+                    "phrase": "10000毫安",
+                    "found": true
+                  },
+                  {
+                    "phrase": "自带线",
+                    "found": true
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "satisfied": true
+      }
+    ]
+  },
+  "pairedDifferenceBMinusA": null
+}
