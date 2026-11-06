@@ -1,0 +1,2085 @@
+[
+  {
+    "id": "01",
+    "scene": "通勤",
+    "initialRequest": "上下班路上想备个充电宝。",
+    "initialQuery": "充电宝 通勤",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "cable",
+        "text": "自带充电线",
+        "pattern": "自带线|内置线"
+      },
+      {
+        "id": "budget",
+        "text": "不超过120元",
+        "maxPrice": 120
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "cable",
+        "message": "还需要自带充电线。",
+        "queryTerm": "自带线"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过120元。",
+        "maxPrice": 120
+      }
+    ]
+  },
+  {
+    "id": "02",
+    "scene": "通勤",
+    "initialRequest": "每天坐地铁，想买个充电宝。",
+    "initialQuery": "充电宝 通勤",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "5000mAh",
+        "pattern": "5000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "mini",
+        "text": "商品明确标注小巧或口袋款",
+        "pattern": "迷你|小巧|口袋"
+      },
+      {
+        "id": "budget",
+        "text": "不超过100元",
+        "maxPrice": 100
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是5000mAh。",
+        "queryTerm": "5000毫安"
+      },
+      {
+        "id": "mini",
+        "message": "还需要商品明确标注小巧或口袋款。",
+        "queryTerm": "口袋 小巧"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过100元。",
+        "maxPrice": 100
+      }
+    ]
+  },
+  {
+    "id": "03",
+    "scene": "通勤",
+    "initialRequest": "我想在通勤包里放个充电宝。",
+    "initialQuery": "充电宝 通勤",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "power22",
+        "text": "USB-C输出至少22.5W",
+        "pattern": "(?:22\\.5|25|30|33|45|65|67|100)\\s*W",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过140元",
+        "maxPrice": 140
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "power22",
+        "message": "还需要USB-C输出至少22.5W。",
+        "queryTerm": "22.5W"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过140元。",
+        "maxPrice": 140
+      }
+    ]
+  },
+  {
+    "id": "04",
+    "scene": "通勤",
+    "initialRequest": "工作日出门要带充电宝，帮我看看。",
+    "initialQuery": "充电宝 通勤",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "display",
+        "text": "有数字电量显示",
+        "pattern": "数显|数字显示|电量显示",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过150元",
+        "maxPrice": 150
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "display",
+        "message": "还需要有数字电量显示。",
+        "queryTerm": "数显"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过150元。",
+        "maxPrice": 150
+      }
+    ]
+  },
+  {
+    "id": "05",
+    "scene": "通勤",
+    "initialRequest": "想找个适合日常通勤的移动电源。",
+    "initialQuery": "充电宝 通勤",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "cert",
+        "text": "详情可核查3C认证",
+        "pattern": "3C认证|CCC认证",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过150元",
+        "maxPrice": 150
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "cert",
+        "message": "还需要详情可核查3C认证。",
+        "queryTerm": "3C认证"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过150元。",
+        "maxPrice": 150
+      }
+    ]
+  },
+  {
+    "id": "06",
+    "scene": "出差",
+    "initialRequest": "最近出差频繁，想买个充电宝。",
+    "initialQuery": "充电宝 出差",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "power45",
+        "text": "USB-C PD输出至少45W",
+        "pattern": "(?:45|65|67|100)\\s*W",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过300元",
+        "maxPrice": 300
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "power45",
+        "message": "还需要USB-C PD输出至少45W。",
+        "queryTerm": "PD 45W"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过300元。",
+        "maxPrice": 300
+      }
+    ]
+  },
+  {
+    "id": "07",
+    "scene": "出差",
+    "initialRequest": "帮我找个商务出行能用的充电宝。",
+    "initialQuery": "充电宝 出差",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "cable",
+        "text": "自带充电线",
+        "pattern": "自带线|内置线"
+      },
+      {
+        "id": "budget",
+        "text": "不超过250元",
+        "maxPrice": 250
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "cable",
+        "message": "还需要自带充电线。",
+        "queryTerm": "自带线"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过250元。",
+        "maxPrice": 250
+      }
+    ]
+  },
+  {
+    "id": "08",
+    "scene": "出差",
+    "initialRequest": "我想给出差的行李配个移动电源。",
+    "initialQuery": "充电宝 出差",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "power65",
+        "text": "USB-C输出至少65W",
+        "pattern": "(?:65|67|100)\\s*W",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过350元",
+        "maxPrice": 350
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "power65",
+        "message": "还需要USB-C输出至少65W。",
+        "queryTerm": "65W"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过350元。",
+        "maxPrice": 350
+      }
+    ]
+  },
+  {
+    "id": "09",
+    "scene": "出差",
+    "initialRequest": "经常在外办公，想看看充电宝。",
+    "initialQuery": "充电宝 出差",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "dual",
+        "text": "可同时给两台设备充电",
+        "pattern": "双口|双输出|多口|同时充",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过300元",
+        "maxPrice": 300
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "dual",
+        "message": "还需要可同时给两台设备充电。",
+        "queryTerm": "双口 同时充"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过300元。",
+        "maxPrice": 300
+      }
+    ]
+  },
+  {
+    "id": "10",
+    "scene": "出差",
+    "initialRequest": "想买一个出差途中用的充电宝。",
+    "initialQuery": "充电宝 出差",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "lightweight",
+        "text": "重量不超过200g",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过200元",
+        "maxPrice": 200
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "lightweight",
+        "message": "还需要重量不超过200g。",
+        "queryTerm": "轻薄 200g"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过200元。",
+        "maxPrice": 200
+      }
+    ]
+  },
+  {
+    "id": "11",
+    "scene": "旅游",
+    "initialRequest": "出去旅游想带个充电宝。",
+    "initialQuery": "充电宝 旅游",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "cert",
+        "text": "详情可核查3C认证",
+        "pattern": "3C认证|CCC认证",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过200元",
+        "maxPrice": 200
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "cert",
+        "message": "还需要详情可核查3C认证。",
+        "queryTerm": "3C认证"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过200元。",
+        "maxPrice": 200
+      }
+    ]
+  },
+  {
+    "id": "12",
+    "scene": "旅游",
+    "initialRequest": "假期出门拍照，想备个移动电源。",
+    "initialQuery": "充电宝 旅游",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "cable",
+        "text": "自带充电线",
+        "pattern": "自带线|内置线"
+      },
+      {
+        "id": "budget",
+        "text": "不超过160元",
+        "maxPrice": 160
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "cable",
+        "message": "还需要自带充电线。",
+        "queryTerm": "自带线"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过160元。",
+        "maxPrice": 160
+      }
+    ]
+  },
+  {
+    "id": "13",
+    "scene": "旅游",
+    "initialRequest": "计划旅行，帮我看看充电宝。",
+    "initialQuery": "充电宝 旅游",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "power30",
+        "text": "USB-C输出至少30W",
+        "pattern": "(?:30|33|45|65|67|100)\\s*W",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过200元",
+        "maxPrice": 200
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "power30",
+        "message": "还需要USB-C输出至少30W。",
+        "queryTerm": "30W"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过200元。",
+        "maxPrice": 200
+      }
+    ]
+  },
+  {
+    "id": "14",
+    "scene": "旅游",
+    "initialRequest": "走一天景点怕手机没电，想买个充电宝。",
+    "initialQuery": "充电宝 旅游",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "dual",
+        "text": "可同时给两台设备充电",
+        "pattern": "双口|双输出|多口|同时充",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过250元",
+        "maxPrice": 250
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "dual",
+        "message": "还需要可同时给两台设备充电。",
+        "queryTerm": "双口 同时充"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过250元。",
+        "maxPrice": 250
+      }
+    ]
+  },
+  {
+    "id": "15",
+    "scene": "旅游",
+    "initialRequest": "我想为旅行准备一个充电宝。",
+    "initialQuery": "充电宝 旅游",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "magnetic",
+        "text": "支持磁吸无线充电",
+        "pattern": "磁吸|MagSafe",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过180元",
+        "maxPrice": 180
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "magnetic",
+        "message": "还需要支持磁吸无线充电。",
+        "queryTerm": "磁吸无线"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过180元。",
+        "maxPrice": 180
+      }
+    ]
+  },
+  {
+    "id": "16",
+    "scene": "长辈",
+    "initialRequest": "想给家里长辈买个充电宝。",
+    "initialQuery": "充电宝 长辈",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "cable",
+        "text": "自带充电线",
+        "pattern": "自带线|内置线"
+      },
+      {
+        "id": "budget",
+        "text": "不超过160元",
+        "maxPrice": 160
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "cable",
+        "message": "还需要自带充电线。",
+        "queryTerm": "自带线"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过160元。",
+        "maxPrice": 160
+      }
+    ]
+  },
+  {
+    "id": "17",
+    "scene": "长辈",
+    "initialRequest": "给父母准备一个移动电源，帮我看看。",
+    "initialQuery": "充电宝 长辈",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "display",
+        "text": "有数字电量显示",
+        "pattern": "数显|数字显示|电量显示",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过180元",
+        "maxPrice": 180
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "display",
+        "message": "还需要有数字电量显示。",
+        "queryTerm": "数显"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过180元。",
+        "maxPrice": 180
+      }
+    ]
+  },
+  {
+    "id": "18",
+    "scene": "长辈",
+    "initialRequest": "老人外出用的充电宝有什么选择？",
+    "initialQuery": "充电宝 长辈",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "cable",
+        "text": "自带充电线",
+        "pattern": "自带线|内置线"
+      },
+      {
+        "id": "budget",
+        "text": "不超过200元",
+        "maxPrice": 200
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "cable",
+        "message": "还需要自带充电线。",
+        "queryTerm": "自带线"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过200元。",
+        "maxPrice": 200
+      }
+    ]
+  },
+  {
+    "id": "19",
+    "scene": "长辈",
+    "initialRequest": "我想替家人买个容易携带的充电宝。",
+    "initialQuery": "充电宝 长辈",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "usbcCable",
+        "text": "自带USB-C充电线",
+        "pattern": "自带线.*(?:Type-C|USB-C|C口)|(?:Type-C|USB-C|C口).*自带线",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过160元",
+        "maxPrice": 160
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "usbcCable",
+        "message": "还需要自带USB-C充电线。",
+        "queryTerm": "自带线 USB-C"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过160元。",
+        "maxPrice": 160
+      }
+    ]
+  },
+  {
+    "id": "20",
+    "scene": "长辈",
+    "initialRequest": "想给爸爸妈妈买一个备用充电宝。",
+    "initialQuery": "充电宝 长辈",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "5000mAh",
+        "pattern": "5000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "mini",
+        "text": "商品明确标注小巧或口袋款",
+        "pattern": "迷你|小巧|口袋"
+      },
+      {
+        "id": "budget",
+        "text": "不超过130元",
+        "maxPrice": 130
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是5000mAh。",
+        "queryTerm": "5000毫安"
+      },
+      {
+        "id": "mini",
+        "message": "还需要商品明确标注小巧或口袋款。",
+        "queryTerm": "口袋 小巧"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过130元。",
+        "maxPrice": 130
+      }
+    ]
+  },
+  {
+    "id": "21",
+    "scene": "学生",
+    "initialRequest": "想给上学每天带的手机配个充电宝。",
+    "initialQuery": "充电宝 学生",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "power22",
+        "text": "USB-C输出至少22.5W",
+        "pattern": "(?:22\\.5|25|30|33|45|65|67|100)\\s*W",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过80元",
+        "maxPrice": 80
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "power22",
+        "message": "还需要USB-C输出至少22.5W。",
+        "queryTerm": "22.5W"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过80元。",
+        "maxPrice": 80
+      }
+    ]
+  },
+  {
+    "id": "22",
+    "scene": "学生",
+    "initialRequest": "学校里用的充电宝帮我看看。",
+    "initialQuery": "充电宝 学生",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "mini",
+        "text": "商品明确标注小巧或口袋款",
+        "pattern": "迷你|小巧|口袋"
+      },
+      {
+        "id": "budget",
+        "text": "不超过120元",
+        "maxPrice": 120
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "mini",
+        "message": "还需要商品明确标注小巧或口袋款。",
+        "queryTerm": "口袋 小巧"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过120元。",
+        "maxPrice": 120
+      }
+    ]
+  },
+  {
+    "id": "23",
+    "scene": "学生",
+    "initialRequest": "我是学生，想买个移动电源。",
+    "initialQuery": "充电宝 学生",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "cable",
+        "text": "自带充电线",
+        "pattern": "自带线|内置线"
+      },
+      {
+        "id": "budget",
+        "text": "不超过100元",
+        "maxPrice": 100
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "cable",
+        "message": "还需要自带充电线。",
+        "queryTerm": "自带线"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过100元。",
+        "maxPrice": 100
+      }
+    ]
+  },
+  {
+    "id": "24",
+    "scene": "学生",
+    "initialRequest": "课间给手机补电，想挑个充电宝。",
+    "initialQuery": "充电宝 学生",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "magnetic",
+        "text": "支持磁吸无线充电",
+        "pattern": "磁吸|MagSafe",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过160元",
+        "maxPrice": 160
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "magnetic",
+        "message": "还需要支持磁吸无线充电。",
+        "queryTerm": "磁吸无线"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过160元。",
+        "maxPrice": 160
+      }
+    ]
+  },
+  {
+    "id": "25",
+    "scene": "学生",
+    "initialRequest": "想买个放书包里的充电宝。",
+    "initialQuery": "充电宝 学生",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "cert",
+        "text": "详情可核查3C认证",
+        "pattern": "3C认证|CCC认证",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过150元",
+        "maxPrice": 150
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "cert",
+        "message": "还需要详情可核查3C认证。",
+        "queryTerm": "3C认证"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过150元。",
+        "maxPrice": 150
+      }
+    ]
+  },
+  {
+    "id": "26",
+    "scene": "露营",
+    "initialRequest": "周末露营想带个充电宝。",
+    "initialQuery": "充电宝 露营",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "30000mAh",
+        "pattern": "30000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "dual",
+        "text": "可同时给两台设备充电",
+        "pattern": "双口|双输出|多口|同时充",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过250元",
+        "maxPrice": 250
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是30000mAh。",
+        "queryTerm": "30000毫安"
+      },
+      {
+        "id": "dual",
+        "message": "还需要可同时给两台设备充电。",
+        "queryTerm": "双口 同时充"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过250元。",
+        "maxPrice": 250
+      }
+    ]
+  },
+  {
+    "id": "27",
+    "scene": "露营",
+    "initialRequest": "户外过夜时想备个移动电源。",
+    "initialQuery": "充电宝 露营",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "30000mAh",
+        "pattern": "30000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "cable",
+        "text": "自带充电线",
+        "pattern": "自带线|内置线"
+      },
+      {
+        "id": "budget",
+        "text": "不超过250元",
+        "maxPrice": 250
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是30000mAh。",
+        "queryTerm": "30000毫安"
+      },
+      {
+        "id": "cable",
+        "message": "还需要自带充电线。",
+        "queryTerm": "自带线"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过250元。",
+        "maxPrice": 250
+      }
+    ]
+  },
+  {
+    "id": "28",
+    "scene": "露营",
+    "initialRequest": "帮我看看露营用的充电宝。",
+    "initialQuery": "充电宝 露营",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "40000mAh",
+        "pattern": "40000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "dual",
+        "text": "可同时给两台设备充电",
+        "pattern": "双口|双输出|多口|同时充",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过300元",
+        "maxPrice": 300
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是40000mAh。",
+        "queryTerm": "40000毫安"
+      },
+      {
+        "id": "dual",
+        "message": "还需要可同时给两台设备充电。",
+        "queryTerm": "双口 同时充"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过300元。",
+        "maxPrice": 300
+      }
+    ]
+  },
+  {
+    "id": "29",
+    "scene": "露营",
+    "initialRequest": "在营地给设备补电，想买个充电宝。",
+    "initialQuery": "充电宝 露营",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "50000mAh",
+        "pattern": "50000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "cert",
+        "text": "详情可核查3C认证",
+        "pattern": "3C认证|CCC认证",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过300元",
+        "maxPrice": 300
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是50000mAh。",
+        "queryTerm": "50000毫安"
+      },
+      {
+        "id": "cert",
+        "message": "还需要详情可核查3C认证。",
+        "queryTerm": "3C认证"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过300元。",
+        "maxPrice": 300
+      }
+    ]
+  },
+  {
+    "id": "30",
+    "scene": "露营",
+    "initialRequest": "我想为短途户外活动准备移动电源。",
+    "initialQuery": "充电宝 露营",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "30000mAh",
+        "pattern": "30000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "power22",
+        "text": "USB-C输出至少22.5W",
+        "pattern": "(?:22\\.5|25|30|33|45|65|67|100)\\s*W",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过250元",
+        "maxPrice": 250
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是30000mAh。",
+        "queryTerm": "30000毫安"
+      },
+      {
+        "id": "power22",
+        "message": "还需要USB-C输出至少22.5W。",
+        "queryTerm": "22.5W"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过250元。",
+        "maxPrice": 250
+      }
+    ]
+  },
+  {
+    "id": "31",
+    "scene": "办公",
+    "initialRequest": "在办公室和外面切换工作，想买个充电宝。",
+    "initialQuery": "充电宝 办公",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "power30",
+        "text": "USB-C输出至少30W",
+        "pattern": "(?:30|33|45|65|67|100)\\s*W",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过180元",
+        "maxPrice": 180
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "power30",
+        "message": "还需要USB-C输出至少30W。",
+        "queryTerm": "30W"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过180元。",
+        "maxPrice": 180
+      }
+    ]
+  },
+  {
+    "id": "32",
+    "scene": "办公",
+    "initialRequest": "想给随身办公设备准备移动电源。",
+    "initialQuery": "充电宝 办公",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "power45",
+        "text": "USB-C PD输出至少45W",
+        "pattern": "(?:45|65|67|100)\\s*W",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过280元",
+        "maxPrice": 280
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "power45",
+        "message": "还需要USB-C PD输出至少45W。",
+        "queryTerm": "PD 45W"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过280元。",
+        "maxPrice": 280
+      }
+    ]
+  },
+  {
+    "id": "33",
+    "scene": "办公",
+    "initialRequest": "经常离开工位开会，想带个充电宝。",
+    "initialQuery": "充电宝 办公",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "cable",
+        "text": "自带充电线",
+        "pattern": "自带线|内置线"
+      },
+      {
+        "id": "budget",
+        "text": "不超过220元",
+        "maxPrice": 220
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "cable",
+        "message": "还需要自带充电线。",
+        "queryTerm": "自带线"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过220元。",
+        "maxPrice": 220
+      }
+    ]
+  },
+  {
+    "id": "34",
+    "scene": "办公",
+    "initialRequest": "帮我挑个办公时用的充电宝。",
+    "initialQuery": "充电宝 办公",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "magnetic",
+        "text": "支持磁吸无线充电",
+        "pattern": "磁吸|MagSafe",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过200元",
+        "maxPrice": 200
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "magnetic",
+        "message": "还需要支持磁吸无线充电。",
+        "queryTerm": "磁吸无线"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过200元。",
+        "maxPrice": 200
+      }
+    ]
+  },
+  {
+    "id": "35",
+    "scene": "办公",
+    "initialRequest": "工作时要给设备补电，想买充电宝。",
+    "initialQuery": "充电宝 办公",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "dual",
+        "text": "可同时给两台设备充电",
+        "pattern": "双口|双输出|多口|同时充",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过220元",
+        "maxPrice": 220
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "dual",
+        "message": "还需要可同时给两台设备充电。",
+        "queryTerm": "双口 同时充"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过220元。",
+        "maxPrice": 220
+      }
+    ]
+  },
+  {
+    "id": "36",
+    "scene": "运动",
+    "initialRequest": "运动出门想带个充电宝。",
+    "initialQuery": "充电宝 运动",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "5000mAh",
+        "pattern": "5000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "mini",
+        "text": "商品明确标注小巧或口袋款",
+        "pattern": "迷你|小巧|口袋"
+      },
+      {
+        "id": "budget",
+        "text": "不超过100元",
+        "maxPrice": 100
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是5000mAh。",
+        "queryTerm": "5000毫安"
+      },
+      {
+        "id": "mini",
+        "message": "还需要商品明确标注小巧或口袋款。",
+        "queryTerm": "口袋 小巧"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过100元。",
+        "maxPrice": 100
+      }
+    ]
+  },
+  {
+    "id": "37",
+    "scene": "运动",
+    "initialRequest": "骑行时手机怕没电，想买个移动电源。",
+    "initialQuery": "充电宝 运动",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "lightweight",
+        "text": "重量不超过200g",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过180元",
+        "maxPrice": 180
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "lightweight",
+        "message": "还需要重量不超过200g。",
+        "queryTerm": "轻薄 200g"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过180元。",
+        "maxPrice": 180
+      }
+    ]
+  },
+  {
+    "id": "38",
+    "scene": "运动",
+    "initialRequest": "周末跑步后还要出门，想备个充电宝。",
+    "initialQuery": "充电宝 运动",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "cable",
+        "text": "自带充电线",
+        "pattern": "自带线|内置线"
+      },
+      {
+        "id": "budget",
+        "text": "不超过120元",
+        "maxPrice": 120
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "cable",
+        "message": "还需要自带充电线。",
+        "queryTerm": "自带线"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过120元。",
+        "maxPrice": 120
+      }
+    ]
+  },
+  {
+    "id": "39",
+    "scene": "运动",
+    "initialRequest": "健身包里想放一个充电宝。",
+    "initialQuery": "充电宝 运动",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "5000mAh",
+        "pattern": "5000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "magnetic",
+        "text": "支持磁吸无线充电",
+        "pattern": "磁吸|MagSafe",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过160元",
+        "maxPrice": 160
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是5000mAh。",
+        "queryTerm": "5000毫安"
+      },
+      {
+        "id": "magnetic",
+        "message": "还需要支持磁吸无线充电。",
+        "queryTerm": "磁吸无线"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过160元。",
+        "maxPrice": 160
+      }
+    ]
+  },
+  {
+    "id": "40",
+    "scene": "运动",
+    "initialRequest": "想买个户外运动时随身带的充电宝。",
+    "initialQuery": "充电宝 运动",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "cert",
+        "text": "详情可核查3C认证",
+        "pattern": "3C认证|CCC认证",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过150元",
+        "maxPrice": 150
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "cert",
+        "message": "还需要详情可核查3C认证。",
+        "queryTerm": "3C认证"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过150元。",
+        "maxPrice": 150
+      }
+    ]
+  },
+  {
+    "id": "41",
+    "scene": "摄影",
+    "initialRequest": "出门拍摄时想备个充电宝。",
+    "initialQuery": "充电宝 摄影",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "power30",
+        "text": "USB-C输出至少30W",
+        "pattern": "(?:30|33|45|65|67|100)\\s*W",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过250元",
+        "maxPrice": 250
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "power30",
+        "message": "还需要USB-C输出至少30W。",
+        "queryTerm": "30W"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过250元。",
+        "maxPrice": 250
+      }
+    ]
+  },
+  {
+    "id": "42",
+    "scene": "摄影",
+    "initialRequest": "摄影设备多，帮我看看移动电源。",
+    "initialQuery": "充电宝 摄影",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "dual",
+        "text": "可同时给两台设备充电",
+        "pattern": "双口|双输出|多口|同时充",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过220元",
+        "maxPrice": 220
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "dual",
+        "message": "还需要可同时给两台设备充电。",
+        "queryTerm": "双口 同时充"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过220元。",
+        "maxPrice": 220
+      }
+    ]
+  },
+  {
+    "id": "43",
+    "scene": "摄影",
+    "initialRequest": "拍照一整天，想给设备准备充电宝。",
+    "initialQuery": "充电宝 摄影",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "30000mAh",
+        "pattern": "30000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "power45",
+        "text": "USB-C PD输出至少45W",
+        "pattern": "(?:45|65|67|100)\\s*W",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过350元",
+        "maxPrice": 350
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是30000mAh。",
+        "queryTerm": "30000毫安"
+      },
+      {
+        "id": "power45",
+        "message": "还需要USB-C PD输出至少45W。",
+        "queryTerm": "PD 45W"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过350元。",
+        "maxPrice": 350
+      }
+    ]
+  },
+  {
+    "id": "44",
+    "scene": "摄影",
+    "initialRequest": "经常在外拍视频，想买个充电宝。",
+    "initialQuery": "充电宝 摄影",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "cable",
+        "text": "自带充电线",
+        "pattern": "自带线|内置线"
+      },
+      {
+        "id": "budget",
+        "text": "不超过180元",
+        "maxPrice": 180
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "cable",
+        "message": "还需要自带充电线。",
+        "queryTerm": "自带线"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过180元。",
+        "maxPrice": 180
+      }
+    ]
+  },
+  {
+    "id": "45",
+    "scene": "摄影",
+    "initialRequest": "想找个拍摄途中补电用的移动电源。",
+    "initialQuery": "充电宝 摄影",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "display",
+        "text": "有数字电量显示",
+        "pattern": "数显|数字显示|电量显示",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过250元",
+        "maxPrice": 250
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "display",
+        "message": "还需要有数字电量显示。",
+        "queryTerm": "数显"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过250元。",
+        "maxPrice": 250
+      }
+    ]
+  },
+  {
+    "id": "46",
+    "scene": "多设备",
+    "initialRequest": "我的随身设备比较多，想买个充电宝。",
+    "initialQuery": "充电宝 多设备",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "dual",
+        "text": "可同时给两台设备充电",
+        "pattern": "双口|双输出|多口|同时充",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过250元",
+        "maxPrice": 250
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "dual",
+        "message": "还需要可同时给两台设备充电。",
+        "queryTerm": "双口 同时充"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过250元。",
+        "maxPrice": 250
+      }
+    ]
+  },
+  {
+    "id": "47",
+    "scene": "多设备",
+    "initialRequest": "手机和耳机都要补电，想找移动电源。",
+    "initialQuery": "充电宝 多设备",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "dual",
+        "text": "可同时给两台设备充电",
+        "pattern": "双口|双输出|多口|同时充",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过180元",
+        "maxPrice": 180
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "dual",
+        "message": "还需要可同时给两台设备充电。",
+        "queryTerm": "双口 同时充"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过180元。",
+        "maxPrice": 180
+      }
+    ]
+  },
+  {
+    "id": "48",
+    "scene": "多设备",
+    "initialRequest": "出门常带几台设备，帮我看看充电宝。",
+    "initialQuery": "充电宝 多设备",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "30000mAh",
+        "pattern": "30000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "triple",
+        "text": "至少三个输出接口",
+        "pattern": "三口|多口",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过300元",
+        "maxPrice": 300
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是30000mAh。",
+        "queryTerm": "30000毫安"
+      },
+      {
+        "id": "triple",
+        "message": "还需要至少三个输出接口。",
+        "queryTerm": "三口"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过300元。",
+        "maxPrice": 300
+      }
+    ]
+  },
+  {
+    "id": "49",
+    "scene": "多设备",
+    "initialRequest": "想买个能给多件数码设备用的充电宝。",
+    "initialQuery": "充电宝 多设备",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "20000mAh",
+        "pattern": "20000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "power65",
+        "text": "USB-C输出至少65W",
+        "pattern": "(?:65|67|100)\\s*W",
+        "detailRequired": true
+      },
+      {
+        "id": "budget",
+        "text": "不超过350元",
+        "maxPrice": 350
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是20000mAh。",
+        "queryTerm": "20000毫安"
+      },
+      {
+        "id": "power65",
+        "message": "还需要USB-C输出至少65W。",
+        "queryTerm": "65W"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过350元。",
+        "maxPrice": 350
+      }
+    ]
+  },
+  {
+    "id": "50",
+    "scene": "多设备",
+    "initialRequest": "平时带手机和平板，想准备充电宝。",
+    "initialQuery": "充电宝 多设备",
+    "hard": [
+      {
+        "id": "capacity",
+        "text": "10000mAh",
+        "pattern": "10000\\s*(?:毫安|mAh)"
+      },
+      {
+        "id": "cable",
+        "text": "自带充电线",
+        "pattern": "自带线|内置线"
+      },
+      {
+        "id": "budget",
+        "text": "不超过150元",
+        "maxPrice": 150
+      }
+    ],
+    "soft": [],
+    "feedback": [
+      {
+        "id": "capacity",
+        "message": "希望容量是10000mAh。",
+        "queryTerm": "10000毫安"
+      },
+      {
+        "id": "cable",
+        "message": "还需要自带充电线。",
+        "queryTerm": "自带线"
+      },
+      {
+        "id": "budget",
+        "message": "预算不超过150元。",
+        "maxPrice": 150
+      }
+    ]
+  }
+]

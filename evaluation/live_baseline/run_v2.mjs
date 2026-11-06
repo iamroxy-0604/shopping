@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { searchTaobao } from '../../backend/src/taobao.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const scenarios = JSON.parse(fs.readFileSync(path.join(here, 'scenarios_v2.json'), 'utf8'));
+const sourceFile = process.argv[2] ? path.resolve(process.argv[2]) : path.join(here, 'scenarios_v2.json');
+const scenarios = JSON.parse(fs.readFileSync(sourceFile, 'utf8'));
 const runId = new Date().toISOString().replace(/[:.]/g, '-');
 const outDir = path.join(here, 'runs', runId);
 const maxBatches = 5;
@@ -15,6 +16,20 @@ const logFile = path.join(outDir, 'events.jsonl');
 const emit = (scenarioId, type, data = {}) => fs.appendFileSync(logFile, JSON.stringify({ at: new Date().toISOString(), runId, scenarioId, type, ...data }) + '\n');
 const publicItem = (item) => ({ id: item.id, title: item.title, price: item.price, shopName: item.shopName, source: item.source });
 const key = (item) => String(item.title).replace(/[\s\p{P}]/gu, '').toLowerCase();
+function uniqueCandidates(items, shownIds, shownProducts, already = [], limit = 3) {
+  const selected = [];
+  const ids = new Set(already.map((x) => x.id));
+  const titles = new Set(already.map(key));
+  for (const item of items) {
+    const title = key(item);
+    if (!item.id || shownIds.has(item.id) || shownProducts.has(title) || ids.has(item.id) || titles.has(title)) continue;
+    selected.push(item);
+    ids.add(item.id);
+    titles.add(title);
+    if (selected.length === limit) break;
+  }
+  return selected;
+}
 
 function judge(item, hard) {
   const checks = hard.map((condition) => {
@@ -56,7 +71,7 @@ async function runGroup(s, group, first) {
       cursor = 0;
       pageNo = 1;
     }
-    let displayed = pool.slice(cursor).filter((item) => item.id && !shownIds.has(item.id) && !shownProducts.has(key(item))).slice(0, batchSize);
+    let displayed = uniqueCandidates(pool.slice(cursor), shownIds, shownProducts, [], batchSize);
     if (displayed.length) cursor = pool.indexOf(displayed.at(-1)) + 1;
     const retrievalQueries = displayed.length ? ['cached_initial_or_previous_search'] : [];
     const latestTerm = feedback.at(-1)?.queryTerm;
@@ -74,9 +89,7 @@ async function runGroup(s, group, first) {
         ...(maxPrice !== undefined ? { end_price: maxPrice } : {}) });
       retrievalQueries.push(planKey);
       if (!result.ok) { stopReason = `search_error:${result.error.code}`; break; }
-      const remaining = result.items.filter((item) => item.id && !shownIds.has(item.id) && !shownProducts.has(key(item))
-        && !displayed.some((x) => x.id === item.id || key(x) === key(item)));
-      const added = remaining.slice(0, batchSize - displayed.length);
+      const added = uniqueCandidates(result.items, shownIds, shownProducts, displayed, batchSize - displayed.length);
       displayed.push(...added);
       if (group === 'A' && added.length) { pool = result.items; cursor = pool.indexOf(added.at(-1)) + 1; pageNo = plan.page; }
     }
@@ -106,7 +119,7 @@ async function runGroup(s, group, first) {
 
 if (!['TAOBAO_APP_KEY', 'TAOBAO_APP_SECRET', 'TAOBAO_ADZONE_ID'].every((name) => process.env[name])) throw new Error('Configure backend/.env before live run');
 emit(null, 'experiment_start', { protocol: { batchSize, maxBatches, groups: ['A', 'B'], source: 'live_taobao',
-  judgment: 'title_and_price_proxy_only', confirmedSatisfactionRequiresHumanReview: true }, scenarioCount: scenarios.length });
+  judgment: 'title_and_price_proxy_only', confirmedSatisfactionRequiresHumanReview: true }, scenarioCount: scenarios.length, sourceFile: path.basename(sourceFile) });
 const results = [];
 for (const s of scenarios) {
   emit(s.id, 'scenario_start', { initialRequest: s.initialRequest, initialQuery: s.initialQuery, hard: s.hard, soft: s.soft, feedbackPlan: s.feedback });
@@ -116,6 +129,19 @@ for (const s of scenarios) {
     emit(s.id, 'scenario_end', { status: 'initial_search_error', errorCode: first.error.code });
     continue;
   }
+  let sharedPool = [...first.items];
+  for (const plan of [{ q: s.initialQuery, page: 2 }, { q: '充电宝', page: 1 }, { q: '充电宝', page: 2 }]) {
+    if (uniqueCandidates(sharedPool, new Set(), new Set()).length >= batchSize) break;
+    const extra = await queryTaobao(s.id, 'shared', 1, plan.q, { pageNo: plan.page, pageSize: 20 });
+    if (extra.ok) sharedPool.push(...extra.items);
+  }
+  if (uniqueCandidates(sharedPool, new Set(), new Set()).length < batchSize) {
+    results.push({ scenarioId: s.id, status: 'incomplete_shared_first_batch' });
+    emit(s.id, 'scenario_end', { status: 'incomplete_shared_first_batch' });
+    continue;
+  }
+  first.items = sharedPool;
+  emit(s.id, 'shared_first_batch_ready', { items: uniqueCandidates(sharedPool, new Set(), new Set()).map(publicItem) });
   const A = await runGroup(s, 'A', first);
   const B = await runGroup(s, 'B', first);
   results.push({ scenarioId: s.id, initialRequest: s.initialRequest, A, B });

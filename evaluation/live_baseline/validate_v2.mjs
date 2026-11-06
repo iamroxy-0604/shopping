@@ -7,9 +7,8 @@ if (!dir) throw new Error('Usage: node validate_v2.mjs <run directory>');
 const scenarios = JSON.parse(fs.readFileSync(path.join(dir, 'scenarios_snapshot.json'), 'utf8'));
 const summary = JSON.parse(fs.readFileSync(path.join(dir, 'summary.json'), 'utf8'));
 const events = fs.readFileSync(path.join(dir, 'events.jsonl'), 'utf8').trim().split(/\r?\n/).map(JSON.parse);
-assert.equal(scenarios.length, 12);
-assert.equal(summary.results.length, 12);
-assert.equal(summary.pairedRunsCompleted, 12);
+assert.equal(summary.results.length, scenarios.length);
+assert.equal(summary.pairedRunsCompleted, scenarios.length);
 for (const r of summary.results) {
   assert(r.A && r.B, `Missing pair for ${r.scenarioId}`);
   assert.deepEqual(r.A.batches[0].items.map((x) => x.title), r.B.batches[0].items.map((x) => x.title));
@@ -24,4 +23,4 @@ for (const r of summary.results) {
 }
 assert(events.some((e) => e.type === 'search_response' && e.ok && e.count > 0));
 const calls = events.filter((e) => e.type === 'search_request').length;
-console.log(`Validated 12 paired scenarios, 24 groups, ${events.length} events, ${calls} live search calls.`);
+console.log(`Validated ${scenarios.length} paired scenarios, ${scenarios.length * 2} groups, ${events.length} events, ${calls} live search calls.`);
