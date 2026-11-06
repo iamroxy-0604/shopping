@@ -1,5 +1,16 @@
 # 淘宝实时商品推荐基线：最小实验
 
+## 12 条需求试运行（2026-11-06）
+
+当前扩展试运行见 [实验报告](REPORT_12.md) 与 [过程记录](PROCESS_12.md)。`scenarios_v2.json` 保存 12 条不同的充电宝需求，`run_v2.mjs` 对每条运行 A/B 并调用真实淘宝接口。运行与校验：
+
+```powershell
+node --env-file=backend/.env evaluation/live_baseline/run_v2.mjs
+node evaluation/live_baseline/validate_v2.mjs evaluation/live_baseline/runs/2026-11-06T07-40-53-367Z
+```
+
+有效试运行的原始事件、逐批汇总、冻结材料及人工复核表在 `runs/2026-11-06T07-40-53-367Z/`。这一轮只有标题与价格的待核查候选，没有经过人工确认的满意结果。下文保留第一条单需求试运行的说明，便于查看版本演进。
+
 ## 目的与边界
 
 本目录用项目现有的 `backend/src/taobao.mjs` 实时调用淘宝联盟接口，完成一条充电宝需求的配对 A/B 试运行。A 组只反馈满意或不满意；B 组每次不满意后按预定顺序补充一项需求。两组均不由系统主动提问。每批最多展示 3 件，最多 5 批。
