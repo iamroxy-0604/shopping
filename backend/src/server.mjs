@@ -178,7 +178,14 @@ const server = http.createServer(async (req, res) => {
     const parsed = parseShoppingQuery(body.query);
     const result = await searchProductSource({ query: parsed.query, filters: { ...parsed.filters, ...(body.filters || {}) }, source: body.source });
     if (!result.ok) return sendJson(res, result.error.code === 'INVALID_QUERY' ? 400 : 502, result);
-    return sendJson(res, 200, { ok: true, query: parsed, items: result.items });
+    return sendJson(res, 200, {
+      ok: true,
+      query: parsed,
+      items: result.items,
+      source: result.source,
+      sources: result.sources,
+      ...(result.warnings?.length ? { warnings: result.warnings } : {})
+    });
   } catch (error) {
     return sendJson(res, 400, { ok: false, error: { code: 'INVALID_JSON', message: '请求体需要是合法 JSON' } });
   }

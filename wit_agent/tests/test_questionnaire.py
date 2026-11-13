@@ -38,6 +38,7 @@ def test_ai_questionnaire_search_terms_and_product_order(tmp_path):
             {"ids": ["t2", "t1", "t3"], "lead": "gentle"},
             {"intro": "想找有日系氛围的餐桌，我挑了三张不同价位的给你慢慢看。",
              "summary": "第一张偏小户型，第二张强调原木氛围，第三张是实木餐台方向；实际尺寸要看详情。",
+             "emphasis": ["第一张偏小户型", "原木氛围"],
              "followUp": "你更在意桌面大小，还是木色的感觉？",
              "items": [
                  {"id": "t2", "reason": "标题写着小户型，想留出更多活动空间的话可以先看看尺寸。"},
@@ -75,6 +76,7 @@ def test_ai_questionnaire_search_terms_and_product_order(tmp_path):
             assert "日系氛围" in result["message"]
             assert "小户型" in result["items"][0]["talkingPoint"]
             assert result["followUp"].startswith("你更在意")
+            assert result["emphasis"] == ["第一张偏小户型", "原木氛围"]
             assert result["question"] is None
 
     run(scenario())
