@@ -6,9 +6,10 @@ from pathlib import Path
 
 
 def _session_default() -> dict:
-    return {"current_items": [], "content_records": [], "selected_content_id": None, "last_query": "", "turns": 0, "emotion": {}, "temporary": {},
+    return {"current_items": [], "last_query": "", "turns": 0, "emotion": {}, "temporary": {},
             "questionnaire": None, "shopping_category": "", "shopping_answers": [],
-            "pending_result": None, "preferences": {}, "feedback": []}
+            "pending_result": None, "preferences": {}, "feedback": [],
+            "yuemai_anchor": None, "yuemai_initial_preferences": {}}
 
 
 class MemoryManager:
@@ -88,8 +89,8 @@ class MemoryManager:
             data["temporary"] = {}
             data["feedback"] = []
             data["current_items"] = []
-            data["content_records"] = []
-            data["selected_content_id"] = None
             data["last_query"] = ""
+            data["yuemai_anchor"] = None
+            data["yuemai_initial_preferences"] = {}
         self.save(session_id, data, user_id, forget_all=field is None or field == "all")
         return data

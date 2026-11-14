@@ -24,7 +24,7 @@ if (!fs.existsSync(path.join(frameworkPath, 'wit', '__init__.py')) || !fs.exists
 const witUrl = `http://127.0.0.1:${witPort}`;
 const wit = spawn(python, ['-m', 'wit_agent.server'], {
   cwd: projectRoot,
-  env: { ...config, PYTHONPATH: [frameworkPath, projectRoot, config.PYTHONPATH].filter(Boolean).join(path.delimiter), WIT_PORT: String(witPort), WIT_PRODUCT_URL: config.WIT_PRODUCT_URL || `http://127.0.0.1:${Number(config.PORT || 3000)}/api/products/search`, WIT_CONTENT_URL: `http://127.0.0.1:${Number(config.PORT || 3000)}/internal/content/discover` },
+  env: { ...config, PYTHONPATH: [frameworkPath, projectRoot, config.PYTHONPATH].filter(Boolean).join(path.delimiter), WIT_PORT: String(witPort) },
   stdio: 'inherit',
   windowsHide: true
 });

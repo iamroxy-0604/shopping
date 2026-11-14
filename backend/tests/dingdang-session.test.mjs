@@ -38,8 +38,8 @@ test('concurrent submissions do not run two shopping calls',async t=>{
   assert.equal((await svc.handle(request('input','second',0),'peer')).body.code,'BUSY');release(result);await waiting;
 });
 test('desktop output is products-only and strips executable URLs',async()=>{
-  const raw={ok:true,type:'results',message:'推荐',items:[{id:'p',title:'台灯',imageUrl:'javascript:alert(1)',promotionUrl:'https://example.com/item',price:NaN},{kind:'content',title:'帖子'}],contentRecords:[{body:'帖子'}],ui:{blocks:[{type:'content_list'}]}};
-  const value=shoppingResult(raw);assert.equal(value.items.length,1);assert.equal(value.items[0].imageUrl,'');assert.equal(value.items[0].price,null);assert.equal(value.contentRecords,undefined);assert.equal(value.ui,undefined);
+  const raw={ok:true,type:'results',message:'推荐',summary:'第一款更适合阅读，第二款更适合氛围照明。',emphasis:['更适合阅读','不存在的短语','更适合阅读'],items:[{id:'p',title:'台灯',imageUrl:'javascript:alert(1)',promotionUrl:'https://example.com/item',price:NaN},{kind:'content',title:'帖子'}],contentRecords:[{body:'帖子'}],ui:{blocks:[{type:'content_list'}]}};
+  const value=shoppingResult(raw);assert.equal(value.items.length,1);assert.equal(value.items[0].imageUrl,'');assert.equal(value.items[0].price,null);assert.deepEqual(value.emphasis,['更适合阅读']);assert.equal(value.contentRecords,undefined);assert.equal(value.ui,undefined);
   let seen;await desktopChat({sessionId:'s1',message:'台灯'},{owner:'owner-a',run:async r=>{seen=r;return raw;}});assert.equal(seen.productsOnly,true);assert.notEqual(seen.sessionId,'s1');
 });
 test('delivered iframe fits DD document limits and has no external executable assets',()=>{

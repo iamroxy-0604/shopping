@@ -20,14 +20,9 @@ from wit.providers.openai import OpenAIModelComponent
 from .llm import (NarrativeGenerationError, category_question_plan, interpret, product_plan,
                   questionnaire_plan, recommendation_plan, search_plan)
 from .memory import MemoryManager
-from .content import discover_related_content, content_reply, normalize_link_record
 from .policy import extract_updates, forget_field, temporary_budget, understand, usual_budget
 
 Search = Callable[[str, dict], Awaitable[dict | list]]
-
-
-async def no_content_source(_task: dict) -> dict:
-    return {"records": [], "status": "unavailable", "diagnostics": {"reason": "not_configured"}}
 CATEGORY_EQUIVALENTS = {"桌面灯": ("桌面灯", "台灯"), "台灯": ("台灯", "桌面灯"), "腮红": ("腮红", "胭脂"), "耳机": ("耳机", "耳麦"), "餐桌": ("餐桌", "饭桌", "餐台"), "裤子": ("裤子", "裤")}
 STYLE_EQUIVALENTS = {"日系": ("日系", "日式"), "韩系": ("韩系", "韩式"), "北欧": ("北欧",), "法式": ("法式",)}
 STYLE_CONFLICTS = ("日系", "日式", "韩系", "韩式", "北欧", "欧式", "美式", "法式")
@@ -35,8 +30,15 @@ STYLE_CONFLICTS = ("日系", "日式", "韩系", "韩式", "北欧", "欧式", "
 
 async def product_api_search(query: str, filters: dict) -> dict:
     url = os.getenv("WIT_PRODUCT_URL", "http://127.0.0.1:3000/api/products/search")
-    async with httpx.AsyncClient(timeout=9.0) as client:
-        response = await client.post(url, json={"query": query, "filters": filters})
+    request_filters = dict(filters or {})
+    source = request_filters.pop("_source", None)
+    body = {"query": query, "filters": request_filters}
+    if source:
+        body["source"] = source
+    # The product service is a local sidecar and must never be routed through
+    # HTTP(S)/SOCKS proxy variables inherited from the desktop environment.
+    async with httpx.AsyncClient(timeout=9.0, trust_env=False) as client:
+        response = await client.post(url, json=body)
         response.raise_for_status()
         return response.json()
 
@@ -60,6 +62,18 @@ def normalize_product(raw: dict) -> dict | None:
     media = raw.get("media") or {}
     images = (media.get("images") or []) if isinstance(media, dict) else []
     image_url = raw.get("imageUrl") or (images[0].get("url") if images and isinstance(images[0], dict) else "")
+    normalized_facts = {
+        "title": title,
+        "price": price,
+        "material": copy.deepcopy(facts.get("material")),
+        "color": copy.deepcopy(facts.get("color")),
+        "dimensions": copy.deepcopy(facts.get("dimensions")),
+        "brand": copy.deepcopy(facts.get("brand")),
+    }
+    for key in ("goodsId", "skuCount", "representativeSkuId", "sellingPoint", "description",
+                "category", "deliverTime", "servicePromise", "afterSaleRule"):
+        if facts.get(key) is not None:
+            normalized_facts[key] = copy.deepcopy(facts.get(key))
     return {
         "id": str(raw.get("id") or raw.get("product_id") or title),
         "title": title,
@@ -68,10 +82,48 @@ def normalize_product(raw: dict) -> dict | None:
         "promotionUrl": str(raw.get("promotionUrl") or ""),
         "source": copy.deepcopy(source) if isinstance(source, dict) else str(source or ""),
         "shopName": str(raw.get("shopName") or ""),
+        "description": str(raw.get("description") or facts.get("sellingPoint") or facts.get("description") or ""),
         "media": copy.deepcopy(media) if isinstance(media, dict) else {},
-        "facts": {"title": title, "price": price, "material": copy.deepcopy(facts.get("material")), "color": copy.deepcopy(facts.get("color")), "dimensions": copy.deepcopy(facts.get("dimensions"))},
+        "facts": normalized_facts,
+        "providerData": copy.deepcopy(raw.get("providerData")) if isinstance(raw.get("providerData"), dict) else {},
         "semantic": copy.deepcopy(raw.get("semantic")) if isinstance(raw.get("semantic"), dict) else {},
+        "selectionScope": str(raw.get("selectionScope") or ""),
+        "matchPolicy": str(raw.get("matchPolicy") or ""),
     }
+
+
+def product_source_name(raw: dict) -> str:
+    if not isinstance(raw, dict):
+        return ""
+    source = raw.get("source")
+    if isinstance(source, str):
+        name = source
+    elif isinstance(source, dict):
+        name = source.get("id") or source.get("name") or source.get("provider") or source.get("source") or ""
+    else:
+        name = ""
+    name = str(name).strip().lower()
+    if name == "syh":
+        return "yuemai"
+    if name:
+        return name
+    item_id = str(raw.get("id") or raw.get("product_id") or "").lower()
+    return item_id.split(":", 1)[0] if ":" in item_id else ""
+
+
+def payload_has_source_metadata(payload, raw_items: list) -> bool:
+    supported = {"taobao", "yuemai"}
+    if isinstance(payload, dict):
+        if str(payload.get("source") or "").lower() in supported:
+            return True
+        sources = payload.get("sources")
+        if isinstance(sources, list) and any(
+            isinstance(entry, dict) and str(entry.get("source") or "").lower() in supported
+            for entry in sources
+        ):
+            return True
+    return any(product_source_name(item) in supported
+               for item in raw_items if isinstance(item, dict))
 
 
 def select_products(raw_items: list, preferences: dict, limit: int = 3,
@@ -244,10 +296,9 @@ def questionnaire_question(questionnaire: dict) -> dict | None:
 
 
 class ShoppingAgent:
-    def __init__(self, memory_path: str | Path, search: Search = product_api_search, model=None, *, questionnaire_enabled=True, narrator=None, content_search=None):
+    def __init__(self, memory_path: str | Path, search: Search = product_api_search, model=None, *, questionnaire_enabled=True, narrator=None):
         self.memory = MemoryManager(memory_path)
         self.search = search
-        self.content_search = content_search or (discover_related_content if search is product_api_search else no_content_source)
         self.questionnaire_enabled = questionnaire_enabled
         self.narrator = narrator  # Test-only dependency injection; production uses the installed model.
         self._locks = defaultdict(asyncio.Lock)
@@ -269,6 +320,26 @@ class ShoppingAgent:
         graph.edge("reply", "save").edge("save", None)
         self.agent.install(WorkflowLoopComponent(graph), required=True)
 
+    def _source_filters(self, filters: dict, source: str) -> dict:
+        if self.search is product_api_search or getattr(self.search, "supports_product_sources", False):
+            return {**filters, "_source": source}
+        return dict(filters)
+
+    def _log_questionnaire(self, session_id: str, source: str, questions: list[dict]) -> None:
+        """Append the minimal questionnaire audit record without affecting the chat flow."""
+        log_path = Path(self.memory.path).parent / "questionnaire.events.jsonl"
+        record = {
+            "sessionId": session_id,
+            "source": source,
+            "questions": questions,
+        }
+        try:
+            with log_path.open("a", encoding="utf-8") as log:
+                log.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
+        except OSError:
+            # Logging must never prevent the user from continuing the questionnaire.
+            pass
+
     async def __aenter__(self):
         await self.agent.start()
         return self
@@ -276,7 +347,7 @@ class ShoppingAgent:
     async def __aexit__(self, *_):
         await self.agent.stop()
 
-    async def chat(self, session_id: str, message: str, user_id: str | None = None, *, new_conversation: bool = False, answer: dict | None = None, record_id: str | None = None, link_record: dict | None = None, link_records: list | None = None, products_only: bool = False) -> dict:
+    async def chat(self, session_id: str, message: str, user_id: str | None = None, *, new_conversation: bool = False, answer: dict | None = None) -> dict:
         if not isinstance(session_id, str) or not session_id.strip() or len(session_id) > 128:
             raise ValueError("sessionId must be a nonempty string of at most 128 characters")
         if user_id is None:
@@ -289,16 +360,10 @@ class ShoppingAgent:
             raise ValueError("newConversation must be a boolean")
         if answer is not None and (not isinstance(answer, dict) or not isinstance(answer.get("questionId"), str)):
             raise ValueError("answer must include questionId")
-        if record_id is not None and (not isinstance(record_id, str) or len(record_id) > 128):
-            raise ValueError("recordId must be a string of at most 128 characters")
-        if link_record is not None and not isinstance(link_record, dict):
-            raise ValueError("linkRecord must be an object")
-        if link_records is not None and (not isinstance(link_records, list) or len(link_records) > 5 or any(not isinstance(row, dict) for row in link_records)):
-            raise ValueError("linkRecords must contain at most five objects")
         async with self._locks[user_id]:
             if new_conversation:
                 self.memory.reset_session(session_id, user_id)
-            result = await self.agent.invoke({"sessionId": session_id, "userId": user_id, "message": message.strip(), "answer": answer, "recordId": None if products_only else record_id, "linkRecord": None if products_only else link_record, "linkRecords": None if products_only else link_records, "productsOnly": products_only})
+            result = await self.agent.invoke({"sessionId": session_id, "userId": user_id, "message": message.strip(), "answer": answer})
             return result.output.output
 
     def _load(self, ctx):
@@ -307,10 +372,6 @@ class ShoppingAgent:
         ctx.state["user_id"] = request["userId"]
         ctx.state["message"] = request["message"]
         ctx.state["answer"] = request.get("answer")
-        ctx.state["products_only"] = request.get("productsOnly", False)
-        ctx.state["record_id"] = request.get("recordId")
-        supplied = request.get("linkRecords") or ([request["linkRecord"]] if request.get("linkRecord") else [])
-        ctx.state["link_records"] = [record for raw in supplied if (record := normalize_link_record(raw))]
         ctx.state["memory"] = self.memory.load(request["sessionId"], request["userId"])
 
     async def _questions_for_goal(self, ctx, category: str, preferences: dict, goal: str) -> list[dict]:
@@ -320,28 +381,13 @@ class ShoppingAgent:
         except LookupError:
             planned = []
         fallback = default_questionnaire(category, preferences)
-        return [*(planned + fallback[len(planned):3]), fallback[3]]
+        questions = [*(planned + fallback[len(planned):3]), fallback[3]]
+        source = "llm" if len(planned) == 3 else "fallback"
+        self._log_questionnaire(ctx.state["session_id"], source, questions)
+        return questions
 
     async def _plan(self, ctx):
         state = ctx.state
-        if state.get("link_records"):
-            state["policy"] = {"action": "link_content", "question_count": 0, "recommendation_count": 0}
-            state["preferences"] = copy.deepcopy(state["memory"]["preferences"])
-            state["durable_preferences"] = copy.deepcopy(state["preferences"])
-            state["temporary"] = copy.deepcopy(state["memory"].get("temporary", {}))
-            state["emotion"] = copy.deepcopy(state["memory"].get("emotion") or {})
-            state["content_records"] = copy.deepcopy(state["link_records"])
-            return
-        selected = next((record for record in state["memory"].get("content_records", [])
-                         if record.get("id") == state.get("record_id")), None)
-        if selected and not re.search(r"想买|我要买|想找|换成|改成|重新找", state["message"]):
-            state["selected_content"] = copy.deepcopy(selected)
-            state["policy"] = {"action": "content_detail", "question_count": 0, "recommendation_count": 0}
-            state["preferences"] = copy.deepcopy(state["memory"]["preferences"])
-            state["durable_preferences"] = copy.deepcopy(state["preferences"])
-            state["temporary"] = copy.deepcopy(state["memory"].get("temporary", {}))
-            state["emotion"] = copy.deepcopy(state["memory"].get("emotion") or {})
-            return
         if state["message"] == "重试生成推荐" and state["memory"].get("pending_result"):
             pending_result = copy.deepcopy(state["memory"]["pending_result"])
             state["preferences"] = pending_result["preferences"]
@@ -351,7 +397,6 @@ class ShoppingAgent:
             state["policy"] = {"action": "narrative_retry", "question_count": 0,
                                "recommendation_count": len(pending_result["items"])}
             state["items"] = pending_result["items"]
-            state["content_records"] = pending_result.get("content_records", [])
             state["questionnaire"] = pending_result.get("questionnaire")
             state["query"] = pending_result.get("query", "")
             return
@@ -366,9 +411,9 @@ class ShoppingAgent:
             # A different product is a new shopping task within this conversation.
             # Conditions and products for the previous product cannot guide it.
             state["memory"].update(preferences={}, temporary={}, current_items=[],
-                                   content_records=[], selected_content_id=None,
                                    last_query="", questionnaire=None, pending_result=None,
-                                   shopping_answers=[])
+                                   shopping_answers=[], yuemai_anchor=None,
+                                   yuemai_initial_preferences={})
         if pending and category_changed:
             pending = None
         if pending and questionnaire_question(pending):
@@ -400,6 +445,10 @@ class ShoppingAgent:
                         state["emotion"] = {}
                         return
                     pending["category"] = chosen
+                    pending["initialPreferences"] = {
+                        **copy.deepcopy(pending.get("initialPreferences") or {}),
+                        "category": chosen,
+                    }
                     # The remaining questions must follow the category the user chose.
                     tailored = await self._questions_for_goal(
                         ctx, chosen, {**state["memory"]["preferences"], "category": chosen},
@@ -483,32 +532,16 @@ class ShoppingAgent:
                             questions[0] = first
                     except LookupError:
                         pass
-                state["questionnaire"] = {"category": category, "goal": state["message"],
-                                          "questions": questions, "answers": []}
+                state["questionnaire"] = {
+                    "category": category,
+                    "goal": state["message"],
+                    "questions": questions,
+                    "answers": [],
+                    "initialPreferences": copy.deepcopy(preference),
+                }
                 policy["action"] = "questionnaire"
 
     async def _retrieve(self, ctx):
-        state = ctx.state
-        if state["policy"]["action"] != "search":
-            return await self._retrieve_products(ctx)
-        answers = (state.get("questionnaire") or {}).get("answers") or state["memory"].get("shopping_answers", [])
-        task = {"category": state["preferences"].get("category", ""),
-                "goal": (state.get("questionnaire") or {}).get("goal", ""),
-                "scene": state["preferences"].get("scene", ""),
-                "preferences": state["preferences"],
-                "questionnaireAnswers": [{"id": row.get("id", ""), "question": row.get("title", ""), "answer": row.get("value", "")} for row in answers],
-                "limit": 3}
-        content_search = no_content_source if state.get("products_only") else self.content_search
-        products, content = await asyncio.gather(self._retrieve_products(ctx), content_search(task), return_exceptions=True)
-        if isinstance(products, Exception):
-            state["search_error"] = "商品搜索暂时不可用，请稍后重试"
-        if isinstance(content, Exception) or not isinstance(content, dict):
-            content = {"records": [], "status": "unavailable", "diagnostics": {"reason": "content_search_failed"}}
-        state["content_records"] = [row for row in content.get("records", []) if isinstance(row, dict) and row.get("kind") == "content"][:4]
-        state["content_status"] = content.get("status", "unavailable")
-        state["content_diagnostics"] = content.get("diagnostics", {})
-
-    async def _retrieve_products(self, ctx):
         state = ctx.state
         action = state["policy"]["action"]
         if action == "narrative_retry":
@@ -593,8 +626,9 @@ class ShoppingAgent:
                 queries.append(prefs["category"])
             state["query"] = queries[0]
             candidates = []
+            source_aware = False
             for attempt, candidate_query in enumerate(dict.fromkeys(queries)):
-                payload = await self.search(candidate_query, filters)
+                payload = await self.search(candidate_query, self._source_filters(filters, "taobao"))
                 if isinstance(payload, dict) and not payload.get("ok", True):
                     if attempt == 0:
                         error = payload.get("error")
@@ -602,7 +636,11 @@ class ShoppingAgent:
                     break
                 raw = payload.get("items", []) if isinstance(payload, dict) else payload
                 if isinstance(raw, list):
-                    candidates.extend(raw)
+                    source_aware = source_aware or payload_has_source_metadata(payload, raw)
+                    candidates.extend(
+                        item for item in raw
+                        if not source_aware or product_source_name(item) in ("", "taobao")
+                    )
                 state["items"] = select_products(candidates, prefs, limit=12 if has_model else 3,
                                                  allow_style_unknown=has_model)
                 if len(state["items"]) >= (6 if has_model else 3):
@@ -621,6 +659,59 @@ class ShoppingAgent:
                     if item["id"] not in ids:
                         selected.append(item)
                 state["items"] = selected[:3]
+            if source_aware:
+                taobao_items = state["items"][:3]
+                for item in taobao_items:
+                    item["selectionScope"] = "refined_preferences"
+                    item["matchPolicy"] = "full_questionnaire"
+
+                initial_prefs = copy.deepcopy(
+                    (state.get("questionnaire") or {}).get("initialPreferences")
+                    or state["memory"].get("yuemai_initial_preferences")
+                    or {"category": prefs.get("category", "")}
+                )
+                if prefs.get("category") and not initial_prefs.get("category"):
+                    initial_prefs["category"] = prefs["category"]
+                state["yuemai_initial_preferences"] = initial_prefs
+
+                anchor = normalize_product(state["memory"].get("yuemai_anchor") or {})
+                if anchor and product_source_name(anchor) != "yuemai":
+                    anchor = None
+                if anchor is None and initial_prefs.get("category"):
+                    initial_filters = {}
+                    if initial_prefs.get("maxPrice") is not None:
+                        initial_filters["end_price"] = initial_prefs["maxPrice"]
+                    try:
+                        yuemai_payload = await self.search(
+                            str(initial_prefs["category"]),
+                            self._source_filters(initial_filters, "yuemai"),
+                        )
+                        yuemai_raw = (yuemai_payload.get("items", [])
+                                      if isinstance(yuemai_payload, dict) else yuemai_payload)
+                        if isinstance(yuemai_raw, list):
+                            yuemai_raw = [item for item in yuemai_raw
+                                          if product_source_name(item) == "yuemai"]
+                            anchor_matches = select_products(
+                                yuemai_raw, initial_prefs, limit=1,
+                                allow_style_unknown=True,
+                            )
+                            anchor = anchor_matches[0] if anchor_matches else None
+                    except (httpx.HTTPError, OSError, TimeoutError, ValueError):
+                        anchor = None
+
+                if anchor:
+                    anchor["selectionScope"] = "initial_request"
+                    anchor["matchPolicy"] = "initial_request_only"
+                    anchor["matchReasons"] = [
+                        f"悦买商品名称与首次品类“{initial_prefs.get('category', '')}”匹配",
+                        *[reason for reason in anchor.get("matchReasons", [])
+                          if reason.startswith("标价")],
+                    ]
+                    state["yuemai_anchor"] = copy.deepcopy(anchor)
+                    state["items"] = [anchor, *taobao_items[:2]]
+                else:
+                    state["yuemai_anchor"] = None
+                    state["items"] = taobao_items[:3]
         except Exception:
             if not state["items"]:
                 state["search_error"] = "商品搜索暂时不可用，请稍后重试"
@@ -645,22 +736,6 @@ class ShoppingAgent:
             message, kind = ("我记得你提过：" + "、".join(tags) + "。" if tags else "目前还没有记下明确偏好。"), "question"
         elif action in ("compare_current", "current_detail"):
             message, kind = compare_message(state.get("current_items", []), state["message"]), "comparison"
-        elif action == "content_detail":
-            message, kind = content_reply(state["selected_content"], state["message"]), "content_detail"
-        elif action == "link_content":
-            records = state["link_records"]
-            readable = sum(bool(record["retrieval"]["textAvailable"]) for record in records)
-            if len(records) > 1:
-                message = f"找到了{len(records)}条链接内容，其中{readable}条读到了文字。点开卡片可逐条切换查看。"
-            elif records[0]["kind"] == "product_link":
-                message = "这是商品链接，可以打开原商品页核对价格、库存和规格；当前没有把网页文字当成已核验的商品数据。"
-            elif records[0]["status"] == "unavailable":
-                message = "已收到链接，但暂时无法读取这条内容。可以打开原链接核对，或换一条具体内容链接。"
-            elif records[0]["retrieval"]["textAvailable"]:
-                message = f"已读到《{records[0]['title']}》的文字内容。你可以打开内容卡片，或告诉我想参考其中哪一点。"
-            else:
-                message = f"已取得《{records[0]['title']}》的部分信息，正文暂不可用；可以打开原链接核对。"
-            kind = "link_content"
         elif action == "explore":
             if state["emotion"]["mood"] == "stop_selling":
                 opening = "这盏灯先收藏着，今天不考虑购买。" if "收藏" in state["message"] else "好，今天先不考虑购买。"
@@ -679,12 +754,8 @@ class ShoppingAgent:
                 message, kind = "这是新的对话，我没有把上一轮商品带过来。你可以说说想看的品类，我再帮你找。", "question"
             else:
                 message, kind = "可以。你想先看哪一类？比如台灯、收纳或耳机。", "question"
-        elif state.get("search_error") and state.get("content_records"):
-            message, kind = "商品搜索暂时不可用；找到的相关帖子可以先查看。", "results"
         elif state.get("search_error"):
             message, kind = state["search_error"], "error"
-        elif not state["items"] and state.get("content_records"):
-            message, kind = "这轮没有合适商品；先看看找到的相关帖子。", "results"
         elif not state["items"]:
             message = "这轮暂时没找到贴近的桌面好物。想先看台灯还是收纳？" if state.get("browse") else "按这轮条件暂时没有合适商品。要换个关键词，还是调整预算？"
             kind = "results"
@@ -711,17 +782,13 @@ class ShoppingAgent:
                 state["narrative_error"] = str(exc)
                 try:
                     with Path(self.memory.path).with_suffix(".events.log").open("a", encoding="utf-8") as log:
-                        cause = exc.__cause__
                         log.write(json.dumps({"time": datetime.now(timezone.utc).isoformat(),
                                               "event": "narrative_failed", "reason": str(exc),
-                                              "detail": (f"{type(cause).__name__}: {cause}"[:400] if cause else ""),
-                                               "diagnostics": getattr(exc, "diagnostics", {}),
                                               "productCount": len(state["items"])}, ensure_ascii=False) + "\n")
                 except OSError:
                     pass  # Logging must never replace the user-facing retry response.
                 state["pending_result"] = {
                     "items": copy.deepcopy(state["items"]),
-                    "content_records": copy.deepcopy(state.get("content_records", [])),
                     "preferences": copy.deepcopy(prefs),
                     "questionnaire": copy.deepcopy(state.get("questionnaire")),
                     "query": state.get("query", ""),
@@ -735,9 +802,6 @@ class ShoppingAgent:
                     item["talkingPoint"] = reason
                     item["recommendation"] = reason
                 message = narrative["intro"]
-        if kind == "results" and state.get("content_records"):
-            read_count = sum(bool(record.get("retrieval", {}).get("textAvailable")) for record in state["content_records"])
-            message += f" 另外找到{len(state['content_records'])}篇相关帖子，其中{read_count}篇已读到正文。"
         next_question = ({**question, "step": len(state["questionnaire"]["answers"]) + 1,
                           "total": len(state["questionnaire"]["questions"])}
                          if action == "questionnaire" and question else None)
@@ -745,14 +809,8 @@ class ShoppingAgent:
             "ok": kind != "error", "type": kind, "message": message,
             "items": copy.deepcopy(state["items"]) if kind == "results" else [],
             "candidateItems": copy.deepcopy(state["items"]) if state.get("narrative_error") else [],
-            "contentRecords": copy.deepcopy(state.get("content_records", [])) if kind in ("results", "error", "link_content") else [],
-            "contentStatus": state.get("content_status", "unavailable") if kind in ("results", "error", "link_content") else None,
-            "contentDiagnostics": copy.deepcopy(state.get("content_diagnostics", {})) if kind in ("results", "error") else {},
-            "ui": {"blocks": ([{"type": "content_list", "recordIds": [record["id"] for record in state["link_records"]]}] if kind == "link_content" else [{"type": "assistant_intro"}, {"type": "product_list", "recordIds": [item["id"] for item in state["items"]]},
-                              {"type": "content_list", "recordIds": [record["id"] for record in state.get("content_records", [])]} if state.get("content_records") else
-                              {"type": "content_unavailable"}] if kind in ("results", "error") else
-                             [{"type": "content_detail", "recordId": state["selected_content"]["id"]}] if kind == "content_detail" else [])},
             "summary": narrative["summary"] if narrative else "",
+            "emphasis": narrative.get("emphasis", []) if narrative else [],
             "followUp": narrative["followUp"] if narrative else "",
             "narrativeSource": "ai" if narrative else "none",
             "question": copy.deepcopy(next_question),
@@ -771,11 +829,11 @@ class ShoppingAgent:
         forget_all = state["policy"]["action"] == "forget" and forget_field(state["message"]) == "all"
         if forget_all:
             data["current_items"] = []
-            data["content_records"] = []
-            data["selected_content_id"] = None
             data["last_query"] = ""
             data["feedback"] = []
             data["pending_result"] = None
+            data["yuemai_anchor"] = None
+            data["yuemai_initial_preferences"] = {}
         data["preferences"] = copy.deepcopy(state["durable_preferences"])
         data["temporary"] = copy.deepcopy(state["temporary"])
         data["emotion"] = copy.deepcopy(state["emotion"])
@@ -783,6 +841,9 @@ class ShoppingAgent:
         if state.get("questionnaire"):
             data["questionnaire"] = copy.deepcopy(state["questionnaire"])
             data["shopping_category"] = state["questionnaire"]["category"]
+            initial = state["questionnaire"].get("initialPreferences")
+            if isinstance(initial, dict):
+                data["yuemai_initial_preferences"] = copy.deepcopy(initial)
         if not forget_all and ("收藏" in state["message"] or "不喜欢" in state["message"]):
             feedback_type = "saved" if "收藏" in state["message"] else "disliked"
             index = next((i for token, i in (("第一款", 0), ("第二款", 1), ("第三款", 2)) if token in state["message"]), None)
@@ -791,26 +852,18 @@ class ShoppingAgent:
             data["feedback"] = [*data.get("feedback", []), {"type": feedback_type, "itemIds": item_ids}][-20:]
         if state.get("narrative_error"):
             data["pending_result"] = copy.deepcopy(state["pending_result"])
-        if state["policy"]["action"] == "search" and state.get("content_records"):
-            data["content_records"] = copy.deepcopy(state["content_records"])
-            data["selected_content_id"] = None
+        if "yuemai_anchor" in state:
+            data["yuemai_anchor"] = copy.deepcopy(state["yuemai_anchor"])
+        if isinstance(state.get("yuemai_initial_preferences"), dict):
+            data["yuemai_initial_preferences"] = copy.deepcopy(state["yuemai_initial_preferences"])
         if state["policy"]["action"] in ("search", "narrative_retry") and not state.get("search_error") and not state.get("narrative_error"):
             data["current_items"] = copy.deepcopy(state["items"])
-            data["content_records"] = copy.deepcopy(state.get("content_records", []))
-            data["selected_content_id"] = None
             data["last_query"] = state.get("query", "")
             if state.get("questionnaire"):
                 data["shopping_answers"] = copy.deepcopy(state["questionnaire"]["answers"])
             data["questionnaire"] = None
             data["shopping_category"] = state["preferences"].get("category", "")
             data["pending_result"] = None
-        if state["policy"]["action"] == "content_detail":
-            data["selected_content_id"] = state["selected_content"]["id"]
-        if state["policy"]["action"] == "link_content":
-            ids = {record["id"] for record in state["link_records"]}
-            existing = [row for row in data.get("content_records", []) if row.get("id") not in ids]
-            data["content_records"] = [*copy.deepcopy(state["link_records"]), *existing][:10]
-            data["selected_content_id"] = state["link_records"][0]["id"]
         self.memory.save(
             state["session_id"], data, state["user_id"],
             forget_all=forget_all,

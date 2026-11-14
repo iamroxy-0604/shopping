@@ -328,14 +328,20 @@ async def recommendation_plan(model, invocation, goal: str, preferences: dict,
         "商品标题只是卖家描述，不是独立验证；未提供的规格、成分、肤质适配、材质、"
         "容量、防护效果、销量、评价、库存、折扣和实际到手价都不能猜。"
         "不要臆测图片内容。没有差异证据就坦率说尚无法比较，不要硬编。"
+        "若商品的 selectionScope 是 initial_request，它是仅按首次需求保留的悦买商品；"
+        "不要声称它符合后续问卷偏好，并应自然提醒用户该款只按首次品类匹配。"
         "引用认证、实测等卖家表述时，必须写成‘商品标题标注’或‘卖家标注’，不能当作已核验事实。"
+        "作为导购专家，请从 summary 原文中挑选0-3个真正影响选择、值得视觉强调的短语，放入 emphasis 数组。"
+        "短语必须逐字出现在 summary 中，每个2-16字；只强调结论、商品名或关键差异，不要选择完整句子，"
+        "不要为了凑数而强调，整段都重要时也只选最关键的部分。"
         "控制篇幅：intro 40-100字，summary 60-160字，followUp 15-60字，"
         "每个商品的 reason 40-100字且只写一句。"
-        "输出 JSON {intro:'',summary:'',followUp:'',items:[{id:'',reason:''}]}，"
+        "输出 JSON {intro:'',summary:'',emphasis:[''],followUp:'',items:[{id:'',reason:''}]}，"
         "items 必须逐一对应输入的商品 ID，不能新增商品。不要 Markdown。"
     )
     evidence = [{"id": item["id"], "title": item["title"], "price": item.get("price"),
                  "facts": item.get("facts") or {},
+                  "selectionScope": item.get("selectionScope") or "refined_preferences",
                  "styleTags": (item.get("semantic") or {}).get("style_tags") or []}
                 for item in items[:3]]
     payload = {"goal": goal, "preferences": preferences, "questionnaireAnswers": answers,
@@ -384,7 +390,19 @@ async def recommendation_plan(model, invocation, goal: str, preferences: dict,
                 if reason and reason not in per_item.values():
                     per_item[row["id"]] = reason
         if all(accepted.values()) and len(per_item) == len(items):
-            return {**accepted, "items": per_item}
+            emphasis = []
+            rows_to_emphasize = raw.get("emphasis")
+            if isinstance(rows_to_emphasize, list):
+                for phrase in rows_to_emphasize:
+                    if not isinstance(phrase, str):
+                        continue
+                    phrase = phrase.strip()
+                    if (2 <= len(phrase) <= 16 and phrase in accepted["summary"]
+                            and phrase not in emphasis):
+                        emphasis.append(phrase)
+                    if len(emphasis) == 3:
+                        break
+            return {**accepted, "emphasis": emphasis, "items": per_item}
         last_failure = "invalid_product_reasons" if all(accepted.values()) else "missing_narrative_fields"
         last_diagnostics = {
             "introValid": bool(accepted["intro"]), "summaryValid": bool(accepted["summary"]),

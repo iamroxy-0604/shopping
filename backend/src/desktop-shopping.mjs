@@ -23,6 +23,7 @@ export function shoppingResult(raw) {
   if(raw.error)result.error={code:text(raw.error.code,100),message:text(raw.error.message)};
   if(raw.question?.id && raw.question?.title)result.question={id:text(raw.question.id,100),title:text(raw.question.title,500),options:(raw.question.options||[]).filter(x=>typeof x==='string').slice(0,15),allowCustom:raw.question.allowCustom!==false,step:raw.question.step,total:raw.question.total};
   if(raw.summary)result.summary=typeof raw.summary==='string'?text(raw.summary):text(raw.summary.text||raw.summary.conclusion);
+  result.emphasis=Array.isArray(raw.emphasis)&&result.summary?raw.emphasis.filter(x=>typeof x==='string'&&x.length>=2&&x.length<=16&&result.summary.includes(x)).filter((x,i,a)=>a.indexOf(x)===i).slice(0,3):[];
   if(Array.isArray(raw.followups))result.followups=raw.followups.filter(x=>typeof x==='string').slice(0,5);
   result.followUp=text(raw.followUp);
   result.narrativeSource=text(raw.narrativeSource,50);

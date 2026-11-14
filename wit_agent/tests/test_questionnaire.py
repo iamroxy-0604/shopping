@@ -2,11 +2,14 @@
 
 import asyncio
 import json
+from types import SimpleNamespace
 
 from wit.messages import AssistantMessage
-from wit.models import BaseModelComponent, ModelEvent, ModelResult
+from wit.models import MODEL, BaseModelComponent, ModelEvent, ModelResult
 
-from wit_agent.agent import ShoppingAgent, default_questionnaire, normalize_product
+import wit_agent.agent as agent_module
+from wit_agent.agent import (ShoppingAgent, default_questionnaire, normalize_product,
+                             product_source_name)
 from wit_agent.llm import NarrativeGenerationError, recommendation_plan
 from wit_agent.tests.narrative_stub import EvidenceNarrator
 from wit_agent.policy import extract_updates
@@ -25,6 +28,52 @@ class SequenceModel(BaseModelComponent):
         yield ModelEvent.final(ModelResult(AssistantMessage(json.dumps(next(self.outputs), ensure_ascii=False))))
 
 
+def test_questionnaire_log_contains_only_session_source_and_content(tmp_path):
+    questions = default_questionnaire("卤味", {})
+    agent = ShoppingAgent(tmp_path / "memory.sqlite3")
+
+    agent._log_questionnaire("session-123", "fallback", questions)
+
+    log_path = tmp_path / "questionnaire.events.jsonl"
+    record = json.loads(log_path.read_text(encoding="utf-8").strip())
+    assert record == {
+        "sessionId": "session-123",
+        "source": "fallback",
+        "questions": questions,
+    }
+
+
+def test_questionnaire_generation_logs_llm_or_fallback_source(tmp_path, monkeypatch):
+    agent = ShoppingAgent(tmp_path / "memory.sqlite3")
+    generated = default_questionnaire("snack", {})[:3]
+    ctx = SimpleNamespace(
+        state={"session_id": "llm-session"},
+        invocation=SimpleNamespace(component_context={MODEL: object()}),
+    )
+
+    async def llm_plan(*_args):
+        return generated
+
+    monkeypatch.setattr(agent_module, "questionnaire_plan", llm_plan)
+    run(agent._questions_for_goal(ctx, "snack", {}, "find snacks"))
+
+    ctx.state["session_id"] = "fallback-session"
+
+    async def fallback_plan(*_args):
+        return []
+
+    monkeypatch.setattr(agent_module, "questionnaire_plan", fallback_plan)
+    run(agent._questions_for_goal(ctx, "snack", {}, "find snacks"))
+
+    records = [
+        json.loads(line)
+        for line in (tmp_path / "questionnaire.events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert [record["source"] for record in records] == ["llm", "fallback"]
+    assert [record["sessionId"] for record in records] == ["llm-session", "fallback-session"]
+    assert all(set(record) == {"sessionId", "source", "questions"} for record in records)
+
+
 def test_ai_questionnaire_search_terms_and_product_order(tmp_path):
     async def scenario():
         model = SequenceModel([
@@ -38,6 +87,7 @@ def test_ai_questionnaire_search_terms_and_product_order(tmp_path):
             {"ids": ["t2", "t1", "t3"], "lead": "gentle"},
             {"intro": "想找有日系氛围的餐桌，我挑了三张不同价位的给你慢慢看。",
              "summary": "第一张偏小户型，第二张强调原木氛围，第三张是实木餐台方向；实际尺寸要看详情。",
+             "emphasis": ["第一张偏小户型", "原木氛围"],
              "followUp": "你更在意桌面大小，还是木色的感觉？",
              "items": [
                  {"id": "t2", "reason": "标题写着小户型，想留出更多活动空间的话可以先看看尺寸。"},
@@ -75,6 +125,7 @@ def test_ai_questionnaire_search_terms_and_product_order(tmp_path):
             assert "日系氛围" in result["message"]
             assert "小户型" in result["items"][0]["talkingPoint"]
             assert result["followUp"].startswith("你更在意")
+            assert result["emphasis"] == ["第一张偏小户型", "原木氛围"]
             assert result["question"] is None
 
     run(scenario())
@@ -157,6 +208,100 @@ def test_every_new_category_gets_questions_before_products(tmp_path):
     run(scenario())
 
 
+def test_yuemai_keeps_one_initial_match_while_taobao_follows_refinements(tmp_path):
+    async def scenario():
+        calls = []
+
+        async def search(query, filters):
+            source = filters.get("_source")
+            calls.append((source, query, dict(filters)))
+            if source == "yuemai":
+                return {"ok": True, "source": "yuemai", "items": [
+                    {"id": "yuemai:y1", "title": "小胡鸭辣味卤味礼盒", "price": 60.9,
+                     "source": "yuemai"},
+                ]}
+            return {"ok": True, "source": "taobao", "items": [
+                {"id": "taobao:t1", "title": "五香牛肉卤味", "price": 29.9,
+                 "source": "taobao"},
+                {"id": "taobao:t2", "title": "原味豆干卤味", "price": 16.9,
+                 "source": "taobao"},
+                {"id": "taobao:t3", "title": "麻辣鸭脖卤味", "price": 19.9,
+                 "source": "taobao"},
+            ]}
+        search.supports_product_sources = True
+
+        async with ShoppingAgent(tmp_path / "source-mix.db", search,
+                                 questionnaire_enabled=False,
+                                 narrator=EvidenceNarrator()) as agent:
+            first = await agent.chat("mix", "我想买卤味")
+            assert [product_source_name(item) for item in first["items"]] == [
+                "yuemai", "taobao", "taobao",
+            ]
+            assert first["items"][0]["selectionScope"] == "initial_request"
+
+            refined = await agent.chat("mix", "我不喜欢辣的，重新找")
+            assert [product_source_name(item) for item in refined["items"]] == [
+                "yuemai", "taobao", "taobao",
+            ]
+            assert refined["items"][0]["id"] == "yuemai:y1"
+            assert all("辣" not in item["title"] for item in refined["items"][1:])
+            assert len([call for call in calls if call[0] == "yuemai"]) == 1
+
+    run(scenario())
+
+
+def test_questionnaire_budget_only_filters_taobao_not_initial_yuemai_match(tmp_path):
+    async def scenario():
+        calls = []
+
+        async def search(query, filters):
+            source = filters.get("_source")
+            calls.append((source, query, dict(filters)))
+            if source == "yuemai":
+                return {"ok": True, "source": "yuemai", "items": [
+                    {"id": "yuemai:y1", "title": "小胡鸭卤味零食礼盒", "price": 60.9,
+                     "source": "yuemai"},
+                ]}
+            return {"ok": True, "source": "taobao", "items": [
+                {"id": "taobao:t1", "title": "牛肉卤味礼盒", "price": 29.9,
+                 "source": "taobao"},
+                {"id": "taobao:t2", "title": "原味豆干卤味", "price": 16.9,
+                 "source": "taobao"},
+                {"id": "taobao:t3", "title": "海带片卤味", "price": 15.9,
+                 "source": "taobao"},
+            ]}
+        search.supports_product_sources = True
+
+        async with ShoppingAgent(tmp_path / "questionnaire-source-mix.db", search,
+                                 narrator=EvidenceNarrator()) as agent:
+            result = await agent.chat("mix", "我想买卤味")
+            for question_id, value in (
+                ("use", "自己吃"),
+                ("scene", "追剧"),
+                ("priority", "口味"),
+            ):
+                result = await agent.chat(
+                    "mix", value,
+                    answer={"questionId": question_id, "value": value},
+                )
+            result = await agent.chat(
+                "mix", "20元以内",
+                answer={"questionId": "budget", "value": "20元以内"},
+            )
+
+            assert [product_source_name(item) for item in result["items"]] == [
+                "yuemai", "taobao", "taobao",
+            ]
+            assert result["items"][0]["price"] == 60.9
+            assert all(item["price"] <= 20 for item in result["items"][1:])
+            yuemai_call = next(call for call in calls if call[0] == "yuemai")
+            assert "end_price" not in yuemai_call[2]
+            assert all(call[2].get("end_price") == 20
+                       for call in calls if call[0] == "taobao")
+
+    run(scenario())
+
+
 def test_sunscreen_and_vague_browse_use_same_questionnaire(tmp_path):
     async def scenario():
         async def no_search(query, filters):
@@ -185,6 +330,25 @@ def test_questionnaire_stays_relevant_and_normalization_preserves_facts():
     assert item["facts"]["title"] == "户外清爽防晒霜"
     assert item["price"] == 79
     assert "recommendation" not in item
+
+
+def test_yuemai_normalization_preserves_source_description_media_and_order_metadata():
+    item = normalize_product({
+        "id": "yuemai:1001", "title": "悦买零食礼盒", "price": 75,
+        "imageUrl": "https://img.example/cover.jpg", "source": "yuemai",
+        "description": "多种卤味组合",
+        "media": {"images": [{"url": "https://img.example/cover.jpg", "role": "cover"},
+                              {"url": "https://img.example/detail.jpg", "role": "detail"}]},
+        "facts": {"title": "悦买零食礼盒", "price": 75, "brand": "示例品牌",
+                  "sellingPoint": "多种卤味组合", "category": "休闲食品", "goodsId": "1001"},
+        "providerData": {"goodsId": "1001", "skus": [{"skuId": "2001", "stock": 8}]},
+    })
+    assert item["imageUrl"] == "https://img.example/cover.jpg"
+    assert item["description"] == "多种卤味组合"
+    assert item["facts"]["sellingPoint"] == "多种卤味组合"
+    assert item["facts"]["category"] == "休闲食品"
+    assert len(item["media"]["images"]) == 2
+    assert item["providerData"]["goodsId"] == "1001"
 
 
 def test_product_category_drops_chinese_classifier():
