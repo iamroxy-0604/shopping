@@ -1,6 +1,6 @@
-# 淘宝联盟商品搜索后端
+# 多源商品搜索后端
 
-这是第一版购物智能体的商品检索服务。前端只调用自己的 `POST /api/products/search`，淘宝 AppSecret 只存在服务端环境变量中。
+这是购物智能体的统一商品检索服务。前端只调用自己的 `POST /api/products/search`，淘宝与悦买的 AppSecret 只存在服务端环境变量中。`product-source.mjs` 会并行查询已配置的数据源、按来源交错合并商品，并在单一来源故障时保留其他来源的结果。
 
 现在也包含一个可直接打开的 MVP 页面：启动服务后访问 <http://localhost:3000/>，即可输入需求、接收追问并查看商品卡片。
 
@@ -60,9 +60,22 @@ data: {"ok":true,"type":"results","message":"卡片前说明","items":[],"summar
 
 返回 `items` 中的统一字段：`id`、`title`、`imageUrl`、`price`、`originalPrice`、`coupon`、`promotionUrl`、`shopName`、`sales`、`source`。
 
+商品源通过环境变量配置：
+
+```dotenv
+SHOPPING_PRODUCT_SOURCES=taobao,yuemai
+YUEMAI_BASE_URL=https://syh-open.senynet.com
+YUEMAI_APP_KEY=replace_with_app_key
+YUEMAI_APP_SECRET=replace_with_app_secret
+```
+
+未配置 `SHOPPING_PRODUCT_SOURCES` 时仍默认只使用淘宝，以兼容旧部署。悦买当前只接入只读 `goodsList` 商品查询；订单、付款、退款和回调不属于商品检索模块。
+
 ## 目前范围
 
 - 已实现淘宝联盟 `taobao.tbk.dg.material.optional` 的 POST 请求、北京时间戳、HMAC-MD5/MD5 签名函数。
+- 已实现悦买 `goodsList` 的 MD5 签名、表单请求、SKU 可售过滤与统一商品字段转换。
+- 支持淘宝与悦买并行检索、来源 ID 隔离、交错合并和单源失败降级。
 - 兼容 `taobao.tbk.dg.material.optional.upgrade` 推广者物料搜索升级版，支持关键词、价格和类目筛选。
 - 同时兼容 `taobao.tbk.dg.material.recommend` 物料精选接口；该接口需要 `TAOBAO_MATERIAL_ID`，不支持直接传自然语言关键词。
 - 已实现中文查询中的基础预算提取；复杂意图识别仍应放在后续 Agent 层。
@@ -71,11 +84,11 @@ data: {"ok":true,"type":"results","message":"卡片前说明","items":[],"summar
 
 ## 日志
 
-服务启动后会把每次对话的关键链路写入 `backend/logs/app.log`，包括用户输入、LLM 解析结果、最终搜索词、淘宝召回数量、过滤后的商品和排序结果。日志文件只保存在本地，不会提交到 GitHub。
+服务启动后会把每次对话的关键链路写入 `backend/logs/app.log`，包括用户输入、LLM 解析结果、最终搜索词、商品召回数量、过滤后的商品和排序结果。日志文件只保存在本地，不会提交到 GitHub。
 
 ## 重要提醒
 
-`TAOBAO_APP_SECRET` 不要写入前端、Markdown、截图或 Git。你刚才在聊天中贴出了真实 Secret，建议在淘宝开放平台立即轮换；本项目不会把它写入任何文件。
+`TAOBAO_APP_SECRET` 和 `YUEMAI_APP_SECRET` 不要写入前端、Markdown、截图或 Git。本项目不会把它们写入任何受版本控制的文件。
 
 签名实现依据淘宝开放平台的官方协议：参数按 ASCII 排序并拼接，`sign_method=hmac` 使用 HMAC-MD5，`sign_method=md5` 使用 `MD5(secret + 拼接串 + secret)`。参考：[淘宝开放平台 API 调用协议](https://developer.alibaba.com/docs/doc.htm?articleId=101617&docType=1&treeId=153)。
 

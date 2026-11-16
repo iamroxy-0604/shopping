@@ -38,17 +38,25 @@ test('concurrent submissions do not run two shopping calls',async t=>{
   assert.equal((await svc.handle(request('input','second',0),'peer')).body.code,'BUSY');release(result);await waiting;
 });
 test('desktop output is products-only and strips executable URLs',async()=>{
-  const raw={ok:true,type:'results',message:'推荐',items:[{id:'p',title:'台灯',imageUrl:'javascript:alert(1)',promotionUrl:'https://example.com/item',price:NaN},{kind:'content',title:'帖子'}],contentRecords:[{body:'帖子'}],ui:{blocks:[{type:'content_list'}]}};
-  const value=shoppingResult(raw);assert.equal(value.items.length,1);assert.equal(value.items[0].imageUrl,'');assert.equal(value.items[0].price,null);assert.equal(value.contentRecords,undefined);assert.equal(value.ui,undefined);
+  const raw={ok:true,type:'results',message:'推荐',summary:'第一款更适合阅读，第二款更适合氛围照明。',emphasis:['更适合阅读','不存在的短语','更适合阅读'],items:[{id:'p',title:'台灯',imageUrl:'javascript:alert(1)',promotionUrl:'https://example.com/item',price:NaN},{kind:'content',title:'帖子'}],contentRecords:[{body:'帖子'}],ui:{blocks:[{type:'content_list'}]}};
+  const value=shoppingResult(raw);assert.equal(value.items.length,1);assert.equal(value.items[0].imageUrl,'');assert.equal(value.items[0].price,null);assert.deepEqual(value.emphasis,['更适合阅读']);assert.equal(value.contentRecords,undefined);assert.equal(value.ui,undefined);
   let seen;await desktopChat({sessionId:'s1',message:'台灯'},{owner:'owner-a',run:async r=>{seen=r;return raw;}});assert.equal(seen.productsOnly,true);assert.notEqual(seen.sessionId,'s1');
 });
 test('delivered iframe fits DD document limits and has no external executable assets',()=>{
   const d=workspaceDocument();assert.ok(d.html.length<=100000);assert.ok(d.css.length<=100000);assert.ok(d.script.length<=200000);assert.ok(!d.html.includes('<script src='));assert.match(d.script,/dingdang.embed-bridge/);
 });
+test('desktop frontend uses the productized chat contract and exposes real recovery states',()=>{
+  const script=fs.readFileSync(new URL('../public/desktop/app.js',import.meta.url),'utf8');
+  assert.match(script,/fetch\('\/api\/desktop\/chat'/);assert.doesNotMatch(script,/fetch\('\/api\/chat'/);assert.match(script,/NARRATIVE_UNAVAILABLE/);assert.match(script,/首次需求匹配/);assert.match(script,/问卷精筛/);
+});
 
 test('desktop preserves questionnaire progress, narrative retry candidates and AI follow-up',()=>{
   const value=shoppingResult({ok:false,type:'error',message:'分析待重试',question:{id:'scene',title:'场景',options:['书桌'],step:2,total:4},task:{category:'台灯',answers:{use:'阅读'}},candidateItems:[{id:'a',title:'台灯',price:89,facts:{material:'木'}}],followUp:'更在意哪一项？',narrativeSource:'none',error:{code:'NARRATIVE_UNAVAILABLE',message:'分析待重试'}});
   assert.equal(value.question.step,2);assert.equal(value.question.total,4);assert.equal(value.candidateItems.length,1);assert.equal(value.candidateItems[0].facts.material,'木');assert.equal(value.followUp,'更在意哪一项？');assert.equal(value.task.answers.use,'阅读');
+});
+test('desktop preserves safe product presentation fields and source warnings',()=>{
+  const value=shoppingResult({ok:true,type:'results',items:[{id:'y-1',title:'台灯',price:99,originalPrice:129,coupon:'满 100 减 10',sales:'已售 20',description:'柔和照明',selectionScope:'initial_request',matchPolicy:'initial_request_only',media:{images:[{url:'https://example.com/detail.jpg',role:'detail'},{url:'javascript:alert(1)'}]},facts:{brand:'拾光',sellingPoint:'可调光',privateToken:'no'}}],warnings:[{source:'taobao',code:'TIMEOUT',message:'淘宝商品源暂时超时'}]});
+  assert.equal(value.items[0].selectionScope,'initial_request');assert.equal(value.items[0].media.images.length,1);assert.equal(value.items[0].facts.sellingPoint,'可调光');assert.equal(value.items[0].facts.privateToken,undefined);assert.equal(value.warnings[0].code,'TIMEOUT');
 });
 test('new desktop sessions preserve person identity but isolate shopping sessions',async()=>{
   const seen=[];const run=async r=>{seen.push(r);return {ok:true,type:'question',message:'需求',items:[]};};

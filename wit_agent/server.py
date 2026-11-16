@@ -49,10 +49,6 @@ async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, age
             payload = await agent.chat(
                 request.get("sessionId"), request.get("message"), request.get("userId"),
                 new_conversation=request.get("newConversation", False), answer=request.get("answer"),
-                record_id=request.get("recordId"),
-                link_record=request.get("linkRecord"),
-                link_records=request.get("linkRecords"),
-                products_only=request.get("productsOnly") is True,
             )
             status = 200  # Node bridge relays application errors only for 2xx responses.
     except (ValueError, UnicodeError, json.JSONDecodeError, asyncio.IncompleteReadError, asyncio.LimitOverrunError):

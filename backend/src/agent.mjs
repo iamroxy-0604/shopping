@@ -1,5 +1,5 @@
 import { parseShoppingQuery } from './query.mjs';
-import { searchTaobao } from './taobao.mjs';
+import { searchProductSource } from './product-source.mjs';
 import { understandShoppingMessage, generateRecommendationReasons, generateShoppingIntro, generateCurrentRecommendationReply } from './llm.mjs';
 import { logEvent } from './logger.mjs';
 
@@ -214,7 +214,7 @@ async function chatSunscreen({ session, sessionId, text, answer, search, onPhase
   return { ok: true, type: 'results', message, items: selectedItems, summary, followups: ['更在意清爽不黏', '想看防水耐汗款', '换一个预算范围'], task: sunscreenTaskSnapshot(session), memory: getSessionSnapshot(sessionId) };
 }
 
-export async function chatStructured({ sessionId = 'anonymous', userId, message, answer, search = searchTaobao, onPhase }) {
+export async function chatStructured({ sessionId = 'anonymous', userId, message, answer, search = searchProductSource, onPhase }) {
   const session = getSession(sessionId);
   const text = String(message ?? '').trim();
   // Direct callers of this structured API may still be answering an existing
@@ -238,7 +238,7 @@ export function getSessionSnapshot(sessionId) {
   return { preferences: { ...session.preferences }, turns: session.turns.length, currentRecommendationCount: session.currentRecommendation?.items?.length || 0 };
 }
 
-export async function chat({ sessionId = 'anonymous', message, search = searchTaobao }) {
+export async function chat({ sessionId = 'anonymous', message, search = searchProductSource }) {
   const session = getSession(sessionId);
   const text = String(message ?? '').trim();
   if (isSunscreenRequest(text, session)) return chatSunscreen({ session, sessionId, text, search });

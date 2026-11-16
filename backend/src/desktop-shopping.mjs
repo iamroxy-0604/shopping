@@ -11,10 +11,15 @@ function productItems(input) {
   return (Array.isArray(input) ? input : []).filter(p => p && p.kind !== 'content' && p.title).slice(0, 12).map(p => ({
     id: text(String(p.id || p.title), 200), title: text(p.title, 300),
     price: typeof p.price === 'number' && Number.isFinite(p.price) && p.price >= 0 ? p.price : null,
+    originalPrice: typeof p.originalPrice === 'number' && Number.isFinite(p.originalPrice) && p.originalPrice >= 0 ? p.originalPrice : null,
+    coupon: text(p.coupon, 200), sales: text(p.sales, 100), description: text(p.description, 2000),
     imageUrl: url(p.imageUrl), promotionUrl: url(p.promotionUrl || p.source?.url),
     shopName: text(p.shopName, 200), source: typeof p.source === 'string' ? text(p.source, 100) : text(p.source?.platform, 100),
     recommendation: text(p.recommendation, 1000), matchReasons: Array.isArray(p.matchReasons) ? p.matchReasons.filter(x=>typeof x==='string').slice(0,3) : [],
-    facts: p.facts && typeof p.facts === 'object' ? Object.fromEntries(Object.entries(p.facts).filter(([k])=>['title','price','material','color','dimensions','brand'].includes(k))) : {},
+    selectionScope: ['initial_request','refined_preferences'].includes(p.selectionScope) ? p.selectionScope : '',
+    matchPolicy: text(p.matchPolicy, 100),
+    media: {images: (p.media?.images || []).map(row=>({url:url(typeof row==='string'?row:row?.url),role:text(row?.role,50)})).filter(row=>row.url).slice(0,8)},
+    facts: p.facts && typeof p.facts === 'object' ? Object.fromEntries(Object.entries(p.facts).filter(([k])=>['title','price','material','color','dimensions','brand','sellingPoint','category','deliverTime','servicePromise','afterSaleRule'].includes(k))) : {},
   }));
 }
 export function shoppingResult(raw) {
@@ -23,10 +28,12 @@ export function shoppingResult(raw) {
   if(raw.error)result.error={code:text(raw.error.code,100),message:text(raw.error.message)};
   if(raw.question?.id && raw.question?.title)result.question={id:text(raw.question.id,100),title:text(raw.question.title,500),options:(raw.question.options||[]).filter(x=>typeof x==='string').slice(0,15),allowCustom:raw.question.allowCustom!==false,step:raw.question.step,total:raw.question.total};
   if(raw.summary)result.summary=typeof raw.summary==='string'?text(raw.summary):text(raw.summary.text||raw.summary.conclusion);
+  result.emphasis=Array.isArray(raw.emphasis)&&result.summary?raw.emphasis.filter(x=>typeof x==='string'&&x.length>=2&&x.length<=16&&result.summary.includes(x)).filter((x,i,a)=>a.indexOf(x)===i).slice(0,3):[];
   if(Array.isArray(raw.followups))result.followups=raw.followups.filter(x=>typeof x==='string').slice(0,5);
   result.followUp=text(raw.followUp);
   result.narrativeSource=text(raw.narrativeSource,50);
   result.candidateItems=productItems(raw.candidateItems);
+  if(Array.isArray(raw.warnings))result.warnings=raw.warnings.map(row=>({source:text(row?.source,100),code:text(row?.code,100),message:text(row?.message,500)})).filter(row=>row.source||row.message).slice(0,5);
   if(raw.task)result.task={category:text(raw.task.category,100),answers:raw.task.answers||{}};
   const prefs=raw.preferences || raw.memory?.preferences || {};
   result.preferences=Object.fromEntries(Object.entries(prefs).filter(([k,v])=>['category','style','maxPrice','material','color','scene','dislikes','memoryTags'].includes(k)&&(['string','number'].includes(typeof v)||Array.isArray(v))));

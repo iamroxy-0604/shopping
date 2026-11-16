@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chatViaWit, isWitEnabled, messageLink } from '../src/wit-bridge.mjs';
+import { chatViaWit, isWitEnabled } from '../src/wit-bridge.mjs';
 import { messageLinks, planLinkDesigns, resolveMessageLinks } from '../src/link-presentation.mjs';
 
 test('Wit 桥接保持现有对话请求和响应契约', async () => {
@@ -12,21 +12,6 @@ test('Wit 桥接保持现有对话请求和响应契约', async () => {
     return { ok: true, json: async () => ({ ok: true, type: 'question', message: '先看看桌面灵感？', items: [] }) };
   } });
   assert.equal(result.message, '先看看桌面灵感？');
-});
-
-test('外部链接先由转接器解析，再作为内容证据进入 Wit', async () => {
-  const url = 'https://www.example.com/story';
-  assert.equal(messageLink(`参考 ${url} 好吗？`), url);
-  const record = { id: 'link:1', source: { url, platform: 'example.com' }, title: '一篇文章', status: 'complete' };
-  let received;
-  const result = await chatViaWit({ sessionId: 's', userId: 'u', message: `看看 ${url}`, env: { WIT_AGENT_URL: 'http://127.0.0.1:8765' },
-    resolveImpl: async (input) => { assert.equal(input, url); return { ok: true, record }; },
-    fetchImpl: async (_url, options) => { received = JSON.parse(options.body); return { ok: true, json: async () => ({ ok: true, type: 'link_content' }) }; } });
-  assert.equal(result.type, 'link_content');
-  assert.equal(received.linkRecord.source.url, record.source.url);
-  assert.equal(received.linkRecord.presentation.protocol, 'v0.9.1');
-  assert.equal(received.linkRecord.presentation.layout, 'article');
-  assert.equal((await chatViaWit({ message: 'http://localhost/admin', env: { WIT_AGENT_URL: 'http://127.0.0.1:8765' }, fetchImpl: async () => { throw new Error('should not reach Wit'); } })).error.code, 'INVALID_LINK');
 });
 
 test('多平台链接分别生成 A2UI 界面，商品链接不进入内容弹窗', async () => {
