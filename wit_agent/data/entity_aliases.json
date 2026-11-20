@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "locale": "zh-CN",
+  "entities": [
+    {"entityType": "category", "canonical": "电饭锅", "aliases": ["电饭锅", "电饭煲", "饭煲"], "relation": "equivalent", "status": "approved"},
+    {"entityType": "category", "canonical": "充电宝", "aliases": ["充电宝", "移动电源"], "relation": "equivalent", "status": "approved"},
+    {"entityType": "category", "canonical": "台灯", "aliases": ["台灯", "桌面灯", "书桌灯"], "relation": "equivalent", "status": "approved"},
+    {"entityType": "category", "canonical": "餐桌", "aliases": ["餐桌", "饭桌", "餐台"], "relation": "equivalent", "status": "approved"},
+    {"entityType": "category", "canonical": "腮红", "aliases": ["腮红", "胭脂"], "relation": "equivalent", "status": "approved"},
+    {"entityType": "category", "canonical": "耳机", "aliases": ["耳机", "耳麦"], "relation": "equivalent", "status": "approved"},
+    {"entityType": "brand", "canonical": "苏泊尔", "aliases": ["苏泊尔", "SUPOR", "supor"], "relation": "equivalent", "status": "approved"},
+    {"entityType": "brand", "canonical": "美的", "aliases": ["美的", "Midea", "midea"], "relation": "equivalent", "status": "approved"},
+    {"entityType": "brand", "canonical": "苹果", "aliases": ["苹果", "Apple", "apple"], "relation": "equivalent", "status": "approved"},
+    {"entityType": "color", "canonical": "米白色", "aliases": ["米白", "米白色", "奶油白"], "relation": "equivalent", "status": "approved"},
+    {"entityType": "color", "canonical": "黑色", "aliases": ["黑", "黑色", "曜石黑"], "relation": "related", "status": "approved"},
+    {"entityType": "material", "canonical": "不锈钢", "aliases": ["不锈钢"], "relation": "equivalent", "status": "approved"},
+    {"entityType": "material", "canonical": "316L不锈钢", "aliases": ["316L不锈钢", "316不锈钢"], "relation": "equivalent", "status": "approved"},
+    {"entityType": "material", "canonical": "304不锈钢", "aliases": ["304不锈钢"], "relation": "equivalent", "status": "approved"}
+  ]
+}

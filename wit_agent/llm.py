@@ -9,6 +9,9 @@ from wit.messages import SystemMessage, UserMessage
 from wit.models import ModelRequest
 
 from .policy import MATERIALS, SCENES, STYLES
+from .requirement import (SOURCE_CAPABILITIES, derive_legacy_preferences,
+                          merge_fallback_without_overwriting_valid_entities,
+                          validate_requirement_delta)
 
 STYLE_ALIASES = {"日系": ("日系", "日式"), "韩系": ("韩系", "韩式"), "北欧": ("北欧", "北欧风")}
 ALLOWED_INTENTS = {"search", "compare_current", "current_detail", "explore", "stop_selling", "recall", "clarify"}
@@ -97,7 +100,8 @@ def validate_interpretation(raw: dict, text: str, has_current: bool) -> dict:
     image_first = memory.get("imageFirst")
     if image_first is True and re.search(r"先看图|图片优先|先看图片|喜欢看图", text):
         parsed_memory["imageFirst"] = True
-    intent = raw.get("intent") if raw.get("intent") in ALLOWED_INTENTS else None
+    raw_intent = raw.get("intent")
+    intent = raw_intent if isinstance(raw_intent, str) and raw_intent in ALLOWED_INTENTS else None
     if intent in ("compare_current", "current_detail"):
         if not has_current or not re.search(r"这|那|它|第一|第二|第三|两款|几款|刚才|前面|上一轮", text):
             intent = None
@@ -123,6 +127,36 @@ async def interpret(model, invocation, text: str, preferences: dict, has_current
         return validate_interpretation(raw, text, has_current)
     except Exception:
         return {}
+
+
+async def parse_requirement_delta(model, invocation, text: str, current_requirement: dict,
+                                  has_current: bool) -> dict:
+    """Parse a shopping turn into a validated state delta with exact evidence."""
+    instruction = (
+        "你是购物需求语义解析器，不负责推荐。根据本轮消息和已有需求输出增量。"
+        "必须区分商品本体category、品牌brands、颜色colors、尺寸sizes、价格price、"
+        "材质materials和otherAttributes；不得把品牌、品类、属性合并成category。"
+        "每个explicit字段必须附带本轮原文中的连续evidence，用户未说出的条件不得补充。"
+        "常识推导只能source=derived且hard=false。不要/排除进入Exclude；换成/改成使用"
+        "replaceInclude。只输出 {intent,changes}。category格式为"
+        "{set:{raw,evidence,source,confidence}}；brands/colors/materials格式为"
+        "{addInclude|replaceInclude|addExclude:[{raw,evidence,source,confidence,hard}]}；"
+        "price格式为{set:{min,max,currency:'CNY',hard,source,evidence}}或{clear:true}。"
+        "如果用户询问已有商品，用compare_current/current_detail且不要创建新任务。"
+    )
+    try:
+        raw = await _ask_json(model, invocation, instruction, {
+            "message": text,
+            "currentRequirement": current_requirement or {},
+            "hasCurrentProducts": has_current,
+            "sourceCapabilities": SOURCE_CAPABILITIES,
+        })
+    except Exception:
+        return {"intent": "search_product", "changes": {}, "parseWarnings": ["model_unavailable"]}
+    parsed = validate_requirement_delta(raw, text, has_current)
+    if isinstance(raw.get("query"), dict) or isinstance(raw.get("memory"), dict):
+        parsed["legacyParse"] = validate_interpretation(raw, text, has_current)
+    return parsed
 
 
 async def narrative_plan(model, invocation, text: str, emotion: dict, items: list) -> dict:
@@ -157,19 +191,23 @@ async def narrative_plan(model, invocation, text: str, emotion: dict, items: lis
     return {"lead": lead, "reasons": reasons}
 
 
-async def questionnaire_plan(model, invocation, text: str, category: str, known: dict) -> list[dict]:
-    """Generate three category-specific questions; reject incomplete model output."""
+async def questionnaire_plan(model, invocation, text: str, category: str, known: dict,
+                             requirement: dict | None = None,
+                             asked_fields: list[str] | None = None) -> list[dict]:
+    """Generate executable questions whose answers map to requirement fields."""
     instruction = (
         "你是购物导购。根据本轮目标和已有条件，为当前商品设计三道不同的简短追问，"
-        "分别帮助判断使用方式、实际场景和最在意的取舍；按商品品类调整问题，不套固定题干。"
-        "不要重复用户已经说清的条件，不要问与品类无关的属性，例如防晒霜的材质。"
-        "不要承诺功效。输出 {questions:[{title:'...',options:['...','...','...']},"
-        "{title:'...',options:['...','...','...']},{title:'...',options:['...','...','...']}]}。"
-        "每题给2到4个可区分的选项，选项不超过18字。"
+        "每题必须对应一个缺失字段，并且答案能改变query/filter/ranking至少一项。"
+        "不要重复已知字段或askedFields，不要再次询问已知品类/预算，不问无法执行的闲聊问题。"
+        "不要承诺功效。输出 {questions:[{id,field,title,options:[{label,value}],"
+        "affects:['query|filter|ranking'],hard:false,reason,confidence}]}。最多三题，"
+        "每题2到4个可区分选项。"
     )
     try:
         raw = await _ask_json(model, invocation, instruction, {
             "message": text, "category": category, "knownConditions": known,
+            "shoppingRequirement": requirement or {}, "askedFields": asked_fields or [],
+            "sourceCapabilities": SOURCE_CAPABILITIES,
         })
     except Exception:
         return []
@@ -181,14 +219,42 @@ async def questionnaire_plan(model, invocation, text: str, category: str, known:
         if not isinstance(row, dict):
             continue
         title, options = row.get("title"), row.get("options")
+        legacy_fields = ("otherAttributes.useCase", "scenes", "otherAttributes.priority")
+        field = str(row.get("field") or legacy_fields[len(valid)]).strip()
+        affects = [value for value in row.get("affects", [])
+                   if value in {"query", "filter", "ranking"}]
+        if not affects and "field" not in row:
+            affects = ["query", "ranking"]
         if (not isinstance(title, str) or not 5 <= len(title) <= 60
                 or not isinstance(options, list) or not 2 <= len(options) <= 4
-                or not all(isinstance(option, str) and 1 <= len(option) <= 18 for option in options)):
+                or not field or field in (asked_fields or []) or not affects):
             continue
         if any(word in category for word in ("防晒", "护肤", "面霜")) and "材质" in title:
             continue
-        valid.append({"id": ("use", "scene", "priority")[len(valid)], "title": title.strip(),
-                      "options": [option.strip() for option in options], "allowCustom": True})
+        labels, values = [], {}
+        for option in options:
+            if isinstance(option, str):
+                label, value = option.strip(), option.strip()
+            elif isinstance(option, dict):
+                label, value = str(option.get("label") or "").strip(), option.get("value")
+            else:
+                continue
+            if 1 <= len(label) <= 18:
+                labels.append(label)
+                values[label] = value
+        if len(labels) < 2:
+            continue
+        legacy_ids = ("use", "scene", "priority")
+        try:
+            confidence = max(0.0, min(1.0, float(row.get("confidence", 0.5))))
+        except (TypeError, ValueError):
+            confidence = 0.5
+        valid.append({"id": str(row.get("id") or legacy_ids[len(valid)])[:40],
+                      "field": field[:80], "title": title.strip(), "options": labels,
+                      "optionValues": values, "affects": list(dict.fromkeys(affects)),
+                      "hard": bool(row.get("hard", False)),
+                      "reason": str(row.get("reason") or "missing_high_value_field")[:120],
+                      "confidence": confidence, "allowCustom": True})
     return valid if len({row["title"] for row in valid}) == len(valid) else []
 
 
@@ -216,7 +282,8 @@ async def category_question_plan(model, invocation, text: str, known: dict) -> d
             "options": [value.strip() for value in options], "allowCustom": True}
 
 
-async def search_plan(model, invocation, text: str, preferences: dict, answers: list[dict]) -> list[str]:
+async def search_plan(model, invocation, text: str, preferences: dict, answers: list[dict],
+                      requirement: dict | None = None) -> list[str]:
     """Let the model plan retrieval terms while keeping the requested product type anchored."""
     category = str(preferences.get("category") or "").strip()
     if not category:
@@ -230,7 +297,7 @@ async def search_plan(model, invocation, text: str, preferences: dict, answers: 
     try:
         raw = await _ask_json(model, invocation, instruction, {
             "message": text, "category": category, "preferences": preferences,
-            "questionnaireAnswers": answers,
+            "questionnaireAnswers": answers, "shoppingRequirement": requirement or {},
         })
     except Exception:
         return []
@@ -248,6 +315,157 @@ async def search_plan(model, invocation, text: str, preferences: dict, answers: 
         if 2 <= len(value) <= 40 and any(alias in value for alias in aliases) and value not in accepted:
             accepted.append(value)
     return accepted
+
+
+AUDIT_CATEGORY_ALIASES = {
+    "电饭锅": ("电饭锅", "电饭煲", "饭煲"),
+    "充电宝": ("充电宝", "移动电源"),
+    "裙子": ("裙子", "连衣裙", "长裙", "短裙", "半身裙"),
+    "餐桌": ("餐桌", "饭桌", "餐台"),
+    "台灯": ("台灯", "桌面灯"),
+    "腮红": ("腮红", "胭脂"),
+    "耳机": ("耳机", "耳麦"),
+}
+
+
+def validate_exclude_terms(value, target_category: str = "") -> list[str]:
+    """Validate shared rules aggressively because they affect every shopper."""
+    if not isinstance(value, list):
+        return []
+    blocked = ("http://", "https://", "<script", "javascript:", "预算", "价格", "元以内",
+               "通勤", "日常", "户外", "风格", "材质", "用户", "电话", "邮箱")
+    category_aliases = tuple(
+        alias for alias in AUDIT_CATEGORY_ALIASES.get(target_category, (target_category,))
+        if isinstance(alias, str) and alias.strip()
+    )
+    valid = []
+    for term in value[:20]:
+        if not isinstance(term, str):
+            continue
+        term = " ".join(term.split()).strip(" ,，。；;")
+        if (not 2 <= len(term) <= 20 or any(token in term.lower() for token in blocked)
+                or re.search(r"[@{}<>]|\d{5,}", term) or term in valid
+                # Shared exclusions must name an independent, non-target item.
+                # Phrases containing the target category are commonly legitimate
+                # subcategories (for example a flavour, form or product type).
+                # Useful accessory rules should be expressed as the accessory
+                # itself ("保护套"), not "<目标品类>保护套".
+                or any(alias in term for alias in category_aliases)):
+            continue
+        valid.append(term)
+    return valid[:12] if len(valid) >= 3 else []
+
+
+async def generate_exclude_terms(model, invocation, target_category: str) -> list[str]:
+    """Generate category-level exclusions without any shopper preferences."""
+    instruction = (
+        "你是商品品类边界规则专家。仅生成3到12个明确不属于目标商品本体、但容易混入"
+        "搜索结果的独立商品名，例如配件、替换件、耗材、制作原料或搭配物。每个词都必须"
+        "表示另一种主要售卖对象，而不是目标商品的正常子类。严禁输出目标品类名称或其"
+        "同义词，也严禁输出包含目标品类名称/同义词的组合词。不要把目标商品的类型、口味、"
+        "款式、形态、包装、规格、容量、适用人群或用途当作排除项。若某配件通常写成"
+        "“目标品类+配件”，只输出可独立识别的配件名。不要生成搜索词，不要使用用户偏好，"
+        "不要输出品牌、预算、场景、风格或材质。短语应为2到20个字；不确定时宁可少输出。"
+        "输出 {excludeTerms:['短语']}。"
+    )
+    try:
+        raw = await _ask_json(model, invocation, instruction,
+                              {"targetCategory": str(target_category).strip()})
+    except Exception:
+        return []
+    return validate_exclude_terms(raw.get("excludeTerms"), target_category)
+
+
+def _audit_rows(raw: dict) -> list[dict]:
+    rows = raw.get("decisions")
+    if isinstance(rows, list):
+        return rows
+    flattened = []
+    for decision in ("accepted", "rejected", "uncertain"):
+        values = raw.get(decision)
+        if isinstance(values, list):
+            for value in values:
+                if isinstance(value, dict):
+                    flattened.append({**value, "decision": decision[:-2] if decision.endswith("ed") else decision})
+    return flattened
+
+
+async def audit_product_categories(model, invocation, target_category: str,
+                                   exclude_terms: list[str], products: list[dict]) -> dict:
+    """Ask the model for a closed-world, fail-closed product-body decision."""
+    if not products:
+        return {"accepted": [], "rejected": [], "uncertain": []}
+    instruction = (
+        "你是严格的商品本体审核员。判断每件商品主要售卖的对象是否属于 targetCategory。"
+        "不能仅因标题出现目标品类词就通过；配件、保护套、搭配商品和关联用品通常拒绝；"
+        "excludeTerms 只是提示可能混入了其他主商品，不是违禁词，也不能单独作为拒绝依据。"
+        "目标品类的正常子类、口味、款式、形态、包装、规格和用途仍属于目标商品，应通过；"
+        "若目标商品本体正确而只是赠送配件，仍按本体判断。证据不足必须 uncertain。"
+        "只能返回输入商品ID，不得虚构事实。为每件商品输出一次，格式为 "
+        "{decisions:[{id:'...',decision:'accept|reject|uncertain',primaryCategory:'...',"
+        "reason:'...',confidence:0.0}]}。"
+    )
+    compact = []
+    for product in products[:20]:
+        row = {key: product.get(key) for key in ("id", "title", "source", "price")}
+        if product.get("category"):
+            row["category"] = product["category"]
+        if product.get("description"):
+            row["description"] = str(product["description"])[:240]
+        row["exclusionMatched"] = bool(product.get("exclusionMatched"))
+        row["matchedTerms"] = list(product.get("matchedTerms") or [])[:12]
+        compact.append(row)
+    try:
+        raw = await _ask_json(model, invocation, instruction, {
+            "targetCategory": target_category,
+            "excludeTerms": exclude_terms,
+            "products": compact,
+        })
+    except Exception:
+        return {"accepted": [], "rejected": [], "uncertain": [
+            {"id": str(product.get("id")), "reason": "审核服务不可用"}
+            for product in products[:20] if product.get("id") is not None
+        ]}
+
+    allowed = {str(product.get("id")) for product in products[:20] if product.get("id") is not None}
+    seen = set()
+    result = {"accepted": [], "rejected": [], "uncertain": []}
+    for row in _audit_rows(raw):
+        if not isinstance(row, dict):
+            continue
+        item_id = row.get("id")
+        decision = row.get("decision")
+        if isinstance(decision, str):
+            decision = {
+                "accepted": "accept", "pass": "accept", "passed": "accept", "通过": "accept",
+                "rejected": "reject", "fail": "reject", "failed": "reject", "拒绝": "reject",
+                "unknown": "uncertain", "待定": "uncertain", "存疑": "uncertain",
+            }.get(decision.strip().lower(), decision.strip().lower())
+        if not isinstance(item_id, str) or item_id not in allowed or item_id in seen:
+            continue
+        seen.add(item_id)
+        confidence = row.get("confidence")
+        if isinstance(confidence, bool) or not isinstance(confidence, (int, float)) or not math.isfinite(confidence):
+            confidence = 0.0
+        confidence = max(0.0, min(1.0, float(confidence)))
+        primary = row.get("primaryCategory")
+        reason = row.get("reason") if isinstance(row.get("reason"), str) else ""
+        output = {"id": item_id, "primaryCategory": primary.strip() if isinstance(primary, str) else "",
+                  "reason": reason[:200], "confidence": confidence}
+        target_aliases = AUDIT_CATEGORY_ALIASES.get(target_category, (target_category,))
+        primary_matches = any(alias and (alias in output["primaryCategory"]
+                                         or output["primaryCategory"] in alias)
+                              for alias in target_aliases)
+        if decision == "accept" and output["primaryCategory"] and primary_matches:
+            result["accepted"].append(output)
+        elif decision == "reject":
+            result["rejected"].append(output)
+        else:
+            result["uncertain"].append(output)
+    for item_id in allowed - seen:
+        result["uncertain"].append({"id": item_id, "primaryCategory": "",
+                                    "reason": "模型未返回审核结果", "confidence": 0.0})
+    return result
 
 
 async def product_plan(model, invocation, preferences: dict, items: list[dict]) -> dict:

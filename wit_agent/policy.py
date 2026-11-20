@@ -101,7 +101,9 @@ def forget_field(text: str) -> str | None:
 def understand(text: str, memory: dict, model_parse: dict | None = None) -> tuple[dict, dict, dict]:
     updates = extract_updates(text)
     model_parse = model_parse or {}
-    updates = {**model_parse.get("query", {}), **updates}
+    # Validated model/requirement entities win. Local regex is a fallback only;
+    # it must never turn a correct brand/category split back into one phrase.
+    updates = {**updates, **model_parse.get("query", {})}
     preference = dict(memory.get("preferences", {}))
     legacy_browse_category = isinstance(preference.get("category"), str) and any(
         word in preference["category"] for word in ("好物", "东西", "给我看看", "给我", "随便")

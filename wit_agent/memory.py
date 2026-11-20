@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -9,7 +10,9 @@ def _session_default() -> dict:
     return {"current_items": [], "last_query": "", "turns": 0, "emotion": {}, "temporary": {},
             "questionnaire": None, "shopping_category": "", "shopping_answers": [],
             "pending_result": None, "preferences": {}, "feedback": [],
-            "yuemai_anchor": None, "yuemai_initial_preferences": {}}
+            "yuemai_anchor": None, "yuemai_initial_preferences": {},
+            "shopping_requirement": None, "requirement_schema_version": 1,
+            "asked_fields": [], "last_search_plan": None}
 
 
 class MemoryManager:
@@ -22,6 +25,11 @@ class MemoryManager:
                 "CREATE TABLE IF NOT EXISTS chat_sessions ("
                 "user_id TEXT NOT NULL, session_id TEXT NOT NULL, data TEXT NOT NULL, "
                 "PRIMARY KEY(user_id, session_id))"
+            )
+            db.execute(
+                "CREATE TABLE IF NOT EXISTS category_exclusions ("
+                "category_key TEXT PRIMARY KEY, exclude_terms_json TEXT NOT NULL, "
+                "created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"
             )
 
     def _connect(self):
@@ -79,11 +87,48 @@ class MemoryManager:
                 (user_id or session_id, session_id),
             )
 
+    def get_category_exclusions(self, category_key: str) -> list[str] | None:
+        """Return shared category rules without exposing session/user memory."""
+        key = str(category_key or "").strip()
+        if not key:
+            return None
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT exclude_terms_json FROM category_exclusions WHERE category_key=?",
+                (key,),
+            ).fetchone()
+        if not row:
+            return None
+        try:
+            terms = json.loads(row[0])
+        except (TypeError, json.JSONDecodeError):
+            return None
+        return [term for term in terms if isinstance(term, str)] if isinstance(terms, list) else None
+
+    def save_category_exclusions(self, category_key: str, exclude_terms: list[str]) -> None:
+        """Upsert the only piece of memory shared across shoppers and sessions."""
+        key = str(category_key or "").strip()
+        if not key or not isinstance(exclude_terms, list) or not exclude_terms:
+            return
+        now = datetime.now(timezone.utc).isoformat()
+        payload = json.dumps(exclude_terms, ensure_ascii=False, separators=(",", ":"))
+        with self._connect() as db:
+            db.execute(
+                "INSERT INTO category_exclusions(category_key,exclude_terms_json,created_at,updated_at) "
+                "VALUES(?,?,?,?) ON CONFLICT(category_key) DO UPDATE SET "
+                "exclude_terms_json=excluded.exclude_terms_json,updated_at=excluded.updated_at",
+                (key, payload, now, now),
+            )
+
     def forget(self, session_id: str, field: str | None = None, user_id: str | None = None) -> dict:
         data = self.load(session_id, user_id)
         if field and field != "all":
             data["preferences"].pop(field, None)
             data["temporary"].pop(field, None)
+            if field in ("category", "maxPrice"):
+                data["shopping_requirement"] = None
+                data["asked_fields"] = []
+                data["last_search_plan"] = None
         else:
             data["preferences"] = {}
             data["temporary"] = {}
@@ -92,5 +137,8 @@ class MemoryManager:
             data["last_query"] = ""
             data["yuemai_anchor"] = None
             data["yuemai_initial_preferences"] = {}
+            data["shopping_requirement"] = None
+            data["asked_fields"] = []
+            data["last_search_plan"] = None
         self.save(session_id, data, user_id, forget_all=field is None or field == "all")
         return data

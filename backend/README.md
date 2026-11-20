@@ -2,6 +2,10 @@
 
 这是购物智能体的统一商品检索服务。前端只调用自己的 `POST /api/products/search`，淘宝与悦买的 AppSecret 只存在服务端环境变量中。`product-source.mjs` 会并行查询已配置的数据源、按来源交错合并商品，并在单一来源故障时保留其他来源的结果。
 
+`product-source.mjs` 仍只负责正向关键词检索和来源统一，不接收排除词，也不执行 LLM 审核。Wit 模式会在 Python 侧通过独立的 `CategoryAuditAgent` 生成本轮查询、读取共享品类排除词，并对淘宝候选及悦买 anchor 做商品本体审核；只有审核通过的商品才会进入排序和商品卡。审核不足三件时最多换三组本轮查询继续检索，禁止用拒绝、存疑或未审核商品补齐。
+
+Wit 正式链路现已在问卷和搜索之前加入 `ShoppingRequirement v1`：将自然语言拆分为品类、品牌、颜色、尺寸、价格、材质和开放属性，执行原文证据校验及受控同义词归一，再把 canonical category 与 aliases 传给品类审核。公开 `/api/chat` 和 `/api/desktop/chat` 请求格式不变；响应额外包含可选的 `requirementDebug` 开发摘要。
+
 现在也包含一个可直接打开的 MVP 页面：启动服务后访问 <http://localhost:3000/>，即可输入需求、接收追问并查看商品卡片。
 
 ## 启动

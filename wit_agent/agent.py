@@ -17,13 +17,18 @@ from wit.loops.workflow import WorkflowGraph, WorkflowLoopComponent
 from wit.models import MODEL
 from wit.providers.openai import OpenAIModelComponent
 
-from .llm import (NarrativeGenerationError, category_question_plan, interpret, product_plan,
-                  questionnaire_plan, recommendation_plan, search_plan)
+from .category_audit import CategoryAuditAgent
+from .llm import (NarrativeGenerationError, category_question_plan, parse_requirement_delta, product_plan,
+                  questionnaire_plan, recommendation_plan)
 from .memory import MemoryManager
 from .policy import extract_updates, forget_field, temporary_budget, understand, usual_budget
+from .requirement import (derive_legacy_preferences, empty_requirement,
+                          extract_high_confidence_fallbacks, merge_fallback_without_overwriting_valid_entities,
+                          merge_requirement, requirement_debug, requirement_from_legacy,
+                          validate_requirement_delta)
 
 Search = Callable[[str, dict], Awaitable[dict | list]]
-CATEGORY_EQUIVALENTS = {"桌面灯": ("桌面灯", "台灯"), "台灯": ("台灯", "桌面灯"), "腮红": ("腮红", "胭脂"), "耳机": ("耳机", "耳麦"), "餐桌": ("餐桌", "饭桌", "餐台"), "裤子": ("裤子", "裤")}
+CATEGORY_EQUIVALENTS = {"桌面灯": ("桌面灯", "台灯"), "台灯": ("台灯", "桌面灯"), "腮红": ("腮红", "胭脂"), "耳机": ("耳机", "耳麦"), "餐桌": ("餐桌", "饭桌", "餐台"), "裤子": ("裤子", "裤"), "裙子": ("裙子", "连衣裙", "长裙", "短裙", "半身裙"), "充电宝": ("充电宝", "移动电源"), "电饭锅": ("电饭锅", "电饭煲", "饭煲")}
 STYLE_EQUIVALENTS = {"日系": ("日系", "日式"), "韩系": ("韩系", "韩式"), "北欧": ("北欧",), "法式": ("法式",)}
 STYLE_CONFLICTS = ("日系", "日式", "韩系", "韩式", "北欧", "欧式", "美式", "法式")
 
@@ -127,39 +132,95 @@ def payload_has_source_metadata(payload, raw_items: list) -> bool:
 
 
 def select_products(raw_items: list, preferences: dict, limit: int = 3,
-                    allow_style_unknown: bool = False) -> list:
+                    allow_style_unknown: bool = False,
+                    diagnostics: dict | None = None) -> list:
     budget = preferences.get("maxPrice")
     category = preferences.get("category", "")
     style = preferences.get("style", "")
     material = preferences.get("material", "")
+    category_aliases = tuple(dict.fromkeys([
+        *(preferences.get("categoryAliases") or []),
+        *CATEGORY_EQUIVALENTS.get(category, (category,)),
+    ]))
+    required_brand = preferences.get("brand", "")
+    excluded_brands = preferences.get("excludedBrands") or []
+    excluded_colors = preferences.get("excludedColors") or []
     dislikes = preferences.get("dislikes") or []
     answer_terms = preferences.get("answer_terms") or []
     seen = set()
     ranked = []
+
+    if diagnostics is not None:
+        diagnostics.clear()
+        diagnostics.update({"normalizedCount": 0, "qualifiedCount": 0,
+                            "rejectionReasons": {}, "rejectedSample": []})
+
+    def reject(reason: str, raw=None, item=None, **details) -> None:
+        if diagnostics is None:
+            return
+        reasons = diagnostics["rejectionReasons"]
+        reasons[reason] = reasons.get(reason, 0) + 1
+        if len(diagnostics["rejectedSample"]) >= 5:
+            return
+        source = item if isinstance(item, dict) else raw if isinstance(raw, dict) else {}
+        facts = source.get("facts") if isinstance(source.get("facts"), dict) else source
+        sample = {
+            "id": str(source.get("id") or source.get("product_id") or "")[:160],
+            "title": str(source.get("title") or facts.get("title") or "")[:120],
+            "reason": reason,
+        }
+        sample.update(details)
+        diagnostics["rejectedSample"].append(sample)
+
     for raw in raw_items:
         item = normalize_product(raw)
-        if not item or item["id"] in seen:
+        if not item:
+            reject("invalid_product", raw=raw)
+            continue
+        if diagnostics is not None:
+            diagnostics["normalizedCount"] += 1
+        if item["id"] in seen:
+            reject("duplicate_id", item=item)
             continue
         title = item["title"]
+        item_brand = str(item.get("facts", {}).get("brand") or "")
+        if any(value and (value in title or value in item_brand) for value in excluded_brands):
+            reject("excluded_brand", item=item)
+            continue
+        if any(value and value in title for value in excluded_colors):
+            reject("excluded_color", item=item)
+            continue
+        if required_brand and required_brand not in title and required_brand not in item_brand:
+            reject("brand_mismatch", item=item, expectedBrand=required_brand)
+            continue
         if any(isinstance(dislike, str) and dislike.strip("感的 ") and dislike.strip("感的 ") in title for dislike in dislikes):
+            reject("user_dislike", item=item)
             continue
         title_key = "".join(character for character in title.lower() if character.isalnum())[:32]
         if title_key in seen:
+            reject("duplicate_title", item=item)
             continue
         if category == "餐桌":
             if any(word in title for word in ("桌布", "桌垫", "桌旗", "桌巾", "桌罩", "餐垫", "台布", "装饰画", "挂画", "壁画", "背景墙", "贴纸", "花瓶", "摆件", "餐椅", "靠背椅", "扶手椅", "椅子", "座椅", "桌椅")):
+                reject("table_accessory", item=item)
                 continue
         if budget is not None and (item["price"] is None or item["price"] > budget):
+            reject("unknown_price_with_budget" if item["price"] is None else "over_budget",
+                   item=item, price=item["price"], maxPrice=budget)
             continue
-        category_match = bool(category and any(term in title for term in CATEGORY_EQUIVALENTS.get(category, (category,))))
+        category_match = bool(category and any(term in title for term in category_aliases))
         if category and not category_match:
+            reject("category_mismatch", item=item,
+                    expectedTerms=list(category_aliases))
             continue
         style_aliases = STYLE_EQUIVALENTS.get(style, (style,)) if style else ()
         if style in STYLE_EQUIVALENTS and any(term in title for term in STYLE_CONFLICTS if term not in style_aliases):
+            reject("style_conflict", item=item, expectedStyle=style)
             continue
         style_tags = item["semantic"].get("style_tags") or []
         style_match = bool(style and (any(term in title for term in style_aliases) or style in style_tags))
         if category == "餐桌" and style == "日系" and not style_match and not allow_style_unknown:
+            reject("style_evidence_missing", item=item, expectedStyle=style)
             continue
         seen.add(item["id"])
         seen.add(title_key)
@@ -177,6 +238,8 @@ def select_products(raw_items: list, preferences: dict, limit: int = 3,
             reasons.append(f"标价 ¥{item['price']:g}，在你 ¥{budget:g} 的预算内")
         item["matchReasons"] = reasons
         ranked.append((score, item))
+    if diagnostics is not None:
+        diagnostics["qualifiedCount"] = len(ranked)
     ranked.sort(key=lambda pair: -pair[0])
     return [item for _, item in ranked[:limit]]
 
@@ -286,7 +349,16 @@ def default_questionnaire(category: str, preferences: dict) -> list[dict]:
         rows.append(("budget", f"这次{category}大概想控制在什么价位？", ["100 元以内", "500 元以内", "1000 元以内", "暂不设预算"]))
     else:
         rows.append(("detail", f"关于{category}，还有哪点最想确认？", ["尺寸 / 规格", "品牌和口碑", "暂时没有，可直接推荐"]))
-    return [{"id": key, "title": title, "options": options, "allowCustom": True} for key, title, options in rows]
+    field_map = {
+        "category": "category", "use": "otherAttributes.useCase",
+        "scene": "scenes", "priority": "otherAttributes.priority",
+        "budget": "price.max", "detail": "otherAttributes.detail",
+    }
+    return [{"id": key, "field": field_map[key], "title": title, "options": options,
+             "optionValues": {option: option for option in options},
+             "affects": ["filter"] if key == "budget" else ["query", "ranking"],
+             "hard": key == "budget", "reason": "missing_high_value_field",
+             "confidence": 1.0, "allowCustom": True} for key, title, options in rows]
 
 
 def questionnaire_question(questionnaire: dict) -> dict | None:
@@ -313,6 +385,13 @@ class ShoppingAgent:
             )
         if model is not None:
             self.agent.install(model, required=True)
+        category_model_enabled = (
+            self.search is product_api_search
+            or bool(getattr(self.search, "supports_product_sources", False))
+        )
+        self.category_auditor = CategoryAuditAgent(
+            self.memory, model, category_model_enabled=category_model_enabled,
+        )
         graph = WorkflowGraph("shopping", version="1", initialize=lambda _: {})
         graph.node("load", self._load).node("plan", self._plan).node("retrieve", self._retrieve)
         graph.node("reply", self._reply).node("save", self._save).start("load")
@@ -340,6 +419,16 @@ class ShoppingAgent:
             # Logging must never prevent the user from continuing the questionnaire.
             pass
 
+    def _log_category_event(self, event: str, **fields) -> None:
+        """Write privacy-minimal structured audit telemetry."""
+        record = {"time": datetime.now(timezone.utc).isoformat(), "event": event, **fields}
+        try:
+            with (Path(self.memory.path).parent / "category-audit.events.jsonl").open(
+                    "a", encoding="utf-8") as log:
+                log.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
+        except OSError:
+            pass
+
     async def __aenter__(self):
         await self.agent.start()
         return self
@@ -347,7 +436,7 @@ class ShoppingAgent:
     async def __aexit__(self, *_):
         await self.agent.stop()
 
-    async def chat(self, session_id: str, message: str, user_id: str | None = None, *, new_conversation: bool = False, answer: dict | None = None) -> dict:
+    async def chat(self, session_id: str, message: str, user_id: str | None = None, *, new_conversation: bool = False, answer: dict | None = None, profile_preferences: dict | None = None) -> dict:
         if not isinstance(session_id, str) or not session_id.strip() or len(session_id) > 128:
             raise ValueError("sessionId must be a nonempty string of at most 128 characters")
         if user_id is None:
@@ -360,10 +449,18 @@ class ShoppingAgent:
             raise ValueError("newConversation must be a boolean")
         if answer is not None and (not isinstance(answer, dict) or not isinstance(answer.get("questionId"), str)):
             raise ValueError("answer must include questionId")
+        if profile_preferences is not None and (not isinstance(profile_preferences, dict) or len(profile_preferences) > 30):
+            raise ValueError("profilePreferences must be an object")
+        safe_profile = {
+            key: (value[0] if isinstance(value, list) and key != "dislikes" and value else value)
+            for key, value in (profile_preferences or {}).items()
+            if key in {"style", "material", "color", "scene", "dislikes", "maxPrice"}
+            and (isinstance(value, (str, int, float)) or isinstance(value, list))
+        }
         async with self._locks[user_id]:
             if new_conversation:
                 self.memory.reset_session(session_id, user_id)
-            result = await self.agent.invoke({"sessionId": session_id, "userId": user_id, "message": message.strip(), "answer": answer})
+            result = await self.agent.invoke({"sessionId": session_id, "userId": user_id, "message": message.strip(), "answer": answer, "profilePreferences": safe_profile})
             return result.output.output
 
     def _load(self, ctx):
@@ -372,12 +469,19 @@ class ShoppingAgent:
         ctx.state["user_id"] = request["userId"]
         ctx.state["message"] = request["message"]
         ctx.state["answer"] = request.get("answer")
-        ctx.state["memory"] = self.memory.load(request["sessionId"], request["userId"])
+        memory = self.memory.load(request["sessionId"], request["userId"])
+        # Account-level preferences are a baseline for a new conversation. Any
+        # explicit choice already made inside this conversation wins.
+        memory["preferences"] = {**request.get("profilePreferences", {}), **memory.get("preferences", {})}
+        ctx.state["memory"] = memory
 
-    async def _questions_for_goal(self, ctx, category: str, preferences: dict, goal: str) -> list[dict]:
+    async def _questions_for_goal(self, ctx, category: str, preferences: dict, goal: str,
+                                  requirement: dict | None = None,
+                                  asked_fields: list[str] | None = None) -> list[dict]:
         try:
             model = ctx.invocation.component_context.get(MODEL)
-            planned = await questionnaire_plan(model, ctx.invocation, goal, category, preferences)
+            planned = await questionnaire_plan(model, ctx.invocation, goal, category, preferences,
+                                               requirement, asked_fields)
         except LookupError:
             planned = []
         fallback = default_questionnaire(category, preferences)
@@ -401,7 +505,15 @@ class ShoppingAgent:
             state["query"] = pending_result.get("query", "")
             return
         pending = copy.deepcopy(state["memory"].get("questionnaire"))
-        incoming = extract_updates(state["message"])
+        current_requirement = copy.deepcopy(state["memory"].get("shopping_requirement"))
+        if not isinstance(current_requirement, dict):
+            current_requirement = requirement_from_legacy(state["memory"].get("preferences"))
+        fallback_delta = validate_requirement_delta(
+            extract_high_confidence_fallbacks(state["message"]), state["message"],
+            bool(state["memory"].get("current_items")),
+        )
+        preview_requirement = merge_requirement(current_requirement, fallback_delta, state["message"])
+        incoming = derive_legacy_preferences(preview_requirement)
         previous_category = state["memory"].get("shopping_category")
         category_changed = bool(incoming.get("category") and previous_category
                                 and incoming["category"] != previous_category
@@ -413,7 +525,9 @@ class ShoppingAgent:
             state["memory"].update(preferences={}, temporary={}, current_items=[],
                                    last_query="", questionnaire=None, pending_result=None,
                                    shopping_answers=[], yuemai_anchor=None,
-                                   yuemai_initial_preferences={})
+                                   yuemai_initial_preferences={}, shopping_requirement=None,
+                                   asked_fields=[], last_search_plan=None)
+            current_requirement = empty_requirement(state["message"])
         if pending and category_changed:
             pending = None
         if pending and questionnaire_question(pending):
@@ -452,10 +566,41 @@ class ShoppingAgent:
                     # The remaining questions must follow the category the user chose.
                     tailored = await self._questions_for_goal(
                         ctx, chosen, {**state["memory"]["preferences"], "category": chosen},
-                        pending.get("goal") or state["message"],
+                        pending.get("goal") or state["message"], current_requirement,
+                        state["memory"].get("asked_fields", []),
                     )
                     pending["questions"] = [pending["questions"][0], tailored[0], tailored[2], tailored[3]]
                 pending["answers"].append({"id": expected["id"], "title": expected["title"], "value": value})
+                field = str(expected.get("field") or "")
+                mapped_value = (expected.get("optionValues") or {}).get(value, value)
+                if field == "category":
+                    answer_delta = validate_requirement_delta({"intent": "search_product", "changes": {
+                        "category": {"set": {"raw": value, "evidence": value, "source": "explicit"}}
+                    }}, value)
+                elif field == "price.max":
+                    match = re.search(r"(\d+(?:\.\d+)?)\s*元\s*(?:以内|以下)", value)
+                    answer_delta = validate_requirement_delta({"intent": "refine_search", "changes": {
+                        "price": {"set": {"max": float(match[1]), "evidence": match.group(0),
+                                          "source": "explicit", "hard": True}}
+                    }}, value) if match else {"intent": "refine_search", "changes": {}}
+                elif field.startswith("otherAttributes."):
+                    answer_delta = {"intent": "refine_search", "changes": {"otherAttributes": {"set": {
+                        field.split(".", 1)[1]: {"raw": value, "normalized": mapped_value,
+                                                 "source": "explicit", "evidence": value,
+                                                 "hard": bool(expected.get("hard", False))}
+                    }}}}
+                elif field == "scenes":
+                    answer_delta = {"intent": "refine_search", "changes": {"otherAttributes": {"set": {
+                        "scene": {"raw": value, "normalized": mapped_value, "source": "explicit",
+                                  "evidence": value, "hard": False}
+                    }}}}
+                else:
+                    answer_delta = {"intent": "refine_search", "changes": {}}
+                current_requirement = merge_requirement(current_requirement, answer_delta, value)
+                state["requirement"] = current_requirement
+                state["asked_fields"] = list(dict.fromkeys([
+                    *state["memory"].get("asked_fields", []), field,
+                ]))
                 state["questionnaire"] = pending
                 state["answering_questionnaire"] = True
                 state["message"] = value
@@ -469,17 +614,55 @@ class ShoppingAgent:
         elif re.search(r"(?:预算|不超过|低于|少于|控制在|最多)\D{0,5}\d+", state["message"]):
             temporary.pop("maxPrice", None)
         model_parse = {}
+        requirement_delta = fallback_delta
         if not state.get("answering_questionnaire"):
             try:
                 model = ctx.invocation.component_context.get(MODEL)
-                model_parse = await interpret(
-                    model, ctx.invocation, state["message"],
-                    state["memory"]["preferences"], bool(state["memory"]["current_items"]),
+                requirement_delta = await parse_requirement_delta(
+                    model, ctx.invocation, state["message"], current_requirement,
+                    bool(state["memory"]["current_items"]),
                 )
             except LookupError:
                 pass
+            requirement_delta = merge_fallback_without_overwriting_valid_entities(
+                requirement_delta, fallback_delta,
+            )
+            current_requirement = merge_requirement(current_requirement, requirement_delta,
+                                                    state["message"])
+        state["requirement"] = current_requirement
+        structured_preferences = derive_legacy_preferences(current_requirement)
+        legacy_parse = requirement_delta.get("legacyParse") if isinstance(requirement_delta.get("legacyParse"), dict) else {}
+        model_parse = {
+            "query": {**(legacy_parse.get("query") or {}), **structured_preferences},
+            "memory": copy.deepcopy(legacy_parse.get("memory") or {}),
+            "intent": legacy_parse.get("intent") or {"search_product": "search", "refine_search": "search"}.get(
+                requirement_delta.get("intent"), requirement_delta.get("intent")
+            ),
+        }
+        self._log_category_event(
+            "requirement_parsed", sessionId=state["session_id"],
+            intent=requirement_delta.get("intent"),
+            fields=list((requirement_delta.get("changes") or {}).keys()),
+            warningCount=len(requirement_delta.get("parseWarnings") or []),
+        )
+        self._log_category_event(
+            "requirement_normalized", sessionId=state["session_id"],
+            category=(current_requirement.get("category") or {}).get("canonical"),
+            aliasCount=len((current_requirement.get("category") or {}).get("aliases") or []),
+            brandCount=len(current_requirement.get("brands", {}).get("include", [])),
+            hardConstraintCount=len(current_requirement.get("hardConstraints") or []),
+            softPreferenceCount=len(current_requirement.get("softPreferences") or []),
+        )
         working_memory = {**state["memory"], "preferences": {**durable, **temporary}}
         preference, emotion, policy = understand(state["message"], working_memory, model_parse)
+        if policy.get("action") == "forget":
+            current_requirement = empty_requirement(state["message"])
+            state["requirement"] = current_requirement
+            structured_preferences = {}
+            temporary = {}
+        else:
+            preference.update(structured_preferences)
+            preference.update(temporary)
         forgotten = forget_field(state["message"])
         if forgotten in ("all", "maxPrice"):
             temporary.pop("maxPrice", None)
@@ -521,7 +704,10 @@ class ShoppingAgent:
             if self.questionnaire_enabled and should_start:
                 category = str(preference.get("category") or "").strip()
                 if category:
-                    questions = await self._questions_for_goal(ctx, category, preference, state["message"])
+                    questions = await self._questions_for_goal(
+                        ctx, category, preference, state["message"], current_requirement,
+                        state["memory"].get("asked_fields", []),
+                    )
                 else:
                     questions = default_questionnaire(category, preference)
                     try:
@@ -539,6 +725,12 @@ class ShoppingAgent:
                     "answers": [],
                     "initialPreferences": copy.deepcopy(preference),
                 }
+                if questions:
+                    self._log_category_event(
+                        "question_selected", sessionId=state["session_id"],
+                        field=questions[0].get("field"), affects=questions[0].get("affects", []),
+                        reason=questions[0].get("reason", "missing_high_value_field"),
+                    )
                 policy["action"] = "questionnaire"
 
     async def _retrieve(self, ctx):
@@ -594,71 +786,128 @@ class ShoppingAgent:
             if failures == 3:
                 state["search_error"] = "商品搜索暂时不可用，请稍后重试"
             return
-        answers = (state.get("questionnaire") or {}).get("answers") or state["memory"].get("shopping_answers", [])
+        answers = ((state.get("questionnaire") or {}).get("answers")
+                   or state["memory"].get("shopping_answers", []))
         answer_terms = []
         for row in answers:
             if row.get("id") not in ("use", "scene", "priority", "detail"):
                 continue
             value = str(row.get("value", ""))
-            answer_terms.extend(term for term in ("书桌", "床头", "阅读", "小户型", "两人", "四人", "通勤", "运动", "户外", "军训", "清爽", "防水", "耐汗", "原木", "简约", "收纳") if term in value)
+            answer_terms.extend(
+                term for term in ("书桌", "床头", "阅读", "小户型", "两人", "四人", "通勤", "运动",
+                                  "户外", "军训", "清爽", "防水", "耐汗", "原木", "简约", "收纳")
+                if term in value
+            )
         prefs = {**prefs, "answer_terms": list(dict.fromkeys(answer_terms))}
-        query = " ".join(str(prefs[k]) for k in ("style", "material", "category", "scene") if prefs.get(k))
         filters = {"end_price": prefs["maxPrice"]} if prefs.get("maxPrice") is not None else {}
         try:
-            planned_queries = []
-            has_model = False
-            try:
-                model = ctx.invocation.component_context.get(MODEL)
-                has_model = True
-                planned_queries = await search_plan(model, ctx.invocation,
-                                                    (state.get("questionnaire") or {}).get("goal") or state["message"],
-                                                    prefs, answers)
-            except LookupError:
-                pass
-            queries = list(planned_queries[:2])
-            if answer_terms:
-                queries.append(" ".join([*answer_terms[:1], query]).strip())
-            if query not in queries:
-                queries.append(query)
-            if prefs.get("style") == "日系" and prefs.get("category"):
-                queries.append("日式" + prefs["category"])
-            if prefs.get("category"):
-                queries.append(prefs["category"])
-            state["query"] = queries[0]
-            candidates = []
-            source_aware = False
-            for attempt, candidate_query in enumerate(dict.fromkeys(queries)):
-                payload = await self.search(candidate_query, self._source_filters(filters, "taobao"))
+            requirement = {
+                "targetCategory": (state.get("requirement") or {}).get("category") or prefs.get("category", ""),
+                "goal": (state.get("questionnaire") or {}).get("goal") or state["message"],
+                "preferences": prefs,
+                "answers": answers,
+                "shoppingRequirement": state.get("requirement") or {},
+            }
+            plan = await self.category_auditor.plan_search(ctx.invocation, requirement)
+            queries = list(dict.fromkeys([*plan["queries"], *plan.get("fallbackQueries", [])]))[:4]
+            state["search_plan"] = copy.deepcopy(plan)
+            state["query"] = queries[0] if queries else str(prefs.get("category") or "")
+            self._log_category_event(
+                "category_audit_plan", sessionId=state["session_id"],
+                category=plan["targetCategory"], queryCount=len(queries),
+                excludeTermCount=len(plan["excludeTerms"]),
+                excludeTermsSource=plan["excludeTermsSource"],
+            )
+            self._log_category_event(
+                "search_plan_created", sessionId=state["session_id"],
+                queryCount=len(queries), filterFields=[key for key, value in filters.items() if value is not None],
+                fallbackQueryCount=len(plan.get("fallbackQueries", [])),
+            )
+
+            accepted_by_id = {}
+            source_aware = (
+                self.search is product_api_search
+                or bool(getattr(self.search, "supports_product_sources", False))
+            )
+            model = self.category_auditor.model
+            for attempt, candidate_query in enumerate(queries):
+                try:
+                    payload = await self.search(
+                        candidate_query, self._source_filters(filters, "taobao")
+                    )
+                except (httpx.HTTPError, OSError, TimeoutError, ValueError):
+                    if attempt == 0:
+                        state["search_error"] = "商品搜索暂时不可用，请稍后重试"
+                    continue
                 if isinstance(payload, dict) and not payload.get("ok", True):
                     if attempt == 0:
                         error = payload.get("error")
-                        state["search_error"] = str(error.get("message") if isinstance(error, dict) else "商品搜索暂时不可用")
-                    break
+                        state["search_error"] = str(
+                            error.get("message") if isinstance(error, dict) else "商品搜索暂时不可用"
+                        )
+                    continue
                 raw = payload.get("items", []) if isinstance(payload, dict) else payload
-                if isinstance(raw, list):
-                    source_aware = source_aware or payload_has_source_metadata(payload, raw)
-                    candidates.extend(
-                        item for item in raw
-                        if not source_aware or product_source_name(item) in ("", "taobao")
-                    )
-                state["items"] = select_products(candidates, prefs, limit=12 if has_model else 3,
-                                                 allow_style_unknown=has_model)
-                if len(state["items"]) >= (6 if has_model else 3):
+                if not isinstance(raw, list):
+                    continue
+                source_aware = source_aware or payload_has_source_metadata(payload, raw)
+                raw = [item for item in raw
+                       if not source_aware or product_source_name(item) in ("", "taobao")]
+                basic_filter = {}
+                batch = select_products(
+                    raw, prefs, limit=20,
+                    allow_style_unknown=self.category_auditor.category_model_enabled,
+                    diagnostics=basic_filter,
+                )
+                batch = [item for item in batch if item["id"] not in accepted_by_id]
+                self._log_category_event(
+                    "category_basic_filter", sessionId=state["session_id"],
+                    category=plan["targetCategory"], query=candidate_query,
+                    sourceCount=len(raw), normalizedCount=basic_filter["normalizedCount"],
+                    qualifiedCount=basic_filter["qualifiedCount"], passedCount=len(batch),
+                    rejectedCount=sum(basic_filter["rejectionReasons"].values()),
+                    rejectionReasons=basic_filter["rejectionReasons"],
+                    rejectedSample=basic_filter["rejectedSample"],
+                )
+                audit = await self.category_auditor.audit_products(
+                    ctx.invocation, plan.get("targetCategoryContract") or plan["targetCategory"],
+                    plan["excludeTerms"], batch,
+                )
+                by_id = {item["id"]: item for item in batch}
+                for decision in audit["accepted"]:
+                    item = by_id.get(decision["id"])
+                    if item:
+                        item["categoryAudit"] = copy.deepcopy(decision)
+                        accepted_by_id[item["id"]] = item
+                self._log_category_event(
+                    "category_audit_batch", sessionId=state["session_id"],
+                    category=plan["targetCategory"], query=candidate_query,
+                    candidateCount=len(batch), acceptedCount=len(audit["accepted"]),
+                    rejectedCount=len(audit["rejected"]), uncertainCount=len(audit["uncertain"]),
+                )
+                if len(accepted_by_id) >= 3:
                     break
-            if has_model and state["items"]:
-                choice = await product_plan(model, ctx.invocation, prefs, state["items"])
-                ids = choice["ids"]
+                if attempt + 1 < len(queries):
+                    self._log_category_event(
+                        "category_audit_retry", sessionId=state["session_id"],
+                        category=plan["targetCategory"], acceptedTotal=len(accepted_by_id),
+                        nextQueryIndex=attempt + 1,
+                    )
+
+            accepted = list(accepted_by_id.values())
+            if model is not None and accepted:
+                choice = await product_plan(model, ctx.invocation, prefs, accepted)
                 state["lead"] = choice["lead"]
-                by_id = {item["id"]: item for item in state["items"]}
-                selected = [by_id[item_id] for item_id in ids]
-                # Complete a short model selection only with candidates that pass
-                # the stricter evidence checks; never pad it with arbitrary goods.
-                for item in select_products(candidates, prefs):
+                by_id = {item["id"]: item for item in accepted}
+                selected = [by_id[item_id] for item_id in choice["ids"] if item_id in by_id]
+                for item in accepted:
                     if len(selected) >= 3:
                         break
-                    if item["id"] not in ids:
+                    if item["id"] not in {entry["id"] for entry in selected}:
                         selected.append(item)
                 state["items"] = selected[:3]
+            else:
+                state["items"] = accepted[:3]
+
             if source_aware:
                 taobao_items = state["items"][:3]
                 for item in taobao_items:
@@ -673,7 +922,6 @@ class ShoppingAgent:
                 if prefs.get("category") and not initial_prefs.get("category"):
                     initial_prefs["category"] = prefs["category"]
                 state["yuemai_initial_preferences"] = initial_prefs
-
                 anchor = normalize_product(state["memory"].get("yuemai_anchor") or {})
                 if anchor and product_source_name(anchor) != "yuemai":
                     anchor = None
@@ -688,15 +936,36 @@ class ShoppingAgent:
                         )
                         yuemai_raw = (yuemai_payload.get("items", [])
                                       if isinstance(yuemai_payload, dict) else yuemai_payload)
-                        if isinstance(yuemai_raw, list):
-                            yuemai_raw = [item for item in yuemai_raw
-                                          if product_source_name(item) == "yuemai"]
-                            anchor_matches = select_products(
-                                yuemai_raw, initial_prefs, limit=1,
-                                allow_style_unknown=True,
-                            )
-                            anchor = anchor_matches[0] if anchor_matches else None
+                        yuemai_matches = select_products(
+                            [item for item in yuemai_raw if product_source_name(item) == "yuemai"]
+                            if isinstance(yuemai_raw, list) else [],
+                            initial_prefs, limit=20, allow_style_unknown=True,
+                        )
+                        yuemai_audit = await self.category_auditor.audit_products(
+                            ctx.invocation, plan.get("targetCategoryContract") or plan["targetCategory"],
+                            plan["excludeTerms"], yuemai_matches,
+                        )
+                        yuemai_by_id = {item["id"]: item for item in yuemai_matches}
+                        first = yuemai_audit["accepted"][0] if yuemai_audit["accepted"] else None
+                        anchor = yuemai_by_id.get(first["id"]) if first else None
+                        if anchor:
+                            anchor["categoryAudit"] = copy.deepcopy(first)
+                        self._log_category_event(
+                            "category_audit_batch", sessionId=state["session_id"],
+                            category=plan["targetCategory"], query=str(initial_prefs["category"]),
+                            source="yuemai", candidateCount=len(yuemai_matches),
+                            acceptedCount=len(yuemai_audit["accepted"]),
+                            rejectedCount=len(yuemai_audit["rejected"]),
+                            uncertainCount=len(yuemai_audit["uncertain"]),
+                        )
                     except (httpx.HTTPError, OSError, TimeoutError, ValueError):
+                        anchor = None
+                elif anchor:
+                    cached_audit = await self.category_auditor.audit_products(
+                        ctx.invocation, plan.get("targetCategoryContract") or plan["targetCategory"],
+                        plan["excludeTerms"], [anchor],
+                    )
+                    if not cached_audit["accepted"]:
                         anchor = None
 
                 if anchor:
@@ -704,15 +973,20 @@ class ShoppingAgent:
                     anchor["matchPolicy"] = "initial_request_only"
                     anchor["matchReasons"] = [
                         f"悦买商品名称与首次品类“{initial_prefs.get('category', '')}”匹配",
-                        *[reason for reason in anchor.get("matchReasons", [])
-                          if reason.startswith("标价")],
+                        *[reason for reason in anchor.get("matchReasons", []) if reason.startswith("标价")],
                     ]
                     state["yuemai_anchor"] = copy.deepcopy(anchor)
                     state["items"] = [anchor, *taobao_items[:2]]
                 else:
                     state["yuemai_anchor"] = None
                     state["items"] = taobao_items[:3]
-        except Exception:
+            if state["items"]:
+                state.pop("search_error", None)
+        except Exception as exc:
+            self._log_category_event(
+                "retrieval_failed", sessionId=state["session_id"],
+                errorType=type(exc).__name__, errorMessage=str(exc)[:240],
+            )
             if not state["items"]:
                 state["search_error"] = "商品搜索暂时不可用，请稍后重试"
 
@@ -819,6 +1093,7 @@ class ShoppingAgent:
             }} if state.get("questionnaire") else None,
             "memory": {"preferences": {**copy.deepcopy(prefs), "memoryTags": [str(prefs[k]) for k in ("style", "material", "category", "scene") if prefs.get(k)]}, "turns": state["memory"].get("turns", 0) + 1, "currentRecommendationCount": 0 if action == "forget" and forget_field(state["message"]) == "all" else len(state["items"] or state["memory"].get("current_items", []))},
             "emotion": copy.deepcopy(state["emotion"]), "policy": copy.deepcopy(state["policy"]),
+            "requirementDebug": requirement_debug(state.get("requirement")),
         }
         if kind == "error":
             state["response"]["error"] = {"code": "NARRATIVE_UNAVAILABLE" if state.get("narrative_error") else "SEARCH_ERROR", "message": message}
@@ -834,6 +1109,15 @@ class ShoppingAgent:
             data["pending_result"] = None
             data["yuemai_anchor"] = None
             data["yuemai_initial_preferences"] = {}
+            data["shopping_requirement"] = None
+            data["asked_fields"] = []
+            data["last_search_plan"] = None
+        elif isinstance(state.get("requirement"), dict):
+            data["shopping_requirement"] = copy.deepcopy(state["requirement"])
+            data["requirement_schema_version"] = 1
+            data["asked_fields"] = copy.deepcopy(state.get("asked_fields", data.get("asked_fields", [])))
+            if isinstance(state.get("search_plan"), dict):
+                data["last_search_plan"] = copy.deepcopy(state["search_plan"])
         data["preferences"] = copy.deepcopy(state["durable_preferences"])
         data["temporary"] = copy.deepcopy(state["temporary"])
         data["emotion"] = copy.deepcopy(state["emotion"])

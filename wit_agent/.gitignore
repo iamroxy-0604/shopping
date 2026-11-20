@@ -1,6 +1,7 @@
 __pycache__/
 .venv/
 .pytest_cache/
-data/
+data/*
+!data/entity_aliases.json
 *.sqlite3
 .env
